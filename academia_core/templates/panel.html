@@ -156,7 +156,7 @@
     <a class="btn" href="{{ login_url }}">Cambiar usuario</a>
   </div>
 
-  {% if request.user.is_staff or request.user.is_superuser %}
+  {% if can_admin %}
   <div class="topbar" style="justify-content: flex-start;">
     <a class="btn" href="?action=espacio_new">Nuevo espacio</a>
     <a class="btn" href="?action=correlativas">Correlatividades</a>
@@ -190,7 +190,7 @@
         <a href="?action=insc_esp"  class="{% if action == 'insc_esp' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a materia</a>
         <a href="?action=cargar_mov" class="{% if action == 'cargar_mov' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Regularidad y final</a>
 
-        {% if request.user.is_staff or request.user.is_superuser %}
+        {% if can_admin %}
         <hr style="border:none;border-top:1px solid var(--card-b);margin:8px 0;">
         <a href="?action=espacio_new" class="{% if action == 'espacio_new' %}active{% endif %}">Nuevo espacio</a>
         <a href="?action=correlativas" class="{% if action == 'correlativas' %}active{% endif %}">Correlatividades</a>
@@ -386,6 +386,106 @@
           </form>
         {% endif %}
       {% else %}
+
+        {# ===== LISTA DE ALUMNOS (CBV) ===== #}
+        {% if action == "alumnos_list" %}
+          <form method="get" class="ctrlbar">
+            <input type="text" name="busqueda" placeholder="Buscar apellido, nombre, DNI o email" value="{{ busqueda }}">
+            <button class="mini" type="submit">Buscar</button>
+            {% if busqueda %}<a class="mini" href="?">Limpiar</a>{% endif %}
+          </form>
+
+          {% if alumnos %}
+            <table style="width:100%; border-collapse:collapse; margin-top:8px">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">DNI</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Apellido y Nombre</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Email</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Activo</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in alumnos %}
+                <tr>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.dni }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.apellido }}, {{ a.nombre }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.email|default:"—" }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.activo|yesno:"Sí,No" }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">
+                    <a href="{% url 'modificar_alumno' a.pk %}">Editar</a> ·
+                    <a href="{% url 'eliminar_alumno' a.pk %}">Eliminar</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            {% if is_paginated %}
+              <div class="ctrlbar" style="justify-content:flex-end; margin-top:12px">
+                {% if page_obj.has_previous %}
+                  <a class="mini" href="?page={{ page_obj.previous_page_number }}&busqueda={{ busqueda|urlencode }}">‹ Anterior</a>
+                {% endif %}
+                <span class="muted">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                  <a class="mini" href="?page={{ page_obj.next_page_number }}&busqueda={{ busqueda|urlencode }}">Siguiente ›</a>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% else %}
+            <p class="muted" style="margin-top:8px">No hay alumnos para mostrar.</p>
+          {% endif %}
+        {% endif %}
+
+        {# ===== LISTA DE DOCENTES (CBV) ===== #}
+        {% if action == "doc_list" %}
+          <form method="get" class="ctrlbar">
+            <input type="text" name="busqueda" placeholder="Buscar apellido, nombre, DNI o email" value="{{ busqueda }}">
+            <button class="mini" type="submit">Buscar</button>
+            {% if busqueda %}<a class="mini" href="?">Limpiar</a>{% endif %}
+          </form>
+
+          {% if docentes %}
+            <table style="width:100%; border-collapse:collapse; margin-top:8px">
+              <thead>
+                <tr>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">DNI</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Apellido y Nombre</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Email</th>
+                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in docentes %}
+                <tr>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.dni }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.apellido }}, {{ d.nombre }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.email|default:"—" }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">
+                    <a href="{% url 'modificar_docente' d.pk %}">Editar</a> ·
+                    <a href="{% url 'eliminar_docente' d.pk %}">Eliminar</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+
+            {% if is_paginated %}
+              <div class="ctrlbar" style="justify-content:flex-end; margin-top:12px">
+                {% if page_obj.has_previous %}
+                  <a class="mini" href="?page={{ page_obj.previous_page_number }}&busqueda={{ busqueda|urlencode }}">‹ Anterior</a>
+                {% endif %}
+                <span class="muted">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                  <a class="mini" href="?page={{ page_obj.next_page_number }}&busqueda={{ busqueda|urlencode }}">Siguiente ›</a>
+                {% endif %}
+              </div>
+            {% endif %}
+          {% else %}
+            <p class="muted" style="margin-top:8px">No hay docentes para mostrar.</p>
+          {% endif %}
+        {% endif %}
 
         {# ===== ADMIN: correlativas ===== #}
         {% if action == "correlativas" %}

@@ -14,29 +14,45 @@
     button{margin-top:10px;padding:8px 12px;border:1px solid #999;border-radius:6px;background:#f5f5f5;cursor:pointer}
     button:hover{background:#eee}
     .err{color:#b91c1c;margin:0 0 8px 0}
+    .note{margin-top:8px;color:#666;font-size:13px}
   </style>
 </head>
 <body>
   <h1>Ingresar</h1>
   <div class="box">
-    {% if form.errors %}<p class="err">Usuario o contraseña incorrectos.</p>{% endif %}
-    <form method="post">
+    {% if form.errors %}
+      <p class="err">Usuario o contraseña incorrectos.</p>
+    {% endif %}
+
+    {# Mensajes (por ejemplo, "sesión finalizada", etc.) #}
+    {% if messages %}
+      {% for message in messages %}
+        <p class="note">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
       {% csrf_token %}
+
       <div class="row">
-        <label for="id_username">Usuario</label>
+        <label for="{{ form.username.id_for_label }}">Usuario</label>
         {{ form.username }}
       </div>
+
       <div class="row">
-        <label for="id_password">Contraseña</label>
+        <label for="{{ form.password.id_for_label }}">Contraseña</label>
         {{ form.password }}
       </div>
-      <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit">Entrar</button>
-	  <p style="margin-top:8px;color:#666;font-size:13px">
-  ¿Sos Bedel, Tutor, Docente o Secretaría? Ingresá por el
-  <a href="/admin/login/">panel de administración</a>.
-</p>
 
+      {# Si venís de una página protegida, esto hace que vuelvas allí tras loguearte #}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <button type="submit">Entrar</button>
+
+      <p class="note">
+        ¿Necesitás entrar al <em>panel de Django</em>? (sólo superusuarios)
+        <a href="/admin/login/">/admin/login/</a>
+      </p>
     </form>
   </div>
 </body>

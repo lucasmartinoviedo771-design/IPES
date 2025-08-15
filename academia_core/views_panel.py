@@ -31,11 +31,29 @@ from .models import (
     Correlatividad,
 )
 
+# ----------------- Permisos de administración -----------------
+ADMIN_ACTIONS = {
+    "correlativas", "espacios_admin",
+    "prof_new", "plan_new",
+    "admin_rename", "admin_rename_profesorado", "admin_rename_plan", "admin_rename_espacio",
+    "admin_delete", "admin_delete_profesorado", "admin_delete_plan", "admin_delete_espacio",
+}
+
+# Con este set de permisos un usuario NO-staff puede administrar si se le asignan explícitamente
+REQUIRED_PERMS = (
+    "academia_core.add_profesorado",
+    "academia_core.change_planestudios",
+    "academia_core.add_espaciocurricular",
+)
+
+def _can_admin(user) -> bool:
+    """¿Tiene permisos de administración del panel? (superuser o permisos de modelo)."""
+    return getattr(user, "is_superuser", False) or user.has_perms(REQUIRED_PERMS)
 
 # ----------------- Utilidades de rol/permisos -----------------
 
 def _is_admin(user):
-    """Verifica si el usuario es administrador (staff o superuser)."""
+    """Compat: staff o superuser (se mantiene por si se usa en otro lado)."""
     return getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)
 
 def _rol(user):
@@ -43,8 +61,8 @@ def _rol(user):
     return getattr(perfil, "rol", None)
 
 def _puede_editar(user) -> bool:
-    """Quienes pueden crear/modificar: Secretaría y Bedel (y staff)."""
-    if _is_admin(user):
+    """Quienes pueden crear/modificar movimientos e inscripciones: Secretaría y Bedel (y admins)."""
+    if _can_admin(user):
         return True
     rol = _rol(user)
     return rol in {"SECRETARIA", "BEDEL"}
@@ -81,7 +99,6 @@ def _safe_delete(obj, request):
         else:
             messages.error(request, "No se pudo eliminar porque existen registros relacionados.")
 
-
 # ----------------- Vista principal del panel -----------------
 
 @login_required
@@ -102,12 +119,17 @@ def panel(request):
     if action not in valid_actions:
         action = "cargar_mov"
 
+    # Gate centralizado para acciones de administración
+    if action in ADMIN_ACTIONS and not _can_admin(request.user):
+        return HttpResponseForbidden("Acción solo para administradores.")
+
     # Contexto base para todas las acciones
     puede_editar = _puede_editar(request.user)
     context = {
         "rol": rol,
         "puede_editar": puede_editar,
         "puede_cargar": puede_editar,
+        "can_admin": _can_admin(request.user),   # <— usar en panel.html para ocultar bloques admin
         "action": action,
         "profesorados": _profes_visibles(request.user),
         "events": Actividad.objects.order_by("-creado")[:20],
@@ -116,10 +138,9 @@ def panel(request):
     }
 
     # ----------------- Nuevos Bloques de Acciones (Admin) -----------------
-    
+
     # Crear profesorado
     if action == "prof_new":
-        if not _is_admin(request.user): return HttpResponseForbidden("Acción solo para administradores.")
         context["action_title"] = "Crear profesorado"
         form = ProfesoradoCreateForm(request.POST or None)
         if request.method == "POST" and form.is_valid():
@@ -131,7 +152,6 @@ def panel(request):
 
     # Crear plan
     if action == "plan_new":
-        if not _is_admin(request.user): return HttpResponseForbidden("Acción solo para administradores.")
         context["action_title"] = "Crear plan de estudios"
         form = PlanCreateForm(request.POST or None)
         if request.method == "POST" and form.is_valid():
@@ -143,10 +163,9 @@ def panel(request):
 
     # Modificar / renombrar (3 subformularios)
     if action in {"admin_rename", "admin_rename_profesorado", "admin_rename_plan", "admin_rename_espacio"}:
-        if not _is_admin(request.user): return HttpResponseForbidden("Acción solo para administradores.")
         context["action"] = "admin_rename"
         context["action_title"] = "Modificar / renombrar"
-        
+
         prof_form = RenombrarProfesoradoForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_rename_profesorado" else None)
         plan_form = RenombrarPlanForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_rename_plan" else request.GET or None)
         esp_form = RenombrarEspacioForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_rename_espacio" else request.GET or None)
@@ -174,7 +193,6 @@ def panel(request):
 
     # Eliminar (3 subformularios)
     if action in {"admin_delete", "admin_delete_profesorado", "admin_delete_plan", "admin_delete_espacio"}:
-        if not _is_admin(request.user): return HttpResponseForbidden("Acción solo para administradores.")
         context["action"] = "admin_delete"
         context["action_title"] = "Eliminar"
 
@@ -193,15 +211,12 @@ def panel(request):
             if sub == "admin_delete_espacio" and del_esp.is_valid():
                 _safe_delete(del_esp.cleaned_data["espacio"], request)
                 return redirect(f'{reverse("panel")}?action=admin_delete')
-        
+
         context.update({"del_profesorado_form": del_prof, "del_plan_form": del_plan, "del_espacio_form": del_esp})
         return render(request, "panel.html", context)
 
     # ----------------- Acciones de Admin existentes -----------------
     if action in {"correlativas", "espacios_admin"}:
-        if not _is_admin(request.user):
-            return HttpResponseForbidden("Solo para administradores")
-
         if action == "espacios_admin":
             data = request.POST if request.method == "POST" else request.GET
             filtro_form = FiltroEspaciosForm(data or None)
@@ -252,7 +267,7 @@ def panel(request):
                     return redirect(f"{reverse('panel')}?action=correlativas&profesorado={espacio.profesorado_id}&plan={espacio.plan_id}&espacio={espacio.id}")
             elif espacio:
                 edit_form = EditaCorrelativasForm(espacio)
-            
+
             context.update({
                 "sel_form": sel_form, "edit_form": edit_form, "espacio_sel": espacio,
                 "action_title": "Editar Correlatividades", "action_subtitle": "Definir qué materias se deben tener aprobadas para cursar/rendir",
@@ -283,7 +298,7 @@ def panel(request):
                 _log_actividad(request.user, rol, "INSC_ESP", f"{obj.inscripcion.estudiante.apellido}, {obj.inscripcion.estudiante.nombre} · {obj.espacio.nombre} ({obj.anio_academico})")
                 messages.success(request, "Inscripción a materia creada.")
                 return redirect(f"{reverse('panel')}?action=insc_esp&inscripcion={obj.inscripcion_id}")
-            else: # add_est
+            else:  # add_est
                 _log_actividad(request.user, rol, "EST_ALTA", f"{obj.apellido}, {obj.nombre} · DNI {getattr(obj, 'dni', '') or ''}")
                 messages.success(request, f"Estudiante creado correctamente. DNI: {getattr(obj, 'dni', '') or ''}")
                 return redirect(f'{reverse("panel")}?action={action}')
@@ -291,9 +306,12 @@ def panel(request):
             messages.error(request, "Revisá los datos del formulario.")
     else:
         # Formulario para GET o POST que no es de guardado
-        if action == "add_est": form = FormClass(request.POST or None, request.FILES or None)
-        elif action == "insc_esp": form = FormClass(data=request.POST or request.GET, user=request.user)
-        else: form = FormClass(data=request.POST or None, user=request.user)
+        if action == "add_est":
+            form = FormClass(request.POST or None, request.FILES or None)
+        elif action == "insc_esp":
+            form = FormClass(data=request.POST or request.GET, user=request.user)
+        else:
+            form = FormClass(data=request.POST or None, user=request.user)
 
     action_titles = {"cargar_mov": "Regularidad y final", "insc_prof": "Inscripción a profesorado", "insc_esp": "Inscripción a materia", "add_est": "Alta de estudiante"}
     action_subtitles = {"cargar_mov": "Registrar un <strong>movimiento</strong>", "insc_prof": "Vínculo Estudiante ↔ Profesorado + legajo", "insc_esp": "Cursada por año", "add_est": "Carga rápida de datos básicos"}
@@ -305,7 +323,6 @@ def panel(request):
         "buscar_carton_url": "buscar_carton_primaria",
     })
     return render(request, "panel.html", context)
-
 
 # Alias para compatibilidad con URLs antiguas:
 def panel_home(request, *args, **kwargs):
