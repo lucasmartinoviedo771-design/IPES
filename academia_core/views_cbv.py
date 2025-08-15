@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from django.urls import reverse_lazy
@@ -12,6 +13,10 @@ from .models import (
     Profesorado,
     Actividad,
     EspacioCurricular,   # ← Materias
+    # === para Calificaciones (Movimiento) y alcances ===
+    Movimiento,
+    EstudianteProfesorado,
+    DocenteEspacio,
 )
 from .forms_espacios import EspacioForm   # ← Form para Materias/Espacios
 
@@ -41,6 +46,7 @@ def _profes_visibles(user):
         return perfil.profesorados_permitidos.all().order_by("nombre")
     return Profesorado.objects.all().order_by("nombre")
 
+
 class PanelContextMixin:
     """Inyecta claves que espera panel.html para que quede integrado."""
     panel_action = ""
@@ -66,6 +72,7 @@ class PanelContextMixin:
         ctx["busqueda"] = (self.request.GET.get("busqueda") or "").strip()
         return ctx
 
+
 class SearchQueryMixin:
     search_param = "busqueda"
     search_fields = ()
@@ -77,6 +84,7 @@ class SearchQueryMixin:
         for f in self.search_fields:
             q |= Q(**{f + "__icontains": term})
         return qs.filter(q)
+
 
 # ============================== ESTUDIANTES ===============================
 
@@ -94,6 +102,7 @@ class EstudianteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelConte
     def get_queryset(self):
         return self.apply_search(super().get_queryset().order_by("apellido", "nombre"))
 
+
 class EstudianteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
     model = Estudiante
     fields = ["dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento","email","telefono","localidad","activo","foto"]
@@ -106,6 +115,7 @@ class EstudianteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
     panel_title = "Alta de estudiante"
     panel_subtitle = "Carga rápida de datos básicos"
 
+
 class EstudianteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
     model = Estudiante
     fields = ["dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento","email","telefono","localidad","activo","foto"]
@@ -117,6 +127,7 @@ class EstudianteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessM
     panel_action = "add_est"
     panel_title = "Editar estudiante"
     panel_subtitle = "Actualizá los datos y guardá"
+
 
 class EstudianteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Estudiante
@@ -149,6 +160,7 @@ class EstudianteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
             messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
             return super().get(request, *a, **kw)
 
+
 # ================================ DOCENTES ================================
 
 class DocenteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
@@ -167,6 +179,7 @@ class DocenteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextM
     def get_queryset(self):
         return self.apply_search(super().get_queryset().order_by("apellido", "nombre"))
 
+
 class DocenteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
     model = Docente
     fields = "__all__"                 # si tenés DocenteForm: form_class = DocenteForm
@@ -179,6 +192,7 @@ class DocenteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_title = "Alta de docente"
     panel_subtitle = "Completá los datos y guardá"
 
+
 class DocenteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
     model = Docente
     fields = "__all__"
@@ -190,6 +204,7 @@ class DocenteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_action = "doc_edit"
     panel_title = "Editar docente"
     panel_subtitle = "Actualizá los datos y guardá"
+
 
 class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = Docente
@@ -220,6 +235,7 @@ class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
             messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
             return super().get(request, *a, **kw)
 
+
 # ================================ MATERIAS ================================
 
 class MateriaListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
@@ -239,6 +255,7 @@ class MateriaListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextM
         qs = super().get_queryset().select_related("plan", "profesorado")
         return self.apply_search(qs).order_by("profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
 
+
 class MateriaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
     """Alta de Materia (Espacio curricular)."""
     model = EspacioCurricular
@@ -252,6 +269,7 @@ class MateriaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_title = "Nueva materia"
     panel_subtitle = "Completá los datos y guardá"
 
+
 class MateriaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
     """Edición de Materia."""
     model = EspacioCurricular
@@ -264,6 +282,7 @@ class MateriaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_action = "mat_edit"
     panel_title = "Editar materia"
     panel_subtitle = "Actualizá los datos y guardá"
+
 
 class MateriaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     """Eliminación/archivado de Materia (soft-delete si está protegida)."""
@@ -295,15 +314,130 @@ class MateriaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
             messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
             return super().get(request, *a, **kw)
 
-# --- CALIFICACIONES (Movimiento) ------------------------------------------------
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse_lazy
-from django.db.models import Q
 
-from .models import Movimiento
+# ===================== CALIFICACIONES (Movimiento) =======================
 
-# Intentamos usar tu form existente; si no está, usamos un ModelForm fallback
+class RoleAccessMixin(LoginRequiredMixin):
+    """
+    Limita qué ve/edita cada rol:
+      - superuser / SECRETARIA: todo
+      - BEDEL / TUTOR: solo profesorados permitidos
+      - DOCENTE: solo espacios asignados al docente
+      - ESTUDIANTE: solo sus propias calificaciones
+    """
+    def user_role(self):
+        return getattr(getattr(self.request.user, "perfil", None), "rol", None)
+
+    def perfil(self):
+        return getattr(self.request.user, "perfil", None)
+
+    # ¿puede crear/editar/eliminar?
+    def can_edit(self) -> bool:
+        r = self.user_role()
+        return bool(
+            getattr(self.request.user, "is_superuser", False)
+            or getattr(self.request.user, "is_staff", False)
+            or r in {"SECRETARIA", "BEDEL"}
+        )
+
+    # Alcance de profesorados según rol
+    def allowed_profesorados_qs(self):
+        user = self.request.user
+        r = self.user_role()
+        if getattr(user, "is_superuser", False) or r == "SECRETARIA":
+            return Profesorado.objects.all()
+        perf = self.perfil()
+        if r in {"BEDEL", "TUTOR"} and perf:
+            return perf.profesorados_permitidos.all()
+        if r == "DOCENTE" and perf and perf.docente_id:
+            return Profesorado.objects.filter(
+                espacios__asignaciones_docentes__docente=perf.docente
+            ).distinct()
+        if r == "ESTUDIANTE" and perf and perf.estudiante_id:
+            return Profesorado.objects.filter(
+                inscripciones__estudiante=perf.estudiante
+            ).distinct()
+        return Profesorado.objects.none()
+
+    # Alcance de espacios según rol
+    def allowed_espacios_qs(self):
+        r = self.user_role()
+        perf = self.perfil()
+        if getattr(self.request.user, "is_superuser", False) or r == "SECRETARIA":
+            return EspacioCurricular.objects.all()
+        if r in {"BEDEL", "TUTOR"}:
+            return EspacioCurricular.objects.filter(
+                profesorado__in=self.allowed_profesorados_qs()
+            )
+        if r == "DOCENTE" and perf and perf.docente_id:
+            return EspacioCurricular.objects.filter(
+                asignaciones_docentes__docente=perf.docente
+            ).distinct()
+        if r == "ESTUDIANTE" and perf and perf.estudiante_id:
+            return EspacioCurricular.objects.filter(
+                cursadas__inscripcion__estudiante=perf.estudiante
+            ).distinct()
+        return EspacioCurricular.objects.none()
+
+    # Alcance de inscripciones Estudiante↔Profesorado
+    def allowed_inscripciones_qs(self):
+        r = self.user_role()
+        perf = self.perfil()
+        if getattr(self.request.user, "is_superuser", False) or r == "SECRETARIA":
+            return EstudianteProfesorado.objects.select_related("estudiante", "profesorado")
+        if r in {"BEDEL", "TUTOR"}:
+            return EstudianteProfesorado.objects.filter(
+                profesorado__in=self.allowed_profesorados_qs()
+            ).select_related("estudiante", "profesorado")
+        if r == "DOCENTE" and perf and perf.docente_id:
+            profs = self.allowed_profesorados_qs()
+            return EstudianteProfesorado.objects.filter(
+                profesorado__in=profs
+            ).select_related("estudiante", "profesorado")
+        if r == "ESTUDIANTE" and perf and perf.estudiante_id:
+            return EstudianteProfesorado.objects.filter(
+                estudiante=perf.estudiante
+            ).select_related("estudiante", "profesorado")
+        return EstudianteProfesorado.objects.none()
+
+    # chequeo de acceso a un objeto Movimiento puntual
+    def has_object_access(self, obj: Movimiento) -> bool:
+        r = self.user_role()
+        if getattr(self.request.user, "is_superuser", False) or r == "SECRETARIA":
+            return True
+        if r in {"BEDEL", "TUTOR"}:
+            return self.allowed_profesorados_qs().filter(
+                id=obj.inscripcion.profesorado_id
+            ).exists()
+        if r == "DOCENTE" and self.perfil() and self.perfil().docente_id:
+            return self.allowed_espacios_qs().filter(id=obj.espacio_id).exists()
+        if r == "ESTUDIANTE" and self.perfil() and self.perfil().estudiante_id:
+            return obj.inscripcion.estudiante_id == self.perfil().estudiante_id
+        return False
+
+
+class RoleFilteredFormMixin(RoleAccessMixin):
+    """
+    Filtra los querysets de los campos del formulario según el rol.
+    Aplica a Create/Update.
+    """
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # Filtrar 'inscripcion'
+        if "inscripcion" in form.fields:
+            form.fields["inscripcion"].queryset = self.allowed_inscripciones_qs()
+        # Filtrar 'espacio'
+        if "espacio" in form.fields:
+            form.fields["espacio"].queryset = self.allowed_espacios_qs().order_by("anio", "cuatrimestre", "nombre")
+        # Si no puede editar, bloquear
+        if not self.can_edit():
+            for f in form.fields.values():
+                f.disabled = True
+        return form
+
+
+# Intentamos usar tu form existente para validar negocio;
+# si no está, usamos un ModelForm fallback.
 try:
     from .forms_carga import CargarMovimientoForm as MovimientoForm
 except Exception:
@@ -318,8 +452,8 @@ except Exception:
             ]
 
 
-class CalificacionListView(LoginRequiredMixin, ListView):
-    """Listado con búsqueda rápida por estudiante/espacio."""
+class CalificacionListView(RoleAccessMixin, ListView):
+    """Listado con búsqueda y filtros, acotado al alcance del usuario."""
     model = Movimiento
     template_name = "calificaciones_list.html"
     context_object_name = "movimientos"
@@ -330,6 +464,16 @@ class CalificacionListView(LoginRequiredMixin, ListView):
         qs = super().get_queryset().select_related(
             "inscripcion__estudiante", "inscripcion__profesorado", "espacio"
         )
+        r = self.user_role()
+        # Alcance por rol
+        if r in {"BEDEL", "TUTOR"}:
+            qs = qs.filter(espacio__profesorado__in=self.allowed_profesorados_qs())
+        elif r == "DOCENTE":
+            qs = qs.filter(espacio__in=self.allowed_espacios_qs())
+        elif r == "ESTUDIANTE" and self.perfil() and self.perfil().estudiante_id:
+            qs = qs.filter(inscripcion__estudiante=self.perfil().estudiante)
+
+        # Búsqueda y filtros
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
@@ -338,9 +482,8 @@ class CalificacionListView(LoginRequiredMixin, ListView):
                 Q(inscripcion__estudiante__dni__icontains=q) |
                 Q(espacio__nombre__icontains=q)
             )
-        # filtros opcionales
         tipo = self.request.GET.get("tipo")
-        if tipo:
+        if tipo in {"REG", "FIN"}:
             qs = qs.filter(tipo=tipo)
         condicion = self.request.GET.get("condicion")
         if condicion:
@@ -353,44 +496,64 @@ class CalificacionListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Calificaciones"
-        ctx["subtitulo"] = "Listado de movimientos (REG/FIN) con búsqueda y filtros."
+        ctx["subtitulo"] = "Movimientos REG/FIN con búsqueda y filtros."
         ctx["q"] = self.request.GET.get("q", "")
         ctx["tipo_sel"] = self.request.GET.get("tipo", "")
         ctx["cond_sel"] = self.request.GET.get("condicion", "")
         ctx["anio_sel"] = self.request.GET.get("anio", "")
+        ctx["can_edit"] = self.can_edit()
         return ctx
 
 
-class CalificacionCreateView(LoginRequiredMixin, CreateView):
+class CalificacionCreateView(RoleFilteredFormMixin, CreateView):
     model = Movimiento
     form_class = MovimientoForm
     template_name = "calificacion_form.html"
     success_url = reverse_lazy("listado_calificaciones")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not self.can_edit():
+            raise PermissionDenied("No tenés permisos para crear calificaciones.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Nueva calificación"
-        ctx["subtitulo"] = "Cargar Regularidad o Final con validaciones de negocio."
+        ctx["subtitulo"] = "Cargá una Regularidad o un Final (validaciones automáticas)."
+        ctx["can_edit"] = True
         return ctx
 
 
-class CalificacionUpdateView(LoginRequiredMixin, UpdateView):
+class CalificacionUpdateView(RoleFilteredFormMixin, UpdateView):
     model = Movimiento
     form_class = MovimientoForm
     template_name = "calificacion_form.html"
     success_url = reverse_lazy("listado_calificaciones")
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not self.can_edit() or not self.has_object_access(obj):
+            raise PermissionDenied("No tenés permisos para editar esta calificación.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["titulo"] = "Editar calificación"
         ctx["subtitulo"] = "Actualizá un movimiento existente."
+        ctx["can_edit"] = True
         return ctx
 
 
-class CalificacionDeleteView(LoginRequiredMixin, DeleteView):
+class CalificacionDeleteView(RoleAccessMixin, DeleteView):
     model = Movimiento
-    template_name = "confirmar_eliminacion.html"  # ya la tenés genérica
+    template_name = "confirmar_eliminacion.html"
     success_url = reverse_lazy("listado_calificaciones")
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not self.can_edit() or not self.has_object_access(obj):
+            raise PermissionDenied("No tenés permisos para eliminar esta calificación.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

@@ -10,9 +10,9 @@
     .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
     input,select{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
-    a.btn{display:inline-block;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none}
-    a.btn:hover{background:#f3f4f6}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}
+    a.btn, button.btn{display:inline-block;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;background:#fff;cursor:pointer}
+    a.btn:hover, button.btn:hover{background:#f3f4f6}
     .right{ text-align:right }
   </style>
 </head>
@@ -23,7 +23,7 @@
       <div class="muted">{{ subtitulo }}</div>
     </div>
     <div>
-      <a class="btn" href="{% url 'agregar_calificacion' %}">+ Nueva</a>
+      {% if can_edit %}<a class="btn" href="{% url 'agregar_calificacion' %}">+ Nueva</a>{% endif %}
       <a class="btn" href="/panel/">Volver al panel</a>
     </div>
   </div>
@@ -58,7 +58,7 @@
         <th>Tipo</th>
         <th>Condición</th>
         <th>Nota</th>
-        <th class="right">Acciones</th>
+        {% if can_edit %}<th class="right">Acciones</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -72,13 +72,15 @@
           <td>{{ m.tipo }}</td>
           <td>{{ m.condicion }}</td>
           <td>{% if m.nota_num %}{{ m.nota_num }}{% else %}{{ m.nota_texto }}{% endif %}</td>
+          {% if can_edit %}
           <td class="right">
             <a class="btn" href="{% url 'modificar_calificacion' m.pk %}">Editar</a>
             <a class="btn" href="{% url 'eliminar_calificacion' m.pk %}">Eliminar</a>
           </td>
+          {% endif %}
         </tr>
       {% empty %}
-        <tr><td colspan="9" class="muted">Sin resultados.</td></tr>
+        <tr><td colspan="{% if can_edit %}9{% else %}8{% endif %}" class="muted">Sin resultados.</td></tr>
       {% endfor %}
     </tbody>
   </table>
