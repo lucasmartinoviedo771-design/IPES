@@ -64,6 +64,22 @@ def _profes_qs_for_user(user):
     return Profesorado.objects.all()
 
 
+def _plan_vigente_id(profesorado):
+    """
+    Devuelve el ID del plan vigente si existe.
+    Soporta que plan_vigente sea FK (objeto con .id), un id plano o None.
+    """
+    pv = getattr(profesorado, "plan_vigente", None)
+    if pv is None:
+        return None
+    if hasattr(pv, "id"):
+        return getattr(pv, "id")
+    try:
+        return int(pv)
+    except Exception:
+        return None
+
+
 # ===================== Cargar Movimiento =====================
 
 class CargarMovimientoForm(forms.ModelForm):
@@ -132,11 +148,11 @@ class CargarMovimientoForm(forms.ModelForm):
             try:
                 insc = (
                     EstudianteProfesorado.objects
-                    .select_related("profesorado", "profesorado__plan_vigente")
+                    .select_related("profesorado")  # quitamos "__plan_vigente"
                     .get(pk=insc_id)
                 )
                 q = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
-                plan_vigente_id = getattr(insc.profesorado.plan_vigente, "id", None)
+                plan_vigente_id = _plan_vigente_id(insc.profesorado)
                 if plan_vigente_id:
                     q = q.filter(plan_id=plan_vigente_id)
                 self.fields["espacio"].queryset = q.order_by("anio", "cuatrimestre", "nombre", "id")
@@ -304,6 +320,7 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 class InscripcionEspacioForm(forms.ModelForm):
     class Meta:
         model = InscripcionEspacio
+        # ⚠️ Mantenemos 'inscripcion' para no romper vistas/URLs actuales
         fields = ["inscripcion", "espacio", "anio_academico"]
         widgets = {
             "anio_academico": forms.NumberInput(attrs={"class": "inp", "min": 2000, "max": 2100}),
@@ -313,6 +330,51 @@ class InscripcionEspacioForm(forms.ModelForm):
         }
         labels = {"anio_academico": "Año académico"}
 
+    # ---------- Política (configurable por settings) ----------
+    @staticmethod
+    def _vigencia_regularidad_anios():
+        from django.conf import settings
+        try:
+            return int(getattr(settings, "REGULARIDAD_VIGENCIA_ANIOS", 2))
+        except Exception:
+            return 2
+
+    @staticmethod
+    def _vence_fin_de_anio():
+        from django.conf import settings
+        return bool(getattr(settings, "REGULARIDAD_VENCE_FIN_DE_ANIO", True))
+
+    @classmethod
+    def _fecha_expiracion_regularidad(cls, fr: date) -> date:
+        vig = cls._vigencia_regularidad_anios()
+        if cls._vence_fin_de_anio():
+            return date(fr.year + vig - 1, 12, 31)
+        else:
+            # mismo día/mes si existe; si no, último día del mes
+            from calendar import monthrange
+            y, m, d = fr.year + vig, fr.month, fr.day
+            last = monthrange(y, m)[1]
+            return date(y, m, min(d, last))
+
+    @classmethod
+    def _tiene_regularidad_vigente(cls, insc, espacio) -> bool:
+        """
+        Usa InscripcionEspacio.estado_cursada y fecha_regularidad.
+        Considera REGULAR / PROMOCIONADO como con-regularidad.
+        """
+        qs = InscripcionEspacio.objects.filter(inscripcion=insc, espacio=espacio) \
+                                       .only("estado_cursada", "fecha_regularidad")
+        hoy = date.today()
+        for cur in qs:
+            estado = (getattr(cur, "estado_cursada", "") or "").upper()
+            if estado in {"REGULAR", "PROMOCIONADO"}:
+                fr = getattr(cur, "fecha_regularidad", None)
+                if fr is None:
+                    return True  # defensivo: si no hay fecha, se considera vigente
+                if hoy <= cls._fecha_expiracion_regularidad(fr):
+                    return True
+        return False
+
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -320,7 +382,7 @@ class InscripcionEspacioForm(forms.ModelForm):
         if not self.initial.get("anio_academico") and not self.data.get("anio_academico"):
             self.initial["anio_academico"] = date.today().year
 
-        # 2) Inscripciones visibles según profesorados permitidos al usuario
+        # 2) Inscripciones visibles según profesorados permitidos al usuario (igual que antes)
         profes = _profes_qs_for_user(user)
         insc_qs = (
             EstudianteProfesorado.objects
@@ -337,7 +399,7 @@ class InscripcionEspacioForm(forms.ModelForm):
         except Exception:
             anio_int = date.today().year
 
-        # 3) Si ya hay espacio elegido, limitar inscripciones al profesorado de ese espacio
+        # 3) Si ya hay espacio elegido, limitar inscripciones al profesorado de ese espacio (como antes)
         esp_id = self.data.get("espacio") or getattr(self.initial.get("espacio"), "pk", None)
         if esp_id:
             try:
@@ -346,72 +408,86 @@ class InscripcionEspacioForm(forms.ModelForm):
             except EspacioCurricular.DoesNotExist:
                 pass
 
-        # 4) Espacios: del profesorado de la inscripción + filtros (incluye plan_vigente si existe)
+        # 4) Espacios del profesorado de la inscripción + filtros (incluye plan_vigente si existe)
         insc_id = self.data.get("inscripcion") or getattr(self.initial.get("inscripcion"), "pk", None)
-
-        if insc_id:
-            try:
-                insc = (
-                    EstudianteProfesorado.objects
-                    .select_related("profesorado", "profesorado__plan_vigente")
-                    .get(pk=insc_id)
-                )
-            except EstudianteProfesorado.DoesNotExist:
-                self.fields["espacio"].queryset = EspacioCurricular.objects.none()
-                return
-
-            base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
-            plan_vigente_id = getattr(insc.profesorado.plan_vigente, "id", None)
-            if plan_vigente_id:
-                base = base.filter(plan_id=plan_vigente_id)
-            base = base.order_by("anio", "cuatrimestre", "nombre")
-
-            # 4.a) Correlatividades CURSAR:
-            #     - si el espacio TIENE reglas CURSAR, se exige cumplirlas
-            #     - si NO tiene reglas, se permite
-            allowed_ids = []
-            for e in base:
-                ok = True
-                if _cumple_correlativas:
-                    tiene_reglas = Correlatividad.objects.filter(
-                        plan=e.plan, espacio=e, tipo="CURSAR"
-                    ).exists()
-                    if tiene_reglas:
-                        try:
-                            ok, _faltan = _cumple_correlativas(insc, e, "CURSAR")
-                        except Exception:
-                            ok = True  # no bloquear por error de configuración
-                if ok:
-                    allowed_ids.append(e.id)
-
-            base = base.filter(id__in=allowed_ids)
-
-            # 4.b) Excluir espacios ya aprobados
-            aprobados_ids = set(
-                insc.movimientos.filter(
-                    Q(espacio__in=base) & (
-                        Q(tipo="REG", condicion__in=["Promoción", "Aprobado"], nota_num__gte=6) |
-                        Q(tipo="FIN", condicion="Regular",                   nota_num__gte=6) |
-                        Q(tipo="FIN", condicion="Equivalencia",              nota_texto__iexact="Equivalencia")
-                    )
-                ).values_list("espacio_id", flat=True)
-            )
-            if aprobados_ids:
-                base = base.exclude(id__in=aprobados_ids)
-
-            # 4.c) Excluir ya inscriptos en el mismo año académico
-            ya_cursadas = set(
-                InscripcionEspacio.objects.filter(
-                    inscripcion=insc, anio_academico=anio_int
-                ).values_list("espacio_id", flat=True)
-            )
-            if ya_cursadas:
-                base = base.exclude(id__in=ya_cursadas)
-
-            self.fields["espacio"].queryset = base
-        else:
+        if not insc_id:
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
             self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")  # quitamos "__plan_vigente"
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+        plan_vigente_id = _plan_vigente_id(insc.profesorado)
+        if plan_vigente_id:
+            base = base.filter(plan_id=plan_vigente_id)
+        base = base.order_by("anio", "cuatrimestre", "nombre")
+
+        # 4.a) Correlatividades CURSAR (solo exigimos si el espacio tiene reglas; si no, se permite)
+        allowed_ids = []
+        for e in base:
+            ok = True
+            if _cumple_correlativas:
+                tiene_reglas = Correlatividad.objects.filter(plan=e.plan, espacio=e, tipo="CURSAR").exists()
+                if tiene_reglas:
+                    try:
+                        ok, _faltan = _cumple_correlativas(insc, e, "CURSAR")
+                    except Exception:
+                        ok = True  # no bloquear por error de configuración
+            if ok:
+                allowed_ids.append(e.id)
+        base = base.filter(id__in=allowed_ids)
+
+        # 4.b) Excluir espacios ya aprobados (dos fuentes: movimientos históricos y estado_cursada actual)
+        aprobados_ids = set(
+            insc.movimientos.filter(
+                Q(espacio__in=base) & (
+                    Q(tipo="REG", condicion__in=["Promoción", "Aprobado"], nota_num__gte=6) |
+                    Q(tipo="FIN", condicion="Regular",                   nota_num__gte=6) |
+                    Q(tipo="FIN", condicion="Equivalencia",              nota_texto__iexact="Equivalencia")
+                )
+            ).values_list("espacio_id", flat=True)
+        )
+        # Estados nuevos del ciclo de cursada
+        aprobados_ids |= set(
+            InscripcionEspacio.objects.filter(
+                inscripcion=insc,
+                espacio__in=base,
+                estado_cursada__in=["APROBADA", "PROMOCIONADO", "PROMOCIONADA"]
+            ).values_list("espacio_id", flat=True)
+        )
+        if aprobados_ids:
+            base = base.exclude(id__in=aprobados_ids)
+
+        # 4.c) Excluir ya inscriptos en el mismo año académico
+        ya_cursadas = set(
+            InscripcionEspacio.objects.filter(
+                inscripcion=insc, anio_academico=anio_int
+            ).values_list("espacio_id", flat=True)
+        )
+        if ya_cursadas:
+            base = base.exclude(id__in=ya_cursadas)
+
+        # 4.d) Excluir espacios con regularidad vigente (usa estado_cursada + fecha_regularidad)
+        reg_vigentes_ids = []
+        for e in list(base):
+            try:
+                if self._tiene_regularidad_vigente(insc, e):
+                    reg_vigentes_ids.append(e.id)
+            except Exception:
+                pass  # no romper UX por datos raros
+        if reg_vigentes_ids:
+            base = base.exclude(id__in=reg_vigentes_ids)
+
+        self.fields["espacio"].queryset = base
 
     def clean(self):
         cleaned = super().clean()
@@ -425,25 +501,34 @@ class InscripcionEspacioForm(forms.ModelForm):
         if insc.profesorado_id != esp.profesorado_id:
             raise ValidationError("La inscripción y el espacio pertenecen a profesorados distintos.")
 
-        # No duplicar
+        # No duplicar (mismo año)
         ya = InscripcionEspacio.objects.filter(inscripcion=insc, espacio=esp, anio_academico=anio)
         if self.instance.pk:
             ya = ya.exclude(pk=self.instance.pk)
         if ya.exists():
             raise ValidationError("Ya existe una cursada de este espacio para ese año académico.")
 
-        # No reinscribir si ya está aprobado
+        # No reinscribir si ya está aprobado (histórico o estado actual)
         aprobada = insc.movimientos.filter(
             Q(espacio=esp) & (
                 Q(tipo="REG", condicion__in=["Promoción", "Aprobado"], nota_num__gte=6) |
                 Q(tipo="FIN", condicion="Regular",                   nota_num__gte=6) |
                 Q(tipo="FIN", condicion="Equivalencia",              nota_texto__iexact="Equivalencia")
             )
+        ).exists() or InscripcionEspacio.objects.filter(
+            inscripcion=insc, espacio=esp, estado_cursada__in=["APROBADA", "PROMOCIONADO", "PROMOCIONADA"]
         ).exists()
         if aprobada:
             raise ValidationError("El espacio ya está aprobado: no corresponde reinscribir.")
 
-        # Defensa adicional por correlatividades (si hay helper y el espacio tiene reglas)
+        # Defensa final: regularidad vigente
+        try:
+            if self._tiene_regularidad_vigente(insc, esp):
+                raise ValidationError("El estudiante ya posee regularidad vigente en este espacio: no corresponde reinscribir.")
+        except Exception:
+            pass
+
+        # Defensa por correlatividades (si hay helper y el espacio tiene reglas)
         if _cumple_correlativas:
             tiene_reglas = Correlatividad.objects.filter(plan=esp.plan, espacio=esp, tipo="CURSAR").exists()
             if tiene_reglas:

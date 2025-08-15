@@ -782,8 +782,22 @@
       notaSel.disabled = false;
     }
 
-    // Disposición interna: solo visible en Equivalencia
+    // Disposición interna: solo visible y requerida en Equivalencia
     if(dispoRow){ dispoRow.classList.toggle('hidden', !isEquiv()); }
+    if(dispoInput){ dispoInput.toggleAttribute('required', isEquiv()); }
+
+    // “Ausencia justificada” solo habilitado si Ausente
+    if(justChk && ausenteChk){
+      const enableJust = showFinal && ausenteChk.checked;
+      justChk.disabled = !enableJust;
+      if (!enableJust) justChk.checked = false;
+    }
+
+    // Si deja de ser FIN, limpiar flags
+    if(!showFinal){
+      if(ausenteChk) ausenteChk.checked = false;
+      if(justChk){ justChk.checked = false; justChk.disabled = true; }
+    }
   }
 
   if(tipoSel){ tipoSel.addEventListener('change', applyFinalExtras); }
