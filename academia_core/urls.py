@@ -5,7 +5,8 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-from .views_panel import panel, panel_home
+from .views_panel import panel     # ✅ usamos solo "panel"
+
 from .views_cbv import (
     # Estudiantes
     EstudianteListView, EstudianteCreateView,
@@ -16,10 +17,11 @@ from .views_cbv import (
     # Materias
     MateriaListView, MateriaCreateView,
     MateriaUpdateView, MateriaDeleteView,
-     # Calificaciones
+    # Calificaciones
     CalificacionListView, CalificacionCreateView,
     CalificacionUpdateView, CalificacionDeleteView,
 )
+
 from .views_auth import RoleAwareLoginView
 
 urlpatterns = [
@@ -27,18 +29,16 @@ urlpatterns = [
     path("accounts/login/", RoleAwareLoginView.as_view(), name="login"),
     path("accounts/logout/", LogoutView.as_view(next_page="/accounts/login/"), name="logout"),
 
-    # Cartón fijo Primaria
+    # Cartones
     path("carton/primaria/", buscar_carton_primaria, name="buscar_carton_primaria"),
     path("carton/primaria/<str:dni>/", carton_primaria_por_dni, name="carton_primaria"),
     path("carton/primaria/<str:dni>/pdf/", carton_primaria_pdf, name="carton_primaria_pdf"),
-
-    # Cartón genérico por slugs
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/", carton_por_prof_y_plan, name="carton_generico"),
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
-    # Panel (dos nombres para compatibilidad)
+    # Nuevo panel unificado
     path("panel/", panel, name="panel"),
-    path("panel/home/", panel_home, name="panel_home"),
+    path("panel/home/", panel, name="panel_home"),   # ✅ mantuvimos esta URL por compatibilidad, pero apunta al mismo panel
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
@@ -57,10 +57,10 @@ urlpatterns = [
     path("materias/agregar/", MateriaCreateView.as_view(), name="agregar_materia"),
     path("materias/modificar/<int:pk>/", MateriaUpdateView.as_view(), name="modificar_materia"),
     path("materias/eliminar/<int:pk>/", MateriaDeleteView.as_view(), name="eliminar_materia"),
-   # ---- CBVs (Calificaciones) ----
+
+    # ---- CBVs (Calificaciones) ----
     path("calificaciones/", CalificacionListView.as_view(), name="listado_calificaciones"),
     path("calificaciones/agregar/", CalificacionCreateView.as_view(), name="agregar_calificacion"),
     path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
     path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
-
 ]

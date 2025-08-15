@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel unificado</title>
   <link rel="icon" href="{% static 'academia_core/escudo-ipes.png' %}">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -18,132 +17,55 @@
     --green:#3e7d59; --green-600:#2e6446; --green-050:#eaf3ef;
     --muted:#6f7a83; --radius:16px; --gap:16px; --shadow:0 8px 26px rgba(23,36,44,.08);
    }
-
    *{ box-sizing:border-box }
-
-   body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-   }
-
-   a{ color:var(--green); text-decoration:none }
+   body{ margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+         -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale }
+   a{ color:var(--green-600); text-decoration:none }
    a:hover{ text-decoration:underline }
-
    .wrap{ max-width:1400px; margin:0 auto; padding:20px }
-
    .topbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:var(--gap) }
-   .btn{
-    background:#fff; border:1px solid var(--card-b); color:var(--green-600);
-    padding:10px 14px; border-radius:12px; box-shadow:var(--shadow)
-   }
+   .btn{ background:#fff; border:1px solid var(--card-b); color:var(--green-600);
+         padding:10px 14px; border-radius:12px; box-shadow:var(--shadow)}
    .btn:hover{ background:var(--green-050) }
-   .btn-danger{ background:#ffe8e6; border:1px solid #f3b3ab; color:#7a1e12 }
-   .btn-danger:hover{ background:#ffdcd8 }
-
-   .card{
-    background:var(--card); border:1px solid var(--card-b);
-    border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)
-   }
-
+   .card{ background:var(--card); border:1px solid var(--card-b);
+          border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
    .hero{ display:grid; grid-template-columns:1fr 128px 1fr; align-items:center; gap:16px; margin-bottom:var(--gap) }
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
    .hero .center{ justify-self:center }
-   .hero .center img{ max-height:100px; transform:scale(1.35); transform-origin:center; filter:drop-shadow(0 2px 6px rgba(0,0,0,.12)) }
+   .hero .center img{ max-height:100px; transform:scale(1.35); filter:drop-shadow(0 2px 6px rgba(0,0,0,.12)) }
    .hero-user{ text-align:right; display:flex; flex-direction:column; gap:6px; align-items:flex-end }
    .pill{ display:inline-block; background:var(--green-050); color:var(--green-600); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid #d4e5dd }
 
-   .grid{ display:grid; grid-template-columns:280px 1fr 320px; gap:var(--gap) }
-   @media (max-width:1100px){
-    .grid{ grid-template-columns:1fr }
-    .right{ order:3 } .left{ order:2 } .center{ order:1 }
+   .grid{ display:grid; grid-template-columns:260px 1fr 320px; gap:var(--gap) }
+   @media (max-width:1100px){ .grid{ grid-template-columns:1fr } .right{ order:3 } .left{ order:2 } .center{ order:1 } }
+
+   /* ===== Menú lateral (5 items) ===== */
+   .sidenav h3{ margin:0 0 10px }
+   .menu-list{ list-style:none; margin:0; padding:0 }
+   .menu-item{ margin:2px 0 }
+   .menu-link{
+     display:block; padding:10px 12px; border-radius:10px; color:var(--ink);
+     font-weight:600;
    }
-
-   .actions{ display:flex; flex-direction:column; gap:10px; margin-top:8px }
-   .actions a{
-    display:block; background:#f7faf8; border:1px solid var(--card-b); color:var(--ink);
-    padding:14px 16px; border-radius:12px; font-weight:600
-   }
-   .actions a:hover{ background:#f2f7f4 }
-   .actions a.active{ background:var(--green-050); border-color:#cfe3da; outline:2px solid #e3f1ea }
-   .actions a.disabled{ opacity:.5; pointer-events:none }
-   .actions a.cta{
-    background:var(--orange); color:#2b1b09; border-color:#e8892a;
-    text-align:center; box-shadow:0 6px 18px rgba(232,137,42,.25)
-   }
-   .actions a.cta:hover{ background:var(--orange-600); border-color:#d37517 }
-
-   input,select,textarea{
-    background:#fff; border:1px solid #d9e0e4; border-radius:12px;
-    padding:10px 12px; width:100%; color:var(--ink); font-family:inherit
-   }
-   input:focus,select:focus,textarea:focus{ outline:2px solid var(--green); border-color:var(--green) }
-
-   input[type="checkbox"], input[type="radio"]{ width:auto; height:auto; display:inline-block; }
-
-   label{ display:block; margin:10px 0 4px; color:var(--muted); font-size:14px }
-
-   .submit{ margin-top:16px }
-   .submit button{
-    padding:12px 16px; border-radius:12px; border:0;
-    background:var(--orange); color:#2b1b09; font-weight:700;
-    box-shadow:0 6px 18px rgba(232,137,42,.25)
-   }
-   .submit button:hover{ background:var(--orange-600) }
-   .submit button[disabled]{ opacity:.5; cursor:not-allowed }
-
+   .menu-link:hover{ background:#f3f6f4; text-decoration:none }
+   .menu-link.active{ background:var(--green-050); outline:2px solid #d9ebe3 }
    .muted{ color:var(--muted) }
-   .list{ display:flex; flex-direction:column; gap:10px }
+
+   /* contenido */
+   .section-links{ list-style:none; padding:0; margin:8px 0 0 }
+   .section-links li{ margin:6px 0 }
+   .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
+
+   input,select,textarea{ background:#fff; border:1px solid #d9e0e4; border-radius:12px; padding:10px 12px; width:100%; color:var(--ink); font-family:inherit }
+   input:focus,select:focus,textarea:focus{ outline:2px solid var(--green); border-color:var(--green) }
+   label{ display:block; margin:10px 0 4px; color:var(--muted); font-size:14px }
+   .submit{ margin-top:16px }
+   .submit button{ padding:12px 16px; border-radius:12px; border:0; background:var(--orange); color:#2b1b09; font-weight:700; box-shadow:0 6px 18px rgba(232,137,42,.25) }
+   .submit button:hover{ background:var(--orange-600) }
    .msg{ margin:8px 0; padding:12px 14px; border-radius:12px; background:#f1f5f2; border:1px solid var(--card-b) }
    .msg[role="alert"]{ background:#fff1ec; border-color:#f6cbb1 }
-
-   .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
-   .row-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px }
-   @media (max-width:900px){ .row-2,.row-3{ grid-template-columns:1fr } }
-
-   .check-card{ border:1px solid var(--card-b); border-radius:14px; padding:14px; height:100%; display:flex; gap:12px; align-items:center; justify-content:flex-start }
-   .check-card.center{ justify-content:center }
-   .check-card label{ margin:0; color:var(--ink); font-weight:600; text-align:left }
-   .tiny{ font-size:12px; color:var(--muted); margin-top:4px }
-
-   .only-cert{ display:none }
-   .show{ display:block }
-   .adeuda-extra{ display:none }
-   .adeuda-extra.show{ display:block }
-
-   .ctrlbar{ display:flex; gap:8px; align-items:center; margin:6px 0 8px }
-   .ctrlbar input[type="text"]{ max-width:260px }
-   .ctrlbar .mini{ padding:6px 10px; border-radius:10px; border:1px solid var(--card-b); background:#fff }
-   .ctrlbar .mini:hover{ background:#f2f7f4 }
-
-   .checkboxselectmultiple,
-   #id_cursar_regularizadas,
-   #id_cursar_aprobadas,
-   #id_rendir_aprobadas{
-    list-style:none; margin:6px 0 14px; padding:0;
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px;
-   }
-   .checkboxselectmultiple li,
-   #id_cursar_regularizadas li,
-   #id_cursar_aprobadas li,
-   #id_rendir_aprobadas li{
-    border:1px solid var(--card-b); border-radius:10px; padding:8px; background:#fff;
-   }
-   .checkboxselectmultiple li label,
-   #id_cursar_regularizadas li label,
-   #id_cursar_aprobadas li label,
-   #id_rendir_aprobadas li label{
-    display:flex; align-items:center; gap:10px; width:100%; margin:0; font-weight:normal;
-   }
-   .checkboxselectmultiple li label input[type="checkbox"],
-   #id_cursar_regularizadas li label input[type="checkbox"],
-   #id_cursar_aprobadas li label input[type="checkbox"],
-   #id_rendir_aprobadas li label input[type="checkbox"]{ margin-left:auto; }
-
-   /* 🆕 ayudas visuales */
-   .hint{ font-size:12px; color:var(--muted); margin:6px 0 0 }
-   .hidden{ display:none !important; }
   </style>
 </head>
 <body>
@@ -153,13 +75,6 @@
     <a class="btn" href="{{ logout_url }}">Cerrar sesión</a>
     <a class="btn" href="{{ login_url }}">Cambiar usuario</a>
   </div>
-
-  {% if can_admin %}
-  <div class="topbar" style="justify-content: flex-start;">
-    <a class="btn" href="?action=espacios_admin">Editar espacios del plan</a>
-    <a class="btn" href="?action=correlativas">Correlatividades</a>
-  </div>
-  {% endif %}
 
   <div class="hero card">
     <div>
@@ -180,45 +95,74 @@
   {% endif %}
 
   <div class="grid">
-    <aside class="left card">
+    <!-- ================ MENU LATERAL (SOLO 5 ITEMS) ================ -->
+    <aside class="left card sidenav">
       <h3 style="margin:0 0 8px">Acciones</h3>
-      <nav class="actions">
-        <a href="?action=add_est"  class="{% if action == 'add_est' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Nuevo estudiante</a>
-        <a href="?action=insc_prof" class="{% if action == 'insc_prof' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a carrera</a>
-        <a href="?action=insc_esp"  class="{% if action == 'insc_esp' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a materia</a>
-        <a href="?action=cargar_mov" class="{% if action == 'cargar_mov' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Notas y condición</a>
-
+      <ul class="menu-list">
+        <li class="menu-item">
+          <a class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}" href="?action=section_est">Estudiantes</a>
+        </li>
+        <li class="menu-item">
+          <a class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' %}active{% endif %}" href="?action=section_insc">Inscripciones</a>
+        </li>
+        <li class="menu-item">
+          <a class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_final' %}active{% endif %}" href="?action=section_calif">Calificaciones</a>
+        </li>
         {% if can_admin %}
-        <hr style="border:none;border-top:1px solid var(--card-b);margin:8px 0;">
-        <a href="?action=espacios_admin" class="{% if action == 'espacios_admin' %}active{% endif %}">Editar espacios del plan</a>
-        <a href="?action=correlativas" class="{% if action == 'correlativas' %}active{% endif %}">Correlatividades</a>
-
-        <!-- 🆕 Botones de administración -->
-        <a href="?action=prof_new" class="{% if action == 'prof_new' %}active{% endif %}">Nuevo profesorado</a>
-        <a href="?action=plan_new" class="{% if action == 'plan_new' %}active{% endif %}">Nuevo plan</a>
-        <a href="?action=admin_rename" class="{% if action == 'admin_rename' %}active{% endif %}">Renombrar</a>
-        <a href="?action=admin_delete" class="{% if action == 'admin_delete' %}active{% endif %}">Eliminar</a>
+        <li class="menu-item">
+          <a class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}" href="?action=section_admin">Administración</a>
+        </li>
         {% endif %}
-
-        <a href="mailto:soporte@ejemplo.edu?subject=Reporte%20de%20bug">Reportar bug</a>
-      </nav>
-
-      {% if events %}
-        <hr style="border:none;border-top:1px solid var(--card-b);margin:16px 0">
-        <h4 style="margin:0 0 8px">Última actividad</h4>
-        <div class="list">
-          {% for ev in events %}
-            <div><span class="muted">{{ ev.creado|date:"d/m H:i" }}</span> — {{ ev.accion }} · {{ ev.detalle }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
+        <li class="menu-item">
+          <a class="menu-link {% if action == 'section_help' %}active{% endif %}" href="?action=section_help">Ayuda</a>
+        </li>
+      </ul>
     </aside>
 
+    <!-- ================== CONTENIDO CENTRAL ================== -->
     <main class="center card" aria-label="Contenido principal">
       <h3 style="margin-top:0">{{ action_title }}</h3>
       {% if action_subtitle %}<p class="muted" style="margin-top:-6px">{{ action_subtitle|safe }}</p>{% endif %}
 
-      {% if form %}
+      {# ======= SECCIONES: muestran enlaces internos ======= #}
+      {% if action == 'section_est' %}
+        <h4>Estudiantes</h4>
+        <ul class="section-links">
+          <li><a href="?action=add_est">➜ Nuevo estudiante</a></li>
+        </ul>
+
+      {% elif action == 'section_insc' %}
+        <h4>Inscripciones</h4>
+        <ul class="section-links">
+          <li><a href="?action=insc_prof">➜ Inscribir a carrera</a></li>
+          <li><a href="?action=insc_esp">➜ Inscribir a materia (cursada)</a></li>
+        </ul>
+
+      {% elif action == 'section_calif' %}
+        <h4>Calificaciones</h4>
+        <ul class="section-links">
+          <li><a href="?action=cargar_cursada">➜ Cargar cursada (Regularidad / Promoción)</a></li>
+          <li><a href="?action=cargar_final">➜ Cargar nota de final</a></li>
+        </ul>
+
+      {% elif action == 'section_admin' and can_admin %}
+        <h4>Administración</h4>
+        <ul class="section-links">
+          <li><a href="?action=espacios_admin">➜ Gestionar espacios curriculares</a></li>
+          <li><a href="?action=correlativas">➜ Gestionar correlatividades</a></li>
+          <li><a href="?action=prof_new">➜ Crear profesorado</a></li>
+          <li><a href="?action=plan_new">➜ Crear plan de estudios</a></li>
+          <li><a href="?action=admin_rename">➜ Renombrar entidades</a></li>
+          <li><a href="?action=admin_delete">➜ Eliminar entidades</a></li>
+        </ul>
+
+      {% elif action == 'section_help' %}
+        <h4>Ayuda</h4>
+        <p class="muted">¿Encontraste un problema o necesitás soporte?</p>
+        <p><a href="mailto:soporte@ejemplo.edu?subject=Reporte%20de%20bug">➜ Reportar bug</a></p>
+
+      {# ======= ACCIONES ESPECÍFICAS: muestran formularios ======= #}
+      {% elif form %}
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
@@ -226,192 +170,24 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
             {% if form.non_field_errors %}<div class="msg" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-
-            {# =================== CARGAR MOVIMIENTO =================== #}
-            {% if action == 'cargar_mov' %}
-              <div class="row-2">
-                <div>
-                  {{ form.inscripcion.label_tag }}{{ form.inscripcion }}{{ form.inscripcion.errors }}
-                </div>
-                <div>
-                  {{ form.espacio.label_tag }}{{ form.espacio }}{{ form.espacio.errors }}
-                </div>
-              </div>
-
-              <div class="row-2">
-                <div>{{ form.tipo.label_tag }}{{ form.tipo }}{{ form.tipo.errors }}</div>
-                <div>{{ form.fecha.label_tag }}{{ form.fecha }}{{ form.fecha.errors }}</div>
-              </div>
-
-              <div>{{ form.condicion.label_tag }}{{ form.condicion }}{{ form.condicion.errors }}</div>
-
-              <div id="nota_row">
-                {{ form.nota_num.label_tag }}{{ form.nota_num }}{{ form.nota_num.errors }}
-                <div id="nota_hint" class="hint hidden">Para <strong>Final por Regularidad</strong> la nota mínima es 6; si hubo ausencia, marcá <em>Ausente</em>.</div>
-              </div>
-
-              <div class="row-2 final-only" id="final_extras">
-                <div class="check-card">
-                  {{ form.ausente }} <label for="{{ form.ausente.id_for_label }}">Ausente</label>
-                </div>
-                <div class="check-card">
-                  {{ form.ausencia_justificada }} <label for="{{ form.ausencia_justificada.id_for_label }}">Ausencia justificada</label>
-                </div>
-              </div>
-
-              <div class="row-2 final-only" id="folio_libro_row">
-                <div>{{ form.folio.label_tag }}{{ form.folio }}{{ form.folio.errors }}</div>
-                <div>{{ form.libro.label_tag }}{{ form.libro }}{{ form.libro.errors }}</div>
-              </div>
-
-              <div id="dispo_row">
-                {{ form.disposicion_interna.label_tag }}{{ form.disposicion_interna }}{{ form.disposicion_interna.errors }}
-                <div id="dispo_hint" class="hint hidden">Requerido sólo si la condición es <strong>Equivalencia</strong>.</div>
-              </div>
-
-            {# =================== INSCRIPCIÓN A PROFESORADO =================== #}
-            {% elif action == 'insc_prof' %}
-
-              <div>
-                {{ form.estudiante.label_tag }}{{ form.estudiante }}{{ form.estudiante.errors }}
-              </div>
-
-              <div class="row-2">
-                <div>
-                  <label>Profesorado</label>
-                  {{ form.profesorado }}
-                  {{ form.profesorado.errors }}
-                </div>
-                <div>
-                  {{ form.cohorte.label_tag }}{{ form.cohorte }}{{ form.cohorte.errors }}
-                </div>
-              </div>
-
-              <div>
-                {{ form.curso_introductorio.label_tag }}{{ form.curso_introductorio }}{{ form.curso_introductorio.errors }}
-              </div>
-
-              <h4 style="margin:18px 0 8px">Documentación entregada</h4>
-
-              <div class="row-3">
-                <div class="check-card">
-                  {{ form.doc_dni_legalizado }} <label for="{{ form.doc_dni_legalizado.id_for_label }}">DNI<br>legalizado</label>
-                </div>
-                <div class="check-card">
-                  {{ form.doc_titulo_sec_legalizado }} <label for="{{ form.doc_titulo_sec_legalizado.id_for_label }}">Título<br>Secundario<br>legalizado</label>
-                </div>
-                <div class="check-card">
-                  {{ form.doc_cert_medico }} <label for="{{ form.doc_cert_medico.id_for_label }}">Certificado<br>médico</label>
-                </div>
-              </div>
-
-              <div class="row-3" style="margin-top:12px">
-                <div class="check-card">
-                  <input type="checkbox" id="id_fotos_ok">
-                  <label for="id_fotos_ok">Fotos carnet<br>(completo)</label>
-                  {{ form.doc_fotos_carnet }} {{ form.doc_fotos_carnet.errors }}
-                </div>
-
-                <div class="check-card">
-                  <input type="checkbox" id="id_folios_ok">
-                  <label for="id_folios_ok">Folios oficio<br>(completo)</label>
-                  {{ form.doc_folios_oficio }} {{ form.doc_folios_oficio.errors }}
-                </div>
-
-                <div class="check-card">
-                  {{ form.nota_compromiso }} <label for="{{ form.nota_compromiso.id_for_label }}">DDJJ / Nota compromiso</label>
-                </div>
-              </div>
-
-              <div class="row-3" style="margin-top:12px">
-                <div></div>
-                <div class="check-card center">
-                  {{ form.legajo_entregado }} <label for="{{ form.legajo_entregado.id_for_label }}" style="margin-left:8px">Libreta entregada</label>
-                </div>
-                <div></div>
-              </div>
-
-              <h4 style="margin:18px 0 8px">Adeuda materias</h4>
-              <div class="row-3">
-                <div class="check-card">
-                  {{ form.adeuda_materias }}
-                  <label for="{{ form.adeuda_materias.id_for_label }}">Adeuda materias (sí/no)</label>
-                </div>
-
-                <div class="adeuda-extra">
-                  {{ form.adeuda_detalle.label_tag }}
-                  {{ form.adeuda_detalle }}
-                  {{ form.adeuda_detalle.errors }}
-                </div>
-
-                <div class="adeuda-extra">
-                  {{ form.colegio.label_tag }}
-                  {{ form.colegio }}
-                  {{ form.colegio.errors }}
-                </div>
-              </div>
-
-              <h4 style="margin:18px 0 8px">Sólo Certificación Docente</h4>
-              <div class="row-2 only-cert" id="bloque_cert">
-                <div class="check-card">
-                  {{ form.doc_titulo_superior_legalizado }} <label for="{{ form.doc_titulo_superior_legalizado.id_for_label }}">Título Superior legalizado</label>
-                </div>
-                <div class="check-card">
-                  {{ form.doc_incumbencias_titulo }} <label for="{{ form.doc_incumbencias_titulo.id_for_label }}">Incumbencias del título</label>
-                </div>
-              </div>
-
-            {# =================== ALTA DE ESTUDIANTE =================== #}
-            {% elif action == 'add_est' %}
-              <div class="row-2">
-                <div style="grid-column:1/-1">
-                  {{ form.dni.label_tag }}{{ form.dni }}{% if form.dni.help_text %}<div class="tiny">{{ form.dni.help_text }}</div>{% endif %}{{ form.dni.errors }}
-                </div>
-                <div>{{ form.apellido.label_tag }}{{ form.apellido }}{{ form.apellido.errors }}</div>
-                <div>{{ form.nombre.label_tag }}{{ form.nombre }}{{ form.nombre.errors }}</div>
-                <div>{{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{{ form.fecha_nacimiento.errors }}</div>
-                <div>{{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{{ form.lugar_nacimiento.errors }}</div>
-                <div>{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
-                <div>{{ form.telefono.label_tag }}{{ form.telefono }}{{ form.telefono.errors }}</div>
-                <div>{{ form.localidad.label_tag }}{{ form.localidad }}{{ form.localidad.errors }}</div>
-                <div class="check-card" style="justify-content:flex-start">
-                  {{ form.activo }} <label for="{{ form.activo.id_for_label }}" style="margin-left:8px">Activo</label>
-                </div>
-                <div style="grid-column:1/-1">
-                  {{ form.foto.label_tag }}{{ form.foto }}{{ form.foto.errors }}
-                </div>
-              </div>
-
-            {# =================== INSCRIPCIÓN A MATERIA =================== #}
-            {% elif action == 'insc_esp' %}
-              <div class="row-2">
-                <div>{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{{ form.inscripcion.errors }}</div>
-                <div>{{ form.espacio.label_tag }}{{ form.espacio }}{{ form.espacio.errors }}</div>
-              </div>
-              <div>{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{{ form.anio_academico.errors }}</div>
-
-            {% else %}
-              {{ form.as_p }}
-            {% endif %}
-
+            {{ form.as_p }}
             <div class="submit">
-                <button type="submit" name="save" value="1" {% if not puede_editar %}disabled{% endif %}>Guardar</button>
+              <button type="submit" name="save" value="1" {% if not puede_editar %}disabled{% endif %}>Guardar</button>
             </div>
           </form>
         {% endif %}
-      {% else %}
+      {% endif %}
 
-        {# ===== ADMIN: Espacios del plan ===== #}
+      {# === Bloques de administración sin 'form' (listas/tablas) === #}
+      {% if not form %}
         {% if action == "espacios_admin" %}
-          <h2>Editar espacios del plan</h2>
-          <p class="muted">Listar, crear, editar o borrar espacios del plan.</p>
-
+          <hr class="divider">
+          <h4>Editar espacios del plan</h4>
           <form method="get" class="card" style="margin-bottom:12px">
             <input type="hidden" name="action" value="espacios_admin">
             {{ filtro_form.as_p }}
             <div class="submit"><button class="btn" type="submit">Filtrar</button></div>
           </form>
-
           {% if espacios %}
             <table style="width:100%; border-collapse:collapse; margin:10px 0 14px">
               <thead><tr>
@@ -433,7 +209,7 @@
                       <input type="hidden" name="action" value="espacios_admin">
                       <input type="hidden" name="op" value="delete">
                       <input type="hidden" name="id" value="{{ e.id }}">
-                      <button class="btn btn-danger" type="submit">Eliminar</button>
+                      <button class="btn" type="submit">Eliminar</button>
                     </form>
                   </td>
                 </tr>
@@ -441,8 +217,7 @@
               </tbody>
             </table>
           {% endif %}
-
-          <h3 style="margin-top:18px">{% if editando %}Editar espacio{% else %}Crear espacio{% endif %}</h3>
+          <h4 style="margin-top:18px">{% if editando %}Editar espacio{% else %}Crear espacio{% endif %}</h4>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="espacios_admin">
             <input type="hidden" name="op" value="save">
@@ -452,95 +227,41 @@
           </form>
         {% endif %}
 
-        {# ===== ADMIN: correlativas ===== #}
         {% if action == "correlativas" %}
-          <h2>Correlatividades</h2>
-          <p class="muted">Definir requisitos CURSAR/RENDIR para cada materia.</p>
+          <hr class="divider">
+          <h4>Correlatividades</h4>
           <form method="get" id="form-correlativas">
               <input type="hidden" name="action" value="correlativas">
-              
-              {{ sel_form.profesorado.label_tag }}
-              {{ sel_form.profesorado }}
-              {{ sel_form.profesorado.errors }}
-
-              {{ sel_form.plan.label_tag }}
-              {{ sel_form.plan }}
-              {{ sel_form.plan.errors }}
-
-              {{ sel_form.espacio.label_tag }}
-              {{ sel_form.espacio }}
-              {{ sel_form.espacio.errors }}
-              
-              <div class="submit">
-                <button class="btn" type="submit">Seleccionar Espacio</button>
-              </div>
+              {{ sel_form.profesorado.label_tag }}{{ sel_form.profesorado }}
+              {{ sel_form.plan.label_tag }}{{ sel_form.plan }}
+              {{ sel_form.espacio.label_tag }}{{ sel_form.espacio }}
+              <div class="submit"><button class="btn" type="submit">Seleccionar Espacio</button></div>
           </form>
-          
           {% if edit_form %}
-            <hr>
-            <h3>Editando: {{ espacio_sel.nombre }}</h3>
-
-            <div class="row-2" style="align-items:center; margin:8px 0 14px">
-              <div class="muted">
-                ID: {{ espacio_sel.id }} · Año: {{ espacio_sel.anio }} ·
-                {% if espacio_sel.cuatrimestre %}Cuatr.: {{ espacio_sel.cuatrimestre }} ·{% endif %}
-                Horas: {{ espacio_sel.horas }}
-              </div>
-            </div>
-            {% if edit_form.non_field_errors %}<div class="msg" role="alert">{{ edit_form.non_field_errors }}</div>{% endif %}
+            <hr class="divider">
+            <h4>Editando: {{ espacio_sel.nombre }}</h4>
+            {{ edit_form.non_field_errors }}
             <form method="post">{% csrf_token %}
               <input type="hidden" name="action" value="correlativas">
               <input type="hidden" name="profesorado" value="{{ espacio_sel.profesorado_id }}">
               <input type="hidden" name="plan" value="{{ espacio_sel.plan_id }}">
               <input type="hidden" name="espacio" value="{{ espacio_sel.id }}">
-
               <h4>Para CURSAR: tener REGULARIZADA</h4>
-              <div class="ctrlbar">
-                <button type="button" class="mini" data-target="id_cursar_regularizadas" onclick="bulkCheck(this,true)">✓ Todos</button>
-                <button type="button" class="mini" data-target="id_cursar_regularizadas" onclick="bulkCheck(this,false)">✗ Ninguno</button>
-                <input type="text" placeholder="Filtrar…" oninput="filterList('id_cursar_regularizadas', this.value)">
-              </div>
               {{ edit_form.cursar_regularizadas }}
-
               <h4>Para CURSAR: tener APROBADA</h4>
-              <div class="ctrlbar">
-                <button type="button" class="mini" data-target="id_cursar_aprobadas" onclick="bulkCheck(this,true)">✓ Todos</button>
-                <button type="button" class="mini" data-target="id_cursar_aprobadas" onclick="bulkCheck(this,false)">✗ Ninguno</button>
-                <input type="text" placeholder="Filtrar…" oninput="filterList('id_cursar_aprobadas', this.value)">
-              </div>
               {{ edit_form.cursar_aprobadas }}
-
               <h4>Para RENDIR: tener APROBADA</h4>
-              <div class="ctrlbar">
-                <button type="button" class="mini" data-target="id_rendir_aprobadas" onclick="bulkCheck(this,true)">✓ Todos</button>
-                <button type="button" class="mini" data-target="id_rendir_aprobadas" onclick="bulkCheck(this,false)">✗ Ninguno</button>
-                <input type="text" placeholder="Filtrar…" oninput="filterList('id_rendir_aprobadas', this.value)">
-              </div>
               {{ edit_form.rendir_aprobadas }}
-
               <div class="submit" style="margin-top:18px">
                 <button type="submit">Guardar correlatividades</button>
               </div>
             </form>
           {% endif %}
         {% endif %}
-        
-        {# ===== ADMIN: crear/editar espacio (legacy) ===== #}
-        {% if action == "espacio_new" or action == "espacio_edit" %}
-          <h2>{{ action_title }}</h2>
-          {% if action_subtitle %}<p class="muted">{{ action_subtitle }}</p>{% endif %}
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="{{ action }}">
-            {% if espacio_sel.id %}<input type="hidden" name="espacio" value="{{ espacio_sel.id }}">{% endif %}
-            {{ espacio_form.as_p }}
-            <div class="submit"><button type="submit">Guardar</button></div>
-          </form>
-        {% endif %}
 
-        {# ===== ADMIN: crear profesorado ===== #}
         {% if action == "prof_new" %}
-          <h2>Nuevo profesorado</h2>
-          <p class="muted">Alta de un profesorado.</p>
+          <hr class="divider">
+          <h4>Nuevo profesorado</h4>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="prof_new">
             {{ profesorado_form.as_p }}
@@ -548,10 +269,9 @@
           </form>
         {% endif %}
 
-        {# ===== ADMIN: crear plan de estudios ===== #}
         {% if action == "plan_new" %}
-          <h2>Nuevo plan</h2>
-          <p class="muted">Crear plan de estudios para un profesorado.</p>
+          <hr class="divider">
+          <h4>Nuevo plan</h4>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="plan_new">
             {{ plan_form.as_p }}
@@ -559,26 +279,19 @@
           </form>
         {% endif %}
 
-        {# ===== ADMIN: renombrar entidades ===== #}
         {% if action == "admin_rename" %}
-          <h2>Renombrar</h2>
-          <p class="muted">Cambiar rótulos sin afectar IDs.</p>
-
-          <h4>Renombrar profesorado</h4>
+          <hr class="divider">
+          <h4>Renombrar</h4>
           <form method="post" style="margin-bottom:18px">{% csrf_token %}
             <input type="hidden" name="action" value="admin_rename_profesorado">
             {{ ren_profesorado_form.as_p }}
             <div class="submit"><button type="submit">Renombrar profesorado</button></div>
           </form>
-
-          <h4>Renombrar plan de estudios</h4>
           <form method="post" style="margin-bottom:18px">{% csrf_token %}
             <input type="hidden" name="action" value="admin_rename_plan">
             {{ ren_plan_form.as_p }}
             <div class="submit"><button type="submit">Renombrar plan</button></div>
           </form>
-
-          <h4>Renombrar espacio curricular</h4>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="admin_rename_espacio">
             {{ ren_espacio_form.as_p }}
@@ -586,55 +299,29 @@
           </form>
         {% endif %}
 
-        {# ===== ADMIN: eliminar entidades ===== #}
         {% if action == "admin_delete" %}
-          <h2>Eliminar</h2>
-          <p class="muted">Borrado o marcado inactivo si hay relaciones.</p>
-
-          <h4>Eliminar profesorado</h4>
-          <form method="post" onsubmit="return confirm('¿Eliminar profesorado? Esta acción no se puede deshacer.');" style="margin-bottom:14px">
-            {% csrf_token %}
+          <hr class="divider">
+          <h4>Eliminar</h4>
+          <form method="post" style="margin-bottom:14px">{% csrf_token %}
             <input type="hidden" name="action" value="admin_delete_profesorado">
             {{ del_profesorado_form.as_p }}
-            <button class="btn btn-danger" type="submit">🗑️ Eliminar profesorado</button>
+            <button class="btn" type="submit">🗑️ Eliminar profesorado</button>
           </form>
-
-          <h4>Eliminar plan de estudios</h4>
-          <form method="post" onsubmit="return confirm('¿Eliminar plan de estudios? Esta acción no se puede deshacer.');" style="margin-bottom:14px">
-            {% csrf_token %}
+          <form method="post" style="margin-bottom:14px">{% csrf_token %}
             <input type="hidden" name="action" value="admin_delete_plan">
             {{ del_plan_form.as_p }}
-            <button class="btn btn-danger" type="submit">🗑️ Eliminar plan</button>
+            <button class="btn" type="submit">🗑️ Eliminar plan</button>
           </form>
-
-          <h4>Eliminar espacio curricular</h4>
-          <form method="post" onsubmit="return confirm('¿Eliminar espacio curricular? Esta acción no se puede deshacer.');">
-            {% csrf_token %}
+          <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="admin_delete_espacio">
             {{ del_espacio_form.as_p }}
-            <button class="btn btn-danger" type="submit">🗑️ Eliminar espacio</button>
+            <button class="btn" type="submit">🗑️ Eliminar espacio</button>
           </form>
         {% endif %}
-
-        {% if action == "espacio_del_confirm" %}
-          <h2>{{ action_title }}</h2>
-          <p class="muted" style="margin-top:-6px">{{ action_subtitle }}</p>
-          <div class="msg" role="alert">
-            Estás por eliminar / archivar: <strong>{{ espacio_sel.nombre }}</strong> ({{ espacio_sel.profesorado }} – {{ espacio_sel.plan }})
-          </div>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="espacio_del_exec">
-            <input type="hidden" name="espacio" value="{{ espacio_sel.id }}">
-            <div class="submit">
-              <button type="submit">Confirmar eliminación</button>
-              <a href="{{ request.META.HTTP_REFERER }}" class="btn" style="margin-left: 10px;">Cancelar</a>
-            </div>
-          </form>
-        {% endif %}
-
       {% endif %}
     </main>
 
+    <!-- ================== LATERAL DERECHO ================== -->
     <aside class="right card">
       <h3 style="margin:0 0 8px">Profesorados disponibles</h3>
       {% if profesorados %}
@@ -642,170 +329,12 @@
           {% for p in profesorados %}
             <li><strong>{{ p.nombre }}</strong><br><span class="muted">Plan vigente: {{ p.plan_vigente }}</span></li>
           {% endfor %}
-        </ul> 
+        </ul>
       {% else %}
         <p class="muted">Sin profesorados visibles para tu rol.</p>
       {% endif %}
     </aside>
   </div>
 </div>
-
-<script>
-(function(){
-  // Mostrar/ocultar bloque de certificación + deshabilitar título secundario
-  const profSel = document.getElementById('{{ form.profesorado.id_for_label }}');
-  const bloqueCert = document.getElementById('bloque_cert');
-  const tituloSec = document.getElementById('{{ form.doc_titulo_sec_legalizado.id_for_label }}');
-
-  function isCert() {
-    const v = (profSel && profSel.options[profSel.selectedIndex]?.text || '').toLowerCase();
-    return v.includes('certificación') || v.includes('certificacion');
-  }
-  function applyCertUI() {
-    if(!profSel || !bloqueCert || !tituloSec) return;
-    if (isCert()) {
-      bloqueCert.classList.add('show');
-      const secInput = document.getElementById('{{ form.doc_titulo_sec_legalizado.id_for_label }}');
-      if (secInput) { secInput.disabled = true; secInput.checked = false; }
-    } else {
-      bloqueCert.classList.remove('show');
-      const secInput = document.getElementById('{{ form.doc_titulo_sec_legalizado.id_for_label }}');
-      if (secInput) { secInput.disabled = false; }
-    }
-  }
-  if (profSel) {
-    applyCertUI();
-    profSel.addEventListener('change', applyCertUI);
-  }
-
-  // “Completo” para Fotos/Folios: checkbox visible -> número oculto (2/0)
-  const fotosOk = document.getElementById('id_fotos_ok');
-  const foliosOk = document.getElementById('id_folios_ok');
-  const fotosNum = document.getElementById('{{ form.doc_fotos_carnet.id_for_label }}');
-  const foliosNum = document.getElementById('{{ form.doc_folios_oficio.id_for_label }}');
-
-  function syncCheckToNum(chk, num){
-    if(!chk || !num) return;
-    num.type = 'hidden';
-    chk.checked = (parseInt(num.value || '0', 10) >= 2);
-    chk.addEventListener('change', () => { num.value = chk.checked ? 2 : 0; });
-  }
-  syncCheckToNum(fotosOk, fotosNum);
-  syncCheckToNum(foliosOk, foliosNum);
-
-  // Adeuda materias: mostrar/ocultar "¿Cuáles?" y "Colegio"
-  const adeudaChk =
-    document.getElementById('{{ form.adeuda_materias.id_for_label }}') ||
-    document.querySelector('input[name="{{ form.adeuda_materias.html_name }}"]');
-  const adeudaExtras = document.querySelectorAll('.adeuda-extra');
-
-  function toggleAdeudaExtras(){
-    const show = !!(adeudaChk && adeudaChk.checked);
-    adeudaExtras.forEach(el => el.classList.toggle('show', show));
-    if(!show){
-      const detalle = document.getElementById('{{ form.adeuda_detalle.id_for_label }}');
-      const colegio = document.getElementById('{{ form.colegio.id_for_label }}');
-      if(detalle) detalle.value = '';
-      if(colegio) colegio.value = '';
-    }
-  }
-  toggleAdeudaExtras();
-  if (adeudaChk) adeudaChk.addEventListener('change', toggleAdeudaExtras);
-
-  // Auto-submit para el formulario de correlatividades al cambiar los selects dependientes.
-  const correlativasForm = document.getElementById('form-correlativas');
-  if (correlativasForm) {
-      const profesoradoSelect = document.getElementById('{{ sel_form.profesorado.id_for_label }}');
-      const planSelect = document.getElementById('{{ sel_form.plan.id_for_label }}');
-
-      if (profesoradoSelect) {
-          profesoradoSelect.addEventListener('change', () => {
-              correlativasForm.submit();
-          });
-      }
-      if (planSelect) {
-          planSelect.addEventListener('change', () => {
-              correlativasForm.submit();
-          });
-      }
-  }
-
-  // Seleccionar todo / ninguno en listas de checkboxes
-  window.bulkCheck = function(btn, checked) {
-    const id = btn.getAttribute('data-target');
-    document.querySelectorAll('#'+id+' input[type=checkbox]').forEach(cb => cb.checked = checked);
-  }
-  // Filtro rápido por texto
-  window.filterList = function(id, term) {
-    const q = (term||'').toLowerCase();
-    document.querySelectorAll('#'+id+' li').forEach(li => {
-      const txt = (li.textContent||'').toLowerCase();
-      li.style.display = txt.includes(q) ? '' : 'none';
-    });
-  }
-
-  // 🆕 UI dinámica para "Notas y condición"
-  const tipoSel = document.getElementById('{{ form.tipo.id_for_label }}');
-  const condSel = document.getElementById('{{ form.condicion.id_for_label }}');
-  const notaRow = document.getElementById('nota_row');
-  const notaHint = document.getElementById('nota_hint');
-  const notaSel = document.getElementById('{{ form.nota_num.id_for_label }}');
-  const finalExtras = document.getElementById('final_extras');
-  const folioLibro = document.getElementById('folio_libro_row');
-  const dispoRow = document.getElementById('dispo_row');
-  const dispoInput = document.getElementById('{{ form.disposicion_interna.id_for_label }}');
-  const ausenteChk = document.getElementById('{{ form.ausente.id_for_label }}');
-  const justChk = document.getElementById('{{ form.ausencia_justificada.id_for_label }}');
-
-  function ensure(el){ return !!el; }
-
-  function isFIN(){ return ensure(tipoSel) && tipoSel.value === 'FIN'; }
-  function isEquiv(){ return ensure(condSel) && condSel.value === 'Equivalencia'; }
-
-  function applyFinalExtras(){
-    if(!tipoSel) return;
-    const showFinal = isFIN();
-    if(finalExtras){ finalExtras.classList.toggle('hidden', !showFinal); }
-    if(folioLibro){ folioLibro.classList.toggle('hidden', !showFinal); }
-    // Nota: el hint de nota solo tiene sentido para FIN
-    if(notaHint){ notaHint.classList.toggle('hidden', !showFinal); }
-
-    // Si es FIN y marcan Ausente, deshabilitamos la nota
-    if(showFinal && ausenteChk && notaSel){
-      notaSel.disabled = ausenteChk.checked;
-      if(ausenteChk.checked){
-        // coloca vacío para que no se envíe valor
-        if(notaSel.tagName === 'SELECT'){ notaSel.selectedIndex = 0; }
-        else { notaSel.value = ''; }
-      }
-    }else if(notaSel){
-      notaSel.disabled = false;
-    }
-
-    // Disposición interna: solo visible y requerida en Equivalencia
-    if(dispoRow){ dispoRow.classList.toggle('hidden', !isEquiv()); }
-    if(dispoInput){ dispoInput.toggleAttribute('required', isEquiv()); }
-
-    // “Ausencia justificada” solo habilitado si Ausente
-    if(justChk && ausenteChk){
-      const enableJust = showFinal && ausenteChk.checked;
-      justChk.disabled = !enableJust;
-      if (!enableJust) justChk.checked = false;
-    }
-
-    // Si deja de ser FIN, limpiar flags
-    if(!showFinal){
-      if(ausenteChk) ausenteChk.checked = false;
-      if(justChk){ justChk.checked = false; justChk.disabled = true; }
-    }
-  }
-
-  if(tipoSel){ tipoSel.addEventListener('change', applyFinalExtras); }
-  if(condSel){ condSel.addEventListener('change', applyFinalExtras); }
-  if(ausenteChk){ ausenteChk.addEventListener('change', applyFinalExtras); }
-
-  applyFinalExtras();
-})();
-</script>
 </body>
 </html>
