@@ -99,6 +99,25 @@ def _safe_delete(obj, request):
         else:
             messages.error(request, "No se pudo eliminar porque existen registros relacionados.")
 
+def _ultimas_actividades(max_total: int = 2, max_login: int = 2):
+    """
+    Devuelve una lista de actividades recientes, limitando la cantidad de LOGIN a `max_login`.
+    Mantiene el orden por fecha descendente y completa con otros eventos hasta `max_total`.
+    """
+    # Traemos más de lo necesario para poder filtrar logins sin quedarnos cortos.
+    candidatos = Actividad.objects.order_by("-creado")[: max_total * 5]
+    salida = []
+    logins = 0
+    for ev in candidatos:
+        if ev.accion == "LOGIN":
+            if logins >= max_login:
+                continue
+            logins += 1
+        salida.append(ev)
+        if len(salida) >= max_total:
+            break
+    return salida
+
 # ----------------- Vista principal del panel -----------------
 
 @login_required
@@ -129,10 +148,10 @@ def panel(request):
         "rol": rol,
         "puede_editar": puede_editar,
         "puede_cargar": puede_editar,
-        "can_admin": _can_admin(request.user),   # <— usar en panel.html para ocultar bloques admin
+        "can_admin": _can_admin(request.user),   # usado en panel.html para ocultar bloques admin
         "action": action,
         "profesorados": _profes_visibles(request.user),
-        "events": Actividad.objects.order_by("-creado")[:20],
+        "events": _ultimas_actividades(2, 2),   # ⬅️ acá limitamos LOGIN a los últimos 2
         "logout_url": "/accounts/logout/",
         "login_url": "/accounts/login/",
     }
@@ -141,7 +160,8 @@ def panel(request):
 
     # Crear profesorado
     if action == "prof_new":
-        context["action_title"] = "Crear profesorado"
+        context["action_title"] = "Nuevo profesorado"
+        context["action_subtitle"] = "Alta de un profesorado."
         form = ProfesoradoCreateForm(request.POST or None)
         if request.method == "POST" and form.is_valid():
             prof = form.save()
@@ -152,7 +172,8 @@ def panel(request):
 
     # Crear plan
     if action == "plan_new":
-        context["action_title"] = "Crear plan de estudios"
+        context["action_title"] = "Nuevo plan"
+        context["action_subtitle"] = "Crear plan de estudios para un profesorado."
         form = PlanCreateForm(request.POST or None)
         if request.method == "POST" and form.is_valid():
             plan = form.save()
@@ -164,7 +185,8 @@ def panel(request):
     # Modificar / renombrar (3 subformularios)
     if action in {"admin_rename", "admin_rename_profesorado", "admin_rename_plan", "admin_rename_espacio"}:
         context["action"] = "admin_rename"
-        context["action_title"] = "Modificar / renombrar"
+        context["action_title"] = "Renombrar"
+        context["action_subtitle"] = "Cambiar rótulos sin afectar IDs."
 
         prof_form = RenombrarProfesoradoForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_rename_profesorado" else None)
         plan_form = RenombrarPlanForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_rename_plan" else request.GET or None)
@@ -195,6 +217,7 @@ def panel(request):
     if action in {"admin_delete", "admin_delete_profesorado", "admin_delete_plan", "admin_delete_espacio"}:
         context["action"] = "admin_delete"
         context["action_title"] = "Eliminar"
+        context["action_subtitle"] = "Borrado o marcado inactivo si hay relaciones."
 
         del_prof = DeleteProfesoradoForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_delete_profesorado" else None)
         del_plan = DeletePlanForm(request.POST if request.method == "POST" and request.POST.get("action") == "admin_delete_plan" else request.GET or None)
@@ -249,7 +272,8 @@ def panel(request):
 
             context.update({
                 "filtro_form": filtro_form, "espacios": lista, "espacio_form": esp_form, "editando": editar_id,
-                "action_title": "Gestionar espacios curriculares", "action_subtitle": "Listar, crear, renombrar o eliminar espacios de un plan",
+                "action_title": "Espacios del plan",
+                "action_subtitle": "Listar, crear, editar o borrar espacios del plan.",
             })
             return render(request, "panel.html", context)
 
@@ -270,12 +294,19 @@ def panel(request):
 
             context.update({
                 "sel_form": sel_form, "edit_form": edit_form, "espacio_sel": espacio,
-                "action_title": "Editar Correlatividades", "action_subtitle": "Definir qué materias se deben tener aprobadas para cursar/rendir",
+                "action_title": "Correlatividades",
+                "action_subtitle": "Definir requisitos CURSAR/RENDIR para cada materia.",
             })
             return render(request, "panel.html", context)
 
     # ----------------- Acciones de carga (Secretaría/Bedel) - Default -----------------
-    FormClass = {"cargar_mov": CargarMovimientoForm, "insc_prof": InscripcionProfesoradoForm, "insc_esp": InscripcionEspacioForm, "add_est": EstudianteForm}[action]
+    FormClass = {
+        "cargar_mov": CargarMovimientoForm,
+        "insc_prof": InscripcionProfesoradoForm,
+        "insc_esp": InscripcionEspacioForm,
+        "add_est": EstudianteForm,
+    }[action]
+
     wants_save = request.method == "POST" and request.POST.get("save") == "1"
     form = None
 
@@ -313,8 +344,19 @@ def panel(request):
         else:
             form = FormClass(data=request.POST or None, user=request.user)
 
-    action_titles = {"cargar_mov": "Regularidad y final", "insc_prof": "Inscripción a profesorado", "insc_esp": "Inscripción a materia", "add_est": "Alta de estudiante"}
-    action_subtitles = {"cargar_mov": "Registrar un <strong>movimiento</strong>", "insc_prof": "Vínculo Estudiante ↔ Profesorado + legajo", "insc_esp": "Cursada por año", "add_est": "Carga rápida de datos básicos"}
+    # Títulos y descripciones cortas alineadas con los botones
+    action_titles = {
+        "cargar_mov": "Notas y condición",
+        "insc_prof": "Inscribir a carrera",
+        "insc_esp": "Inscribir a materia",
+        "add_est":   "Nuevo estudiante",
+    }
+    action_subtitles = {
+        "cargar_mov": "Registrar regularidad o final con validaciones.",
+        "insc_prof": "Alta de inscripción al profesorado.",
+        "insc_esp":  "Sólo muestra materias habilitadas por correlativas.",
+        "add_est":   "Carga básica de datos personales.",
+    }
     context.update({
         "form": form,
         "bloquear_guardar": (not puede_editar) and (action in {"cargar_mov", "insc_prof", "insc_esp", "add_est"}),
@@ -326,8 +368,5 @@ def panel(request):
 
 # Alias para compatibilidad con URLs antiguas:
 def panel_home(request, *args, **kwargs):
-    """
-    Entrada compatible: reusa la vista principal 'panel' para
-    rutas antiguas que apuntaban a 'panel_home'.
-    """
+    """Entrada compatible: reusa la vista principal 'panel' para rutas antiguas."""
     return panel(request, *args, **kwargs)

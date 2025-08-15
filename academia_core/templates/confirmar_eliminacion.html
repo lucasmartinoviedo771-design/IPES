@@ -1,9 +1,8 @@
-{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Confirmar eliminación</title>
+  <title>{{ titulo|default:"Confirmar eliminación" }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body{font:16px/1.5 Inter,system-ui,Arial,sans-serif;background:#ebd4c5;margin:0}
@@ -18,13 +17,22 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h2 style="margin-top:0">Eliminar estudiante</h2>
-      <p class="muted">¿Confirmás que deseas eliminar a <strong>{{ object.apellido }}, {{ object.nombre }}</strong> (DNI {{ object.dni }})?</p>
+      <h2 style="margin-top:0">{{ titulo|default:"Confirmar eliminación" }}</h2>
+
+      <p class="muted">
+        ¿Confirmás que deseás eliminar
+        <strong>{{ rotulo|default:object }}</strong>?
+      </p>
 
       <form method="post" style="display:inline-block;margin-right:8px">{% csrf_token %}
         <button class="btn btn-danger" type="submit">Sí, eliminar</button>
       </form>
-      <a class="btn" href="{% url 'listado_alumnos' %}">Cancelar</a>
+
+      {% if cancel_url %}
+        <a class="btn" href="{{ cancel_url }}">Cancelar</a>
+      {% else %}
+        <a class="btn" href="javascript:history.back()">Cancelar</a>
+      {% endif %}
     </div>
   </div>
 </body>

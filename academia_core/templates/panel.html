@@ -32,7 +32,6 @@
 
    .wrap{ max-width:1400px; margin:0 auto; padding:20px }
 
-   /* Top bar */
    .topbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:var(--gap) }
    .btn{
     background:#fff; border:1px solid var(--card-b); color:var(--green-600);
@@ -75,7 +74,6 @@
    }
    .actions a.cta:hover{ background:var(--orange-600); border-color:#d37517 }
 
-   /* Inputs */
    input,select,textarea{
     background:#fff; border:1px solid #d9e0e4; border-radius:12px;
     padding:10px 12px; width:100%; color:var(--ink); font-family:inherit
@@ -100,7 +98,6 @@
    .msg{ margin:8px 0; padding:12px 14px; border-radius:12px; background:#f1f5f2; border:1px solid var(--card-b) }
    .msg[role="alert"]{ background:#fff1ec; border-color:#f6cbb1 }
 
-   /* Grillas reutilizables */
    .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
    .row-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px }
    @media (max-width:900px){ .row-2,.row-3{ grid-template-columns:1fr } }
@@ -110,19 +107,16 @@
    .check-card label{ margin:0; color:var(--ink); font-weight:600; text-align:left }
    .tiny{ font-size:12px; color:var(--muted); margin-top:4px }
 
-   /* Condicionales */
    .only-cert{ display:none }
    .show{ display:block }
    .adeuda-extra{ display:none }
    .adeuda-extra.show{ display:block }
 
-   /* Barra de controles (correlatividades) */
    .ctrlbar{ display:flex; gap:8px; align-items:center; margin:6px 0 8px }
    .ctrlbar input[type="text"]{ max-width:260px }
    .ctrlbar .mini{ padding:6px 10px; border-radius:10px; border:1px solid var(--card-b); background:#fff }
    .ctrlbar .mini:hover{ background:#f2f7f4 }
 
-   /* Correlatividades: grilla + tarjetas */
    .checkboxselectmultiple,
    #id_cursar_regularizadas,
    #id_cursar_aprobadas,
@@ -158,7 +152,7 @@
 
   {% if can_admin %}
   <div class="topbar" style="justify-content: flex-start;">
-    <a class="btn" href="?action=espacio_new">Nuevo espacio</a>
+    <a class="btn" href="?action=espacios_admin">Editar espacios del plan</a>
     <a class="btn" href="?action=correlativas">Correlatividades</a>
   </div>
   {% endif %}
@@ -185,24 +179,24 @@
     <aside class="left card">
       <h3 style="margin:0 0 8px">Acciones</h3>
       <nav class="actions">
-        <a href="?action=add_est"  class="{% if action == 'add_est' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Agregar estudiante</a>
-        <a href="?action=insc_prof" class="{% if action == 'insc_prof' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a profesorado</a>
+        <a href="?action=add_est"  class="{% if action == 'add_est' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Nuevo estudiante</a>
+        <a href="?action=insc_prof" class="{% if action == 'insc_prof' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a carrera</a>
         <a href="?action=insc_esp"  class="{% if action == 'insc_esp' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Inscribir a materia</a>
-        <a href="?action=cargar_mov" class="{% if action == 'cargar_mov' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Regularidad y final</a>
+        <a href="?action=cargar_mov" class="{% if action == 'cargar_mov' %}active{% endif %}{% if not puede_cargar %} disabled{% endif %}">Notas y condición</a>
 
         {% if can_admin %}
         <hr style="border:none;border-top:1px solid var(--card-b);margin:8px 0;">
-        <a href="?action=espacio_new" class="{% if action == 'espacio_new' %}active{% endif %}">Nuevo espacio</a>
+        <a href="?action=espacios_admin" class="{% if action == 'espacios_admin' %}active{% endif %}">Editar espacios del plan</a>
         <a href="?action=correlativas" class="{% if action == 'correlativas' %}active{% endif %}">Correlatividades</a>
 
         <!-- 🆕 Botones de administración -->
-        <a href="?action=prof_new" class="{% if action == 'prof_new' %}active{% endif %}">Crear profesorado</a>
-        <a href="?action=plan_new" class="{% if action == 'plan_new' %}active{% endif %}">Crear plan de estudios</a>
-        <a href="?action=admin_rename" class="{% if action == 'admin_rename' %}active{% endif %}">Modificar (renombrar)</a>
+        <a href="?action=prof_new" class="{% if action == 'prof_new' %}active{% endif %}">Nuevo profesorado</a>
+        <a href="?action=plan_new" class="{% if action == 'plan_new' %}active{% endif %}">Nuevo plan</a>
+        <a href="?action=admin_rename" class="{% if action == 'admin_rename' %}active{% endif %}">Renombrar</a>
         <a href="?action=admin_delete" class="{% if action == 'admin_delete' %}active{% endif %}">Eliminar</a>
         {% endif %}
 
-        <a href="mailto:soporte@ejemplo.edu?subject=Reporte%20de%20bug">Reporte de bug</a>
+        <a href="mailto:soporte@ejemplo.edu?subject=Reporte%20de%20bug">Reportar bug</a>
       </nav>
 
       {% if events %}
@@ -387,109 +381,61 @@
         {% endif %}
       {% else %}
 
-        {# ===== LISTA DE ALUMNOS (CBV) ===== #}
-        {% if action == "alumnos_list" %}
-          <form method="get" class="ctrlbar">
-            <input type="text" name="busqueda" placeholder="Buscar apellido, nombre, DNI o email" value="{{ busqueda }}">
-            <button class="mini" type="submit">Buscar</button>
-            {% if busqueda %}<a class="mini" href="?">Limpiar</a>{% endif %}
+        {# ===== ADMIN: Espacios del plan ===== #}
+        {% if action == "espacios_admin" %}
+          <h2>Editar espacios del plan</h2>
+          <p class="muted">Listar, crear, editar o borrar espacios del plan.</p>
+
+          <form method="get" class="card" style="margin-bottom:12px">
+            <input type="hidden" name="action" value="espacios_admin">
+            {{ filtro_form.as_p }}
+            <div class="submit"><button class="btn" type="submit">Filtrar</button></div>
           </form>
 
-          {% if alumnos %}
-            <table style="width:100%; border-collapse:collapse; margin-top:8px">
-              <thead>
-                <tr>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">DNI</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Apellido y Nombre</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Email</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Activo</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
-                </tr>
-              </thead>
+          {% if espacios %}
+            <table style="width:100%; border-collapse:collapse; margin:10px 0 14px">
+              <thead><tr>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Año</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Nombre</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Horas</th>
+                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
+              </tr></thead>
               <tbody>
-                {% for a in alumnos %}
+              {% for e in espacios %}
                 <tr>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.dni }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.apellido }}, {{ a.nombre }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.email|default:"—" }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ a.activo|yesno:"Sí,No" }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.anio }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.nombre }}</td>
+                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.horas }}</td>
                   <td style="padding:8px; border-bottom:1px solid var(--card-b)">
-                    <a href="{% url 'modificar_alumno' a.pk %}">Editar</a> ·
-                    <a href="{% url 'eliminar_alumno' a.pk %}">Eliminar</a>
+                    <a class="btn" href="?action=espacios_admin&edit={{ e.id }}&profesorado={{ e.profesorado_id }}&plan={{ e.plan_id }}">Editar</a>
+                    <form method="post" action="" style="display:inline-block" onsubmit="return confirm('¿Eliminar este espacio?');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="espacios_admin">
+                      <input type="hidden" name="op" value="delete">
+                      <input type="hidden" name="id" value="{{ e.id }}">
+                      <button class="btn btn-danger" type="submit">Eliminar</button>
+                    </form>
                   </td>
                 </tr>
-                {% endfor %}
+              {% endfor %}
               </tbody>
             </table>
-
-            {% if is_paginated %}
-              <div class="ctrlbar" style="justify-content:flex-end; margin-top:12px">
-                {% if page_obj.has_previous %}
-                  <a class="mini" href="?page={{ page_obj.previous_page_number }}&busqueda={{ busqueda|urlencode }}">‹ Anterior</a>
-                {% endif %}
-                <span class="muted">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-                {% if page_obj.has_next %}
-                  <a class="mini" href="?page={{ page_obj.next_page_number }}&busqueda={{ busqueda|urlencode }}">Siguiente ›</a>
-                {% endif %}
-              </div>
-            {% endif %}
-          {% else %}
-            <p class="muted" style="margin-top:8px">No hay alumnos para mostrar.</p>
           {% endif %}
-        {% endif %}
 
-        {# ===== LISTA DE DOCENTES (CBV) ===== #}
-        {% if action == "doc_list" %}
-          <form method="get" class="ctrlbar">
-            <input type="text" name="busqueda" placeholder="Buscar apellido, nombre, DNI o email" value="{{ busqueda }}">
-            <button class="mini" type="submit">Buscar</button>
-            {% if busqueda %}<a class="mini" href="?">Limpiar</a>{% endif %}
+          <h3 style="margin-top:18px">{% if editando %}Editar espacio{% else %}Crear espacio{% endif %}</h3>
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="espacios_admin">
+            <input type="hidden" name="op" value="save">
+            {% if editando %}<input type="hidden" name="id" value="{{ editando }}">{% endif %}
+            {{ espacio_form.as_p }}
+            <div class="submit"><button type="submit">Guardar</button></div>
           </form>
-
-          {% if docentes %}
-            <table style="width:100%; border-collapse:collapse; margin-top:8px">
-              <thead>
-                <tr>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">DNI</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Apellido y Nombre</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Email</th>
-                  <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for d in docentes %}
-                <tr>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.dni }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.apellido }}, {{ d.nombre }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ d.email|default:"—" }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">
-                    <a href="{% url 'modificar_docente' d.pk %}">Editar</a> ·
-                    <a href="{% url 'eliminar_docente' d.pk %}">Eliminar</a>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-
-            {% if is_paginated %}
-              <div class="ctrlbar" style="justify-content:flex-end; margin-top:12px">
-                {% if page_obj.has_previous %}
-                  <a class="mini" href="?page={{ page_obj.previous_page_number }}&busqueda={{ busqueda|urlencode }}">‹ Anterior</a>
-                {% endif %}
-                <span class="muted">Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
-                {% if page_obj.has_next %}
-                  <a class="mini" href="?page={{ page_obj.next_page_number }}&busqueda={{ busqueda|urlencode }}">Siguiente ›</a>
-                {% endif %}
-              </div>
-            {% endif %}
-          {% else %}
-            <p class="muted" style="margin-top:8px">No hay docentes para mostrar.</p>
-          {% endif %}
         {% endif %}
 
         {# ===== ADMIN: correlativas ===== #}
         {% if action == "correlativas" %}
-          <h2>Editor de correlatividades (admin)</h2>
+          <h2>Correlatividades</h2>
+          <p class="muted">Definir requisitos CURSAR/RENDIR para cada materia.</p>
           <form method="get" id="form-correlativas">
               <input type="hidden" name="action" value="correlativas">
               
@@ -519,29 +465,6 @@
                 ID: {{ espacio_sel.id }} · Año: {{ espacio_sel.anio }} ·
                 {% if espacio_sel.cuatrimestre %}Cuatr.: {{ espacio_sel.cuatrimestre }} ·{% endif %}
                 Horas: {{ espacio_sel.horas }}
-              </div>
-              <div style="text-align:right; display:flex; gap:8px; justify-content:flex-end">
-                <a class="btn" href="?action=espacio_edit&profesorado={{ espacio_sel.profesorado_id }}&plan={{ espacio_sel.plan_id }}&espacio={{ espacio_sel.id }}">
-                  ✏️ Editar
-                </a>
-          
-                <form method="post" action="" onsubmit="return confirm('¿Duplicar este espacio?');">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="espacio_dup">
-                  <input type="hidden" name="profesorado" value="{{ espacio_sel.profesorado_id }}">
-                  <input type="hidden" name="plan" value="{{ espacio_sel.plan_id }}">
-                  <input type="hidden" name="espacio" value="{{ espacio_sel.id }}">
-                  <button class="btn" type="submit">🧬 Duplicar</button>
-                </form>
-          
-                <form method="post" action="" onsubmit="return confirm('¿Eliminar / archivar este espacio?');">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="espacio_del">
-                  <input type="hidden" name="profesorado" value="{{ espacio_sel.profesorado_id }}">
-                  <input type="hidden" name="plan" value="{{ espacio_sel.plan_id }}">
-                  <input type="hidden" name="espacio" value="{{ espacio_sel.id }}">
-                  <button class="btn" type="submit" style="border-color:#f3c2bb; color:#8b2a21">🗑️ Eliminar</button>
-                </form>
               </div>
             </div>
             {% if edit_form.non_field_errors %}<div class="msg" role="alert">{{ edit_form.non_field_errors }}</div>{% endif %}
@@ -582,7 +505,7 @@
           {% endif %}
         {% endif %}
         
-        {# ===== ADMIN: crear/editar espacio ===== #}
+        {# ===== ADMIN: crear/editar espacio (legacy) ===== #}
         {% if action == "espacio_new" or action == "espacio_edit" %}
           <h2>{{ action_title }}</h2>
           {% if action_subtitle %}<p class="muted">{{ action_subtitle }}</p>{% endif %}
@@ -594,10 +517,10 @@
           </form>
         {% endif %}
 
-        {# ===== 🆕 ADMIN: crear profesorado ===== #}
+        {# ===== ADMIN: crear profesorado ===== #}
         {% if action == "prof_new" %}
-          <h2>Crear profesorado (admin)</h2>
-          <p class="muted">Alta de un nuevo profesorado.</p>
+          <h2>Nuevo profesorado</h2>
+          <p class="muted">Alta de un profesorado.</p>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="prof_new">
             {{ profesorado_form.as_p }}
@@ -605,10 +528,10 @@
           </form>
         {% endif %}
 
-        {# ===== 🆕 ADMIN: crear plan de estudios ===== #}
+        {# ===== ADMIN: crear plan de estudios ===== #}
         {% if action == "plan_new" %}
-          <h2>Crear plan de estudios (admin)</h2>
-          <p class="muted">Seleccioná el profesorado y completá los datos del plan.</p>
+          <h2>Nuevo plan</h2>
+          <p class="muted">Crear plan de estudios para un profesorado.</p>
           <form method="post">{% csrf_token %}
             <input type="hidden" name="action" value="plan_new">
             {{ plan_form.as_p }}
@@ -616,10 +539,10 @@
           </form>
         {% endif %}
 
-        {# ===== 🆕 ADMIN: renombrar entidades ===== #}
+        {# ===== ADMIN: renombrar entidades ===== #}
         {% if action == "admin_rename" %}
-          <h2>Modificar / renombrar (admin)</h2>
-          <p class="muted">Seleccioná el elemento y cambiá el nombre. Los datos vinculados se mantienen (IDs no cambian).</p>
+          <h2>Renombrar</h2>
+          <p class="muted">Cambiar rótulos sin afectar IDs.</p>
 
           <h4>Renombrar profesorado</h4>
           <form method="post" style="margin-bottom:18px">{% csrf_token %}
@@ -643,10 +566,10 @@
           </form>
         {% endif %}
 
-        {# ===== 🆕 ADMIN: eliminar entidades ===== #}
+        {# ===== ADMIN: eliminar entidades ===== #}
         {% if action == "admin_delete" %}
-          <h2>Eliminar (admin)</h2>
-          <p class="muted">Podés borrar un profesorado, un plan o un espacio. <strong>Precaución:</strong> si hay datos relacionados, tu vista deberá hacer <em>soft delete</em> o bloquear.</p>
+          <h2>Eliminar</h2>
+          <p class="muted">Borrado o marcado inactivo si hay relaciones.</p>
 
           <h4>Eliminar profesorado</h4>
           <form method="post" onsubmit="return confirm('¿Eliminar profesorado? Esta acción no se puede deshacer.');" style="margin-bottom:14px">
