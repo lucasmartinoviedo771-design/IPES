@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Mis espacios – Docente</title>
+  <style>
+    body{font-family:Arial, sans-serif;margin:20px}
+    h1{margin:0 0 12px 0}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border:1px solid #ddd;padding:6px 8px}
+    th{background:#f5f5f5;text-align:left}
+    .btn{border:1px solid #999;background:#f8f8f8;padding:4px 8px;border-radius:6px;text-decoration:none;color:#111}
+    .btn:hover{background:#eee}
+    .center{text-align:center}
+    .muted{color:#666;font-size:13px}
+  </style>
+</head>
+<body>
+  <h1>Mis espacios – {{ docente.apellido }}, {{ docente.nombre }}</h1>
+
+  {% if asignaciones %}
+    <table>
+      <thead>
+        <tr>
+          <th style="width:220px;">Profesorado</th>
+          <th style="width:90px;">Año</th>
+          <th style="width:100px;">Cuatr.</th>
+          <th>Espacio</th>
+          <th style="width:130px;">Plan</th>
+          <th style="width:110px;">Alumnos</th>
+          <th style="width:120px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in asignaciones %}
+          <tr>
+            <td>{{ a.espacio.profesorado.nombre }}</td>
+            <td class="center">{{ a.espacio.anio }}</td>
+            <td class="center">{{ a.espacio.cuatrimestre }}</td>
+            <td>{{ a.espacio.nombre }}</td>
+            <td>{% if a.espacio.plan %}Res. {{ a.espacio.plan.resolucion }}{% else %}—{% endif %}</td>
+            <td class="center">{{ a.alumnos_count }}</td>
+            <td>
+              <a class="btn" href="{% url 'docente_espacio_detalle' a.espacio.id %}">Ver alumnos</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:8px">El conteo muestra alumnos con movimientos (REG/FIN) en el espacio.</p>
+  {% else %}
+    <p>No tenés espacios asignados.</p>
+  {% endif %}
+</body>
+</html>

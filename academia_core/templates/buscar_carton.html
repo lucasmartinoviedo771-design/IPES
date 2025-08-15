@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Buscar cartón – Primaria</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#ffffff; --txt:#0f172a; --muted:#64748b; --line:#e2e8f0; --pri:#2563eb; --pri-600:#1d4ed8;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial; color:var(--txt); background:var(--bg);}
+    .wrap{max-width:900px; margin:56px auto; padding:0 20px;}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; box-shadow:0 4px 14px rgba(15,23,42,.06);}
+    h1{margin:0 0 6px 0; font-size:26px; letter-spacing:.2px;}
+    .muted{color:var(--muted); margin:0 0 22px 0}
+    form{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap}
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+    input[type="text"]{
+      width:260px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px; outline:none;
+    }
+    input[type="text"]:focus{border-color:var(--pri)}
+    .btn{
+      appearance:none; border:1px solid var(--pri); background:var(--pri); color:#fff; padding:10px 14px; border-radius:10px;
+      font-weight:600; cursor:pointer;
+    }
+    .btn:hover{background:var(--pri-600); border-color:var(--pri-600)}
+    .row{display:flex; gap:16px; align-items:center; margin-top:16px}
+    .link{color:var(--pri); text-decoration:none}
+    .link:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Cartón de Educación Primaria</h1>
+      <p class="muted">Ingresá el DNI del estudiante para ver el cartón académico.</p>
+
+      <!-- Importante: método GET y name="dni" (la vista lo espera así) -->
+      <form action="{% url 'buscar_carton_primaria' %}" method="get">
+        <div>
+          <label for="dni">DNI del estudiante</label>
+          <input id="dni" name="dni" type="text" inputmode="numeric" pattern="[0-9]{6,12}" placeholder="Ej: 40000002" required>
+        </div>
+        <button class="btn" type="submit">Ver cartón</button>
+      </form>
+
+      <div class="row">
+        <a class="link" href="{% url 'panel_home' %}">← Volver al panel</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // foco automático
+    document.getElementById('dni').focus();
+  </script>
+</body>
+</html>
