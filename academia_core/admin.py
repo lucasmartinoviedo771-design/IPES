@@ -1,9 +1,12 @@
+from datetime import date
+
 from django.contrib import admin
 from django.utils.html import format_html
+from django.db.models import Count, Q
 
 from .models import (
     Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
-    EspacioCurricular, Movimiento,
+    EspacioCurricular, Movimiento, InscripcionEspacio,   # ← agregado InscripcionEspacio
     Docente, DocenteEspacio, UserProfile,
 )
 
@@ -87,7 +90,10 @@ class PlanEstudiosAdmin(admin.ModelAdmin):
 
 @admin.register(Estudiante)
 class EstudianteAdmin(admin.ModelAdmin):
-    list_display = ("apellido", "nombre", "dni", "email", "telefono", "localidad", "activo")
+    list_display = (
+        "apellido", "nombre", "dni", "email", "telefono", "localidad", "activo",
+        "materias_total", "materias_anio_actual", "materias_en_curso",
+    )
     search_fields = ("apellido", "nombre", "dni", "email")
     list_filter = ("activo",)
     list_per_page = 25
@@ -97,7 +103,39 @@ class EstudianteAdmin(admin.ModelAdmin):
         profs = _profesorados_permitidos(request)
         if not request.user.is_superuser and profs.exists():
             qs = qs.filter(inscripciones__profesorado__in=profs).distinct()
+
+        # Anotaciones de conteo (no cambian el esquema)
+        anio_actual = date.today().year
+        qs = qs.annotate(
+            _mat_total=Count("inscripciones__cursadas__espacio", distinct=True),
+            _mat_anio=Count(
+                "inscripciones__cursadas",
+                filter=Q(inscripciones__cursadas__anio_academico=anio_actual),
+                distinct=True,
+            ),
+            _mat_en_curso=Count(
+                "inscripciones__cursadas",
+                filter=Q(inscripciones__cursadas__estado="EN_CURSO"),
+                distinct=True,
+            ),
+        )
         return qs
+
+    # Columnas calculadas
+    def materias_total(self, obj):
+        return getattr(obj, "_mat_total", 0)
+    materias_total.short_description = "Materias (total)"
+    materias_total.admin_order_field = "_mat_total"
+
+    def materias_anio_actual(self, obj):
+        return getattr(obj, "_mat_anio", 0)
+    materias_anio_actual.short_description = f"Materias ({date.today().year})"
+    materias_anio_actual.admin_order_field = "_mat_anio"
+
+    def materias_en_curso(self, obj):
+        return getattr(obj, "_mat_en_curso", 0)
+    materias_en_curso.short_description = "Materias (en curso)"
+    materias_en_curso.admin_order_field = "_mat_en_curso"
 
     # Solo-lectura para TUTOR / DOCENTE / ESTUDIANTE
     def has_add_permission(self, request):
@@ -184,9 +222,9 @@ class EPAdmin(admin.ModelAdmin):
     readonly_fields = ("legajo_estado", "promedio_general")
     autocomplete_fields = ("estudiante", "profesorado")
     list_per_page = 25
-
     inlines = [MovimientoInline]
     actions = ["recalcular_promedios", "recalcular_legajo_estado"]
+    list_select_related = ("estudiante", "profesorado")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -235,6 +273,48 @@ class EPAdmin(admin.ModelAdmin):
     recalcular_legajo_estado.short_description = "Recalcular estado de legajo"
 
 
+# ===================== Cursadas (Inscripción a espacios) =====================
+
+@admin.register(InscripcionEspacio)
+class InscripcionEspacioAdmin(admin.ModelAdmin):
+    list_display = ("estudiante", "profesorado", "espacio", "anio_academico", "estado", "fecha")
+    list_filter = ("anio_academico", "estado", "espacio__profesorado", "espacio__anio", "espacio__cuatrimestre")
+    search_fields = ("inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre")
+    autocomplete_fields = ("inscripcion", "espacio")
+    date_hierarchy = "fecha"
+    ordering = ("-anio_academico", "-fecha", "-id")
+    list_per_page = 50
+    list_select_related = ("inscripcion__estudiante", "inscripcion__profesorado", "espacio")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related(
+            "inscripcion__estudiante", "inscripcion__profesorado", "espacio"
+        )
+        profs = _profesorados_permitidos(request)
+        if not request.user.is_superuser and profs.exists():
+            qs = qs.filter(espacio__profesorado__in=profs)
+        return qs
+
+    # columnas helper
+    def estudiante(self, obj):
+        return obj.inscripcion.estudiante
+    estudiante.admin_order_field = "inscripcion__estudiante__apellido"
+
+    def profesorado(self, obj):
+        return obj.inscripcion.profesorado
+    profesorado.admin_order_field = "inscripcion__profesorado__nombre"
+
+    # Solo-lectura para TUTOR / DOCENTE / ESTUDIANTE
+    def has_add_permission(self, request):
+        return False if _solo_lectura(request) else super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return False if _solo_lectura(request) else super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False if _solo_lectura(request) else super().has_delete_permission(request, obj)
+
+
 # ===================== Movimientos =====================
 
 @admin.register(Movimiento)
@@ -260,6 +340,7 @@ class MovimientoAdmin(admin.ModelAdmin):
     ordering = ("-fecha", "-id")
     autocomplete_fields = ("inscripcion", "espacio")
     list_per_page = 50
+    list_select_related = ("inscripcion__estudiante", "inscripcion__profesorado", "espacio")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -394,8 +475,9 @@ class UserProfileAdmin(admin.ModelAdmin):
             return True
         return _rol(request) == "SECRETARIA"
 
+
 # --- Correlatividades ---
-from .models import Correlatividad  # <-- import
+from .models import Correlatividad  # (lo dejamos separado para respetar tu organización)
 
 @admin.register(Correlatividad)
 class CorrelatividadAdmin(admin.ModelAdmin):

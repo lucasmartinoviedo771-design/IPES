@@ -92,6 +92,36 @@ class Estudiante(models.Model):
         except Exception:
             return ""
 
+    # --- Accesos convenientes a materias/inscripciones del alumno (NO cambian el esquema) ---
+    @property
+    def cursadas_qs(self):
+        """
+        QuerySet de InscripcionEspacio del alumno (con select_related).
+        Útil para filtrar por año académico, espacio, estado, etc.
+        """
+        from .models import InscripcionEspacio  # import local para evitar ciclos
+        return (
+            InscripcionEspacio.objects
+            .filter(inscripcion__estudiante=self)
+            .select_related('espacio', 'inscripcion', 'inscripcion__profesorado')
+        )
+
+    @property
+    def espacios_qs(self):
+        """
+        QuerySet de EspacioCurricular que cursó/inscribe (cualquier año). DISTINCT para evitar duplicados.
+        """
+        from .models import EspacioCurricular
+        return (
+            EspacioCurricular.objects
+            .filter(cursadas__inscripcion__estudiante=self)
+            .distinct()
+        )
+
+    def espacios_en_anio(self, anio_academico: int):
+        """Materias del alumno en un año académico dado."""
+        return self.espacios_qs.filter(cursadas__anio_academico=anio_academico)
+
 
 # --- EstudianteProfesorado --------------------------------------------------
 class EstudianteProfesorado(models.Model):
@@ -265,6 +295,14 @@ class EspacioCurricular(models.Model):
     def __str__(self):
         # Muestra el label del choice, no el código ('1','2','A')
         return f"{self.anio} {self.get_cuatrimestre_display()} - {self.nombre}"
+
+    @property
+    def anio_num(self) -> int:
+        """Devuelve el año como número para ordenamientos robustos."""
+        try:
+            return int(''.join(ch for ch in self.anio if ch.isdigit()))
+        except Exception:
+            return 0
 
 
 # ===================== Correlatividades =====================
@@ -510,6 +548,10 @@ class InscripcionEspacio(models.Model):
     class Meta:
         ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
         unique_together = [("inscripcion", "espacio", "anio_academico")]
+        # Índice útil para consultas por alumno + año académico
+        indexes = [
+            models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
+        ]
 
     def clean(self):
         if self.inscripcion and self.espacio and \
