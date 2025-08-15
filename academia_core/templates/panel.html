@@ -140,6 +140,10 @@
    #id_cursar_regularizadas li label input[type="checkbox"],
    #id_cursar_aprobadas li label input[type="checkbox"],
    #id_rendir_aprobadas li label input[type="checkbox"]{ margin-left:auto; }
+
+   /* 🆕 ayudas visuales */
+   .hint{ font-size:12px; color:var(--muted); margin:6px 0 0 }
+   .hidden{ display:none !important; }
   </style>
 </head>
 <body>
@@ -240,14 +244,30 @@
               </div>
 
               <div>{{ form.condicion.label_tag }}{{ form.condicion }}{{ form.condicion.errors }}</div>
-              <div>{{ form.nota_num.label_tag }}{{ form.nota_num }}{{ form.nota_num.errors }}</div>
 
-              <div class="row-2">
+              <div id="nota_row">
+                {{ form.nota_num.label_tag }}{{ form.nota_num }}{{ form.nota_num.errors }}
+                <div id="nota_hint" class="hint hidden">Para <strong>Final por Regularidad</strong> la nota mínima es 6; si hubo ausencia, marcá <em>Ausente</em>.</div>
+              </div>
+
+              <div class="row-2 final-only" id="final_extras">
+                <div class="check-card">
+                  {{ form.ausente }} <label for="{{ form.ausente.id_for_label }}">Ausente</label>
+                </div>
+                <div class="check-card">
+                  {{ form.ausencia_justificada }} <label for="{{ form.ausencia_justificada.id_for_label }}">Ausencia justificada</label>
+                </div>
+              </div>
+
+              <div class="row-2 final-only" id="folio_libro_row">
                 <div>{{ form.folio.label_tag }}{{ form.folio }}{{ form.folio.errors }}</div>
                 <div>{{ form.libro.label_tag }}{{ form.libro }}{{ form.libro.errors }}</div>
               </div>
 
-              <div>{{ form.disposicion_interna.label_tag }}{{ form.disposicion_interna }}{{ form.disposicion_interna.errors }}</div>
+              <div id="dispo_row">
+                {{ form.disposicion_interna.label_tag }}{{ form.disposicion_interna }}{{ form.disposicion_interna.errors }}
+                <div id="dispo_hint" class="hint hidden">Requerido sólo si la condición es <strong>Equivalencia</strong>.</div>
+              </div>
 
             {# =================== INSCRIPCIÓN A PROFESORADO =================== #}
             {% elif action == 'insc_prof' %}
@@ -723,6 +743,54 @@
       li.style.display = txt.includes(q) ? '' : 'none';
     });
   }
+
+  // 🆕 UI dinámica para "Notas y condición"
+  const tipoSel = document.getElementById('{{ form.tipo.id_for_label }}');
+  const condSel = document.getElementById('{{ form.condicion.id_for_label }}');
+  const notaRow = document.getElementById('nota_row');
+  const notaHint = document.getElementById('nota_hint');
+  const notaSel = document.getElementById('{{ form.nota_num.id_for_label }}');
+  const finalExtras = document.getElementById('final_extras');
+  const folioLibro = document.getElementById('folio_libro_row');
+  const dispoRow = document.getElementById('dispo_row');
+  const dispoInput = document.getElementById('{{ form.disposicion_interna.id_for_label }}');
+  const ausenteChk = document.getElementById('{{ form.ausente.id_for_label }}');
+  const justChk = document.getElementById('{{ form.ausencia_justificada.id_for_label }}');
+
+  function ensure(el){ return !!el; }
+
+  function isFIN(){ return ensure(tipoSel) && tipoSel.value === 'FIN'; }
+  function isEquiv(){ return ensure(condSel) && condSel.value === 'Equivalencia'; }
+
+  function applyFinalExtras(){
+    if(!tipoSel) return;
+    const showFinal = isFIN();
+    if(finalExtras){ finalExtras.classList.toggle('hidden', !showFinal); }
+    if(folioLibro){ folioLibro.classList.toggle('hidden', !showFinal); }
+    // Nota: el hint de nota solo tiene sentido para FIN
+    if(notaHint){ notaHint.classList.toggle('hidden', !showFinal); }
+
+    // Si es FIN y marcan Ausente, deshabilitamos la nota
+    if(showFinal && ausenteChk && notaSel){
+      notaSel.disabled = ausenteChk.checked;
+      if(ausenteChk.checked){
+        // coloca vacío para que no se envíe valor
+        if(notaSel.tagName === 'SELECT'){ notaSel.selectedIndex = 0; }
+        else { notaSel.value = ''; }
+      }
+    }else if(notaSel){
+      notaSel.disabled = false;
+    }
+
+    // Disposición interna: solo visible en Equivalencia
+    if(dispoRow){ dispoRow.classList.toggle('hidden', !isEquiv()); }
+  }
+
+  if(tipoSel){ tipoSel.addEventListener('change', applyFinalExtras); }
+  if(condSel){ condSel.addEventListener('change', applyFinalExtras); }
+  if(ausenteChk){ ausenteChk.addEventListener('change', applyFinalExtras); }
+
+  applyFinalExtras();
 })();
 </script>
 </body>

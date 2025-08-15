@@ -220,6 +220,16 @@ class EstudianteProfesorado(models.Model):
                 ok = ok and (val >= requerido)
         return "Completo" if ok else "Incompleto"
 
+    # === NUEVO: helpers de legajo/condición administrativa ===
+    def legajo_completo(self) -> bool:
+        """True si cumple todos los requisitos obligatorios (puede rendir mesa)."""
+        return self.calcular_legajo_estado() == "Completo"
+
+    @property
+    def es_condicional(self) -> bool:
+        """True si el legajo está incompleto (puede cursar, pero no aprobar/promocionar por cursada ni rendir final)."""
+        return not self.legajo_completo()
+
     def _mov_aprueba(self, m) -> bool:
         # FIN Regular >=6
         if m.tipo == "FIN" and m.condicion == "Regular" and m.nota_num is not None and m.nota_num >= 6:
@@ -319,7 +329,7 @@ class Correlatividad(models.Model):
 
     plan       = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="correlatividades")
     espacio    = models.ForeignKey(EspacioCurricular, on_delete=models.CASCADE, related_name="correlativas_de")
-    tipo       = models.CharField(max_length=10, choices=TIPO)
+    tipo       = models.CharField(maxlength=10, choices=TIPO) if False else models.CharField(max_length=10, choices=TIPO)  # keep max_length
     requisito  = models.CharField(max_length=14, choices=REQ)
 
     requiere_espacio = models.ForeignKey(
@@ -444,11 +454,15 @@ class Movimiento(models.Model):
     libro = models.CharField(max_length=20, blank=True)
     disposicion_interna = models.CharField(max_length=120, blank=True)  # para equivalencias
 
+    # === NUEVO: control de mesas e intentos ===
+    ausente = models.BooleanField(default=False)
+    ausencia_justificada = models.BooleanField(default=False)
+
     creado = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-fecha", "-creado"]
-        # --- NUEVO: constraints de base de datos (además de clean()) ---
+        # --- constraints de base de datos (además de clean()) ---
         constraints = [
             # Rango válido 0..10 cuando hay nota_num (para REG o FIN)
             models.CheckConstraint(
@@ -465,9 +479,20 @@ class Movimiento(models.Model):
                 name="equivalencia_campos_oblig",
                 check=~Q(condicion="Equivalencia") | (Q(disposicion_interna__gt="") & Q(nota_texto__iexact="Equivalencia")),
             ),
-            # Nota: la coherencia de profesorado y los bloqueos de 'Libre'
-            # se validan en clean(); DB-level requeriría triggers en MySQL.
         ]
+
+    # === NUEVO: intentos previos de FINAL (excluye ausente justificado) ===
+    def _intentos_final_previos(self):
+        qs = self.__class__.objects.filter(
+            tipo="FIN",
+            inscripcion=self.inscripcion,
+            espacio=self.espacio,
+        )
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        # no contamos ausente justificado
+        qs = qs.exclude(ausente=True, ausencia_justificada=True)
+        return qs.order_by("fecha", "id")
 
     def clean(self):
         if self.tipo == "REG":
@@ -478,14 +503,36 @@ class Movimiento(models.Model):
             if self.condicion in {"Libre", "Libre-I", "Libre-AT"} and \
                self.inscripcion.movimientos.filter(espacio=self.espacio, tipo="REG", condicion="Regular").exists():
                 raise ValidationError("No corresponde 'Libre' si el estudiante ya obtuvo Regular en este espacio.")
+
+            # --- NUEVO: condicional administrativo no puede quedar Aprobado/Promoción por cursada
+            if hasattr(self.inscripcion, "es_condicional") and self.inscripcion.es_condicional:
+                if self.condicion in {"Promoción", "Aprobado"}:
+                    raise ValidationError(
+                        "Estudiante condicional: no puede quedar Aprobado/Promoción por cursada."
+                    )
+
         elif self.tipo == "FIN":
             if self.condicion not in dict(COND_FIN):
                 raise ValidationError("Condición inválida para Final.")
+
+            # --- NUEVO: legajo debe estar completo para mesa de examen
+            if hasattr(self.inscripcion, "legajo_completo") and not self.inscripcion.legajo_completo():
+                raise ValidationError(
+                    "No puede inscribirse a mesa: documentación/legajo incompleto."
+                )
+
             if self.condicion == "Regular":
-                if self.nota_num is not None and self.nota_num < self.NOTA_MINIMA:
-                    raise ValidationError("Nota de Final por regularidad debe ser >= 6.")
-                if self.fecha and not _tiene_regularidad_vigente(self.inscripcion, self.espacio, self.fecha):
-                    raise ValidationError("La regularidad no está vigente (2 años).")
+                if self.ausente:
+                    # Ausente en mesa por Regularidad: no exigimos nota_num (se ignora)
+                    pass
+                else:
+                    if self.nota_num is None:
+                        raise ValidationError("Debe cargar la nota o marcar Ausente.")
+                    if self.nota_num < self.NOTA_MINIMA:
+                        raise ValidationError("Nota de Final por regularidad debe ser >= 6.")
+                    if self.fecha and not _tiene_regularidad_vigente(self.inscripcion, self.espacio, self.fecha):
+                        raise ValidationError("La regularidad no está vigente (2 años).")
+
             if self.condicion == "Libre":
                 if hasattr(self.espacio, "libre_habilitado") and not self.espacio.libre_habilitado:
                     raise ValidationError("Este espacio no habilita condición Libre.")
@@ -493,38 +540,60 @@ class Movimiento(models.Model):
                     raise ValidationError("El espacio ya está aprobado; no corresponde rendir Libre.")
                 if _tiene_regularizada(self.inscripcion, self.espacio):
                     raise ValidationError("El estudiante está regular: no corresponde rendir Libre.")
-            if self.condicion == "Equivalencia":
-                if not self.disposicion_interna.strip():
-                    raise ValidationError("La disposición interna es obligatoria para Equivalencia.")
-                if not (self.nota_texto.strip() and self.nota_texto.lower() == "equivalencia"):
-                    raise ValidationError("En Equivalencia, nota_texto debe ser 'Equivalencia'.")
+                if not self.ausente:
+                    if self.nota_num is None:
+                        raise ValidationError("Debe cargar la nota o marcar Ausente.")
+                    if not (0 <= self.nota_num <= 10):
+                        raise ValidationError("La nota debe estar entre 0 y 10.")
+
+            if self.condicion != "Equivalencia":
+                # Correlatividades para RENDIR (Equivalencia se valida aparte)
+                ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "RENDIR", fecha=self.fecha)
+                if not ok:
+                    msgs = []
+                    for regla, req in faltan:
+                        if getattr(regla, "requiere_espacio_id", None):
+                            msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
+                        else:
+                            msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
+                    raise ValidationError(f"No cumple correlatividades para RENDIR: faltan {', '.join(msgs)}.")
+
+            # --- NUEVO: control de intentos de FINAL (no cuenta ausente justificado)
+            prev = list(self._intentos_final_previos())
+            # ¿ya está aprobado por final?
+            if any((m.nota_num or 0) >= 6 and not m.ausente for m in prev):
+                raise ValidationError("El espacio ya fue aprobado por final anteriormente.")
+
+            if len(prev) >= 3:
+                raise ValidationError("Alcanzó las tres posibilidades de final: debe recursar el espacio.")
+
+            # Validación de nota/ausencia coherente
+            if self.ausente:
+                # si es ausente, ignoramos la nota (si viene cargada, no la validamos)
+                pass
+            else:
+                # si no es ausente, la nota (si viene) debe estar en rango
+                if self.nota_num is not None and not (0 <= self.nota_num <= 10):
+                    raise ValidationError("La nota debe estar entre 0 y 10.")
+
         else:
             raise ValidationError("Tipo de movimiento inválido.")
 
+        # Coherencia profesorado
         if self.inscripcion.profesorado_id != self.espacio.profesorado_id:
             raise ValidationError("El espacio no pertenece al mismo profesorado de la inscripción del estudiante.")
 
+        # Correlatividades para CURSAR al cargar REG
         if self.tipo == "REG":
             ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
             if not ok:
                 msgs = []
                 for regla, req in faltan:
-                    if regla.requiere_espacio:
+                    if getattr(regla, "requiere_espacio_id", None):
                         msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
                     else:
                         msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
                 raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
-
-        if self.tipo == "FIN" and self.condicion != "Equivalencia":
-            ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "RENDIR", fecha=self.fecha)
-            if not ok:
-                msgs = []
-                for regla, req in faltan:
-                    if regla.requiere_espacio:
-                        msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
-                    else:
-                        msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
-                raise ValidationError(f"No cumple correlatividades para RENDIR: faltan {', '.join(msgs)}.")
 
     def __str__(self):
         return f"[{self.tipo}] {self.inscripcion.estudiante} - {self.espacio.nombre} - {self.condicion}"

@@ -67,6 +67,7 @@ def _profes_qs_for_user(user):
 # ===================== Cargar Movimiento =====================
 
 class CargarMovimientoForm(forms.ModelForm):
+    # Campos “de presentación” (los de modelo vienen en Meta)
     tipo = forms.ChoiceField(
         choices=(("REG", "Regularidad"), ("FIN", "Final")),
         label="Tipo",
@@ -91,6 +92,19 @@ class CargarMovimientoForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "inp"}),
     )
 
+    # 🆕 Campos de control de mesas (reflejan lo del modelo)
+    ausente = forms.BooleanField(
+        required=False,
+        label="Ausente",
+        widget=forms.CheckboxInput(attrs={"class": "inp"})
+    )
+    ausencia_justificada = forms.BooleanField(
+        required=False,
+        label="Ausencia justificada",
+        help_text="Si fue ausente y justificó, no consume intento.",
+        widget=forms.CheckboxInput(attrs={"class": "inp"})
+    )
+
     class Meta:
         model = Movimiento
         fields = (
@@ -98,6 +112,8 @@ class CargarMovimientoForm(forms.ModelForm):
             "tipo", "fecha", "condicion",
             "nota_num",
             "folio", "libro", "disposicion_interna",
+            # 🆕
+            "ausente", "ausencia_justificada",
         )
         widgets = {
             "inscripcion": forms.Select(attrs={"class": "inp"}),
@@ -130,6 +146,7 @@ class CargarMovimientoForm(forms.ModelForm):
             )
             self.fields["espacio"].queryset = EspacioCurricular.objects.all()
 
+        # Ajustar las opciones de “condición” al tipo actual (GET/POST o inicial)
         tipo_inicial = (self.data.get("tipo")
                         or self.initial.get("tipo")
                         or "REG")
@@ -144,9 +161,13 @@ class CargarMovimientoForm(forms.ModelForm):
         condicion = cleaned.get("condicion")
         nota = cleaned.get("nota_num")
         dispo = (cleaned.get("disposicion_interna") or "").strip()
+        ausente = bool(cleaned.get("ausente"))
+        _just = bool(cleaned.get("ausencia_justificada"))
 
         ins = cleaned.get("inscripcion")
         esp = cleaned.get("espacio")
+
+        # Coherencia de carrera
         if ins and esp and ins.profesorado_id != esp.profesorado_id:
             raise ValidationError("El espacio debe pertenecer al mismo profesorado de la inscripción.")
 
@@ -154,31 +175,58 @@ class CargarMovimientoForm(forms.ModelForm):
             validas = {c for c, _ in REG_CONDICIONES}
             if condicion not in validas:
                 raise ValidationError("Condición inválida para Regularidad.")
+
+            # Regla UX (el modelo igual refuerza):
             if condicion in ("Promoción", "Aprobado"):
                 if nota is None or int(nota) < 6:
                     raise ValidationError("Para Promoción/Aprobado la nota debe ser 6..10.")
             elif condicion == "Desaprobado":
                 if nota is not None and int(nota) > 5:
                     raise ValidationError("Para Desaprobado la nota debe ser 0..5.")
+
         elif tipo == "FIN":
             validas = {c for c, _ in FIN_CONDICIONES}
             if condicion not in validas:
                 raise ValidationError("Condición inválida para Final.")
+
             if condicion == "Equivalencia":
                 if not dispo:
                     raise ValidationError("Para Equivalencia, la Disposición Interna es obligatoria.")
+                # Nota se ignora en Equivalencia: la setea save()
+
             elif condicion == "Regular":
-                if nota is not None and int(nota) < 6:
-                    raise ValidationError("Final por Regularidad: si cargás nota debe ser 6..10.")
+                # Si no es ausente, exigimos nota y que sea ≥6 (UX; el modelo ya lo obliga)
+                if not ausente:
+                    if nota is None:
+                        raise ValidationError("Final por Regularidad: cargá la nota (o marcá Ausente).")
+                    if int(nota) < 6:
+                        raise ValidationError("Final por Regularidad: la nota debe ser 6..10.")
+                # Si es ausente, la nota se ignorará más abajo
+
+            elif condicion == "Libre":
+                # Si no es ausente, exigimos nota 0..10 (el modelo exige rango)
+                if not ausente and nota is None:
+                    raise ValidationError("Final Libre: cargá la nota (o marcá Ausente).")
+
         return cleaned
 
     def save(self, commit=True):
         obj: Movimiento = super().save(commit=False)
-        if self.cleaned_data.get("tipo") == "FIN" and self.cleaned_data.get("condicion") == "Equivalencia":
-            obj.nota_texto = "Equivalencia"
-            obj.nota_num = None
+
+        # Normalizaciones según condición/tipo
+        if self.cleaned_data.get("tipo") == "FIN":
+            if self.cleaned_data.get("condicion") == "Equivalencia":
+                obj.nota_texto = "Equivalencia"
+                obj.nota_num = None
+            else:
+                # Si marcaron Ausente, no guardamos nota_num
+                if self.cleaned_data.get("ausente"):
+                    obj.nota_num = None
+                # nota_texto sin uso aquí
+                obj.nota_texto = (obj.nota_texto or "").strip() or ""
         else:
             obj.nota_texto = (obj.nota_texto or "").strip() or ""
+
         if commit:
             obj.save()
         return obj

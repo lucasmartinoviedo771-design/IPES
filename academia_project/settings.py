@@ -81,7 +81,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            # BASE_DIR / "templates",
+            BASE_DIR / "templates",  # <- carpeta de templates del proyecto (opcional, pero útil)
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -89,6 +89,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # <- NUEVO: expone login_url y logout_url en todos los templates
+                "academia_core.context_processors.auth_urls",
             ],
         },
     },
@@ -128,14 +130,35 @@ USE_TZ = True
 
 # --- Archivos estáticos y de medios ---
 STATIC_URL = "/static/"
+# Si tenés una carpeta global de estáticos (además de los de las apps), descomentá:
+# STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Fotos / uploads (para Estudiante.foto)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # --- Login/Logout (para vistas protegidas) ---
+LOGIN_URL = "/accounts/login/"          # <- explícito
 LOGIN_REDIRECT_URL = "/panel/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# --- Sesión (opcional) ---
+# Si querés que la sesión expire a las 3 horas:
+# SESSION_COOKIE_AGE = 3 * 60 * 60  # 3 horas en segundos
+# SESSION_SAVE_EVERY_REQUEST = True  # renueva vencimiento con cada request
+
+# Si querés que la sesión se pierda al cerrar el navegador:
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# --- DRF básico (opcional)
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
 
 # --- Misc ---
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
