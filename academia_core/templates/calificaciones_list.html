@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ titulo }}</title>
+  <style>
+    body{font-family:Inter,system-ui,Arial,sans-serif;margin:24px;max-width:1100px}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .muted{color:#6b7280}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
+    input,select{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #eee;text-align:left}
+    a.btn{display:inline-block;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none}
+    a.btn:hover{background:#f3f4f6}
+    .right{ text-align:right }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h2 style="margin:0">{{ titulo }}</h2>
+      <div class="muted">{{ subtitulo }}</div>
+    </div>
+    <div>
+      <a class="btn" href="{% url 'agregar_calificacion' %}">+ Nueva</a>
+      <a class="btn" href="/panel/">Volver al panel</a>
+    </div>
+  </div>
+
+  <form method="get" class="row">
+    <input type="text" name="q" placeholder="Buscar (apellido, DNI, materia)" value="{{ q }}">
+    <select name="tipo">
+      <option value="">Tipo (REG/FIN)</option>
+      <option value="REG" {% if tipo_sel == 'REG' %}selected{% endif %}>REG</option>
+      <option value="FIN" {% if tipo_sel == 'FIN' %}selected{% endif %}>FIN</option>
+    </select>
+    <select name="condicion">
+      <option value="">Condición</option>
+      <option value="Promoción" {% if cond_sel == 'Promoción' %}selected{% endif %}>Promoción</option>
+      <option value="Aprobado" {% if cond_sel == 'Aprobado' %}selected{% endif %}>Aprobado</option>
+      <option value="Regular" {% if cond_sel == 'Regular' %}selected{% endif %}>Regular</option>
+      <option value="Libre" {% if cond_sel == 'Libre' %}selected{% endif %}>Libre</option>
+      <option value="Equivalencia" {% if cond_sel == 'Equivalencia' %}selected{% endif %}>Equivalencia</option>
+    </select>
+    <input type="number" name="anio" placeholder="Año (YYYY)" value="{{ anio_sel }}" min="1900" max="2100">
+    <button class="btn" type="submit">Filtrar</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Estudiante</th>
+        <th>DNI</th>
+        <th>Profesorado</th>
+        <th>Espacio</th>
+        <th>Tipo</th>
+        <th>Condición</th>
+        <th>Nota</th>
+        <th class="right">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in movimientos %}
+        <tr>
+          <td>{{ m.fecha|date:"d/m/Y" }}</td>
+          <td>{{ m.inscripcion.estudiante.apellido }}, {{ m.inscripcion.estudiante.nombre }}</td>
+          <td>{{ m.inscripcion.estudiante.dni }}</td>
+          <td>{{ m.inscripcion.profesorado.nombre }}</td>
+          <td>{{ m.espacio.nombre }}</td>
+          <td>{{ m.tipo }}</td>
+          <td>{{ m.condicion }}</td>
+          <td>{% if m.nota_num %}{{ m.nota_num }}{% else %}{{ m.nota_texto }}{% endif %}</td>
+          <td class="right">
+            <a class="btn" href="{% url 'modificar_calificacion' m.pk %}">Editar</a>
+            <a class="btn" href="{% url 'eliminar_calificacion' m.pk %}">Eliminar</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9" class="muted">Sin resultados.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if is_paginated %}
+  <div class="row" style="justify-content:space-between">
+    {% if page_obj.has_previous %}
+      <a class="btn" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&tipo={{ tipo_sel }}&condicion={{ cond_sel }}&anio={{ anio_sel }}">« Anterior</a>
+    {% else %}<span></span>{% endif %}
+    <div class="muted">Página {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</div>
+    {% if page_obj.has_next %}
+      <a class="btn" href="?page={{ page_obj.next_page_number }}&q={{ q }}&tipo={{ tipo_sel }}&condicion={{ cond_sel }}&anio={{ anio_sel }}">Siguiente »</a>
+    {% else %}<span></span>{% endif %}
+  </div>
+  {% endif %}
+</body>
+</html>

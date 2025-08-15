@@ -294,3 +294,106 @@ class MateriaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
                 return super().get(request, *a, **kw)
             messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
             return super().get(request, *a, **kw)
+
+# --- CALIFICACIONES (Movimiento) ------------------------------------------------
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.db.models import Q
+
+from .models import Movimiento
+
+# Intentamos usar tu form existente; si no está, usamos un ModelForm fallback
+try:
+    from .forms_carga import CargarMovimientoForm as MovimientoForm
+except Exception:
+    from django import forms
+    class MovimientoForm(forms.ModelForm):
+        class Meta:
+            model = Movimiento
+            fields = [
+                "inscripcion", "espacio", "tipo", "fecha",
+                "condicion", "nota_num", "nota_texto",
+                "folio", "libro", "disposicion_interna",
+            ]
+
+
+class CalificacionListView(LoginRequiredMixin, ListView):
+    """Listado con búsqueda rápida por estudiante/espacio."""
+    model = Movimiento
+    template_name = "calificaciones_list.html"
+    context_object_name = "movimientos"
+    paginate_by = 25
+    ordering = ["-fecha", "-id"]
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related(
+            "inscripcion__estudiante", "inscripcion__profesorado", "espacio"
+        )
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(inscripcion__estudiante__apellido__icontains=q) |
+                Q(inscripcion__estudiante__nombre__icontains=q) |
+                Q(inscripcion__estudiante__dni__icontains=q) |
+                Q(espacio__nombre__icontains=q)
+            )
+        # filtros opcionales
+        tipo = self.request.GET.get("tipo")
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        condicion = self.request.GET.get("condicion")
+        if condicion:
+            qs = qs.filter(condicion=condicion)
+        anio = self.request.GET.get("anio")
+        if anio and anio.isdigit():
+            qs = qs.filter(fecha__year=int(anio))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = "Calificaciones"
+        ctx["subtitulo"] = "Listado de movimientos (REG/FIN) con búsqueda y filtros."
+        ctx["q"] = self.request.GET.get("q", "")
+        ctx["tipo_sel"] = self.request.GET.get("tipo", "")
+        ctx["cond_sel"] = self.request.GET.get("condicion", "")
+        ctx["anio_sel"] = self.request.GET.get("anio", "")
+        return ctx
+
+
+class CalificacionCreateView(LoginRequiredMixin, CreateView):
+    model = Movimiento
+    form_class = MovimientoForm
+    template_name = "calificacion_form.html"
+    success_url = reverse_lazy("listado_calificaciones")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = "Nueva calificación"
+        ctx["subtitulo"] = "Cargar Regularidad o Final con validaciones de negocio."
+        return ctx
+
+
+class CalificacionUpdateView(LoginRequiredMixin, UpdateView):
+    model = Movimiento
+    form_class = MovimientoForm
+    template_name = "calificacion_form.html"
+    success_url = reverse_lazy("listado_calificaciones")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = "Editar calificación"
+        ctx["subtitulo"] = "Actualizá un movimiento existente."
+        return ctx
+
+
+class CalificacionDeleteView(LoginRequiredMixin, DeleteView):
+    model = Movimiento
+    template_name = "confirmar_eliminacion.html"  # ya la tenés genérica
+    success_url = reverse_lazy("listado_calificaciones")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["titulo"] = "Eliminar calificación"
+        ctx["subtitulo"] = "Esta acción es permanente."
+        return ctx

@@ -16,6 +16,9 @@ from .views_cbv import (
     # Materias
     MateriaListView, MateriaCreateView,
     MateriaUpdateView, MateriaDeleteView,
+     # Calificaciones
+    CalificacionListView, CalificacionCreateView,
+    CalificacionUpdateView, CalificacionDeleteView,
 )
 from .views_auth import RoleAwareLoginView
 
@@ -54,4 +57,10 @@ urlpatterns = [
     path("materias/agregar/", MateriaCreateView.as_view(), name="agregar_materia"),
     path("materias/modificar/<int:pk>/", MateriaUpdateView.as_view(), name="modificar_materia"),
     path("materias/eliminar/<int:pk>/", MateriaDeleteView.as_view(), name="eliminar_materia"),
+   # ---- CBVs (Calificaciones) ----
+    path("calificaciones/", CalificacionListView.as_view(), name="listado_calificaciones"),
+    path("calificaciones/agregar/", CalificacionCreateView.as_view(), name="agregar_calificacion"),
+    path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
+    path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
+
 ]

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ titulo }}</title>
+  <style>
+    body{font-family:Inter,system-ui,Arial,sans-serif;margin:24px;max-width:800px}
+    .muted{color:#6b7280}
+    form .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    form .row-1{display:block}
+    label{display:block;margin:10px 0 4px;color:#6b7280}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px}
+    .bar{display:flex;gap:8px;margin:0 0 14px}
+    .btn{padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;display:inline-block}
+    .btn:hover{background:#f3f4f6}
+    button{padding:10px 14px;border:0;border-radius:8px;background:#e8892a;color:#2b1b09;font-weight:700}
+    .err{background:#fff1f2;border:1px solid #fecdd3;padding:10px;border-radius:8px;margin:8px 0}
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <a class="btn" href="{% url 'listado_calificaciones' %}">← Volver</a>
+    <span class="muted">{{ subtitulo }}</span>
+  </div>
+
+  <h2 style="margin:0">{{ titulo }}</h2>
+
+  {% if form.non_field_errors %}
+    <div class="err">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="row">
+      <div>
+        {{ form.inscripcion.label_tag }}{{ form.inscripcion }}{{ form.inscripcion.errors }}
+      </div>
+      <div>
+        {{ form.espacio.label_tag }}{{ form.espacio }}{{ form.espacio.errors }}
+      </div>
+      <div>
+        {{ form.tipo.label_tag }}{{ form.tipo }}{{ form.tipo.errors }}
+      </div>
+      <div>
+        {{ form.fecha.label_tag }}{{ form.fecha }}{{ form.fecha.errors }}
+      </div>
+      <div>
+        {{ form.condicion.label_tag }}{{ form.condicion }}{{ form.condicion.errors }}
+      </div>
+      <div>
+        {{ form.nota_num.label_tag }}{{ form.nota_num }}{{ form.nota_num.errors }}
+      </div>
+      <div>
+        {{ form.nota_texto.label_tag }}{{ form.nota_texto }}{{ form.nota_texto.errors }}
+      </div>
+      <div>
+        {{ form.folio.label_tag }}{{ form.folio }}{{ form.folio.errors }}
+      </div>
+      <div>
+        {{ form.libro.label_tag }}{{ form.libro }}{{ form.libro.errors }}
+      </div>
+      <div class="row-1">
+        {{ form.disposicion_interna.label_tag }}{{ form.disposicion_interna }}{{ form.disposicion_interna.errors }}
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button type="submit">Guardar</button>
+    </div>
+  </form>
+</body>
+</html>
