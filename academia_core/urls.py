@@ -5,7 +5,7 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-from .views_panel import panel_home
+from .views_panel import panel, panel_home
 from .views_cbv import (
     # Estudiantes
     EstudianteListView, EstudianteCreateView,
@@ -14,7 +14,7 @@ from .views_cbv import (
     DocenteListView, DocenteCreateView,
     DocenteUpdateView, DocenteDeleteView,
 )
-from .views_auth import RoleAwareLoginView  # ⬅️ NUEVO
+from .views_auth import RoleAwareLoginView  # login con redirección por rol
 
 urlpatterns = [
     # Auth
@@ -27,17 +27,12 @@ urlpatterns = [
     path("carton/primaria/<str:dni>/pdf/", carton_primaria_pdf, name="carton_primaria_pdf"),
 
     # Cartón genérico por slugs
-    path(
-        "carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/",
-        carton_por_prof_y_plan, name="carton_generico"
-    ),
-    path(
-        "carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/",
-        carton_generico_pdf, name="carton_generico_pdf"
-    ),
+    path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/", carton_por_prof_y_plan, name="carton_generico"),
+    path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
-    # Panel único
-    path("panel/", panel_home, name="panel_home"),
+    # Panel (dos nombres para compatibilidad)
+    path("panel/", panel, name="panel"),                    # ← usado por reverse("panel")
+    path("panel/home/", panel_home, name="panel_home"),     # ← alias opcional
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
