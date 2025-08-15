@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Materias / Espacios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--ink:#2e2f33; --bg:#ebd4c5; --card:#fff; --card-b:#e9e4da; --muted:#6f7a83;}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui, -apple-system, Segoe UI, Inter, Roboto, Arial, sans-serif}
+    .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
+    a{color:#2e6446;text-decoration:none} a:hover{text-decoration:underline}
+    .top{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .card{background:var(--card);border:1px solid var(--card-b);border-radius:14px;padding:14px}
+    h1{font-size:22px;margin:0}
+    form.search{display:flex;gap:8px;margin:10px 0}
+    input[type=text]{flex:1;padding:10px;border:1px solid #d9e0e4;border-radius:10px}
+    button{padding:10px 12px;border-radius:10px;border:1px solid var(--card-b);background:#fff;cursor:pointer}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid var(--card-b);text-align:left}
+    .muted{color:var(--muted)}
+    .actions a{margin-right:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Materias / Espacios</h1>
+      <div>
+        <a href="/panel/">← Volver al panel</a>
+        &nbsp;·&nbsp;
+        <a href="/materias/agregar/">➕ Nueva materia</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <form class="search" method="get">
+        <input type="text" name="busqueda" placeholder="Buscar por nombre, plan o profesorado…" value="{{ busqueda|default:'' }}">
+        <button type="submit">Buscar</button>
+        {% if busqueda %}
+          <a href="/materias/" style="margin-left:auto">Limpiar</a>
+        {% endif %}
+      </form>
+
+      {% if materias %}
+      <table>
+        <thead>
+          <tr>
+            <th>Año</th>
+            <th>Cuatr.</th>
+            <th>Nombre</th>
+            <th>Profesorado</th>
+            <th>Plan</th>
+            <th>Horas</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in materias %}
+          <tr>
+            <td>{{ m.anio }}</td>
+            <td>{{ m.cuatrimestre|default:"—" }}</td>
+            <td>{{ m.nombre }}</td>
+            <td>{{ m.profesorado.nombre }}</td>
+            <td>{{ m.plan.resolucion }}</td>
+            <td>{{ m.horas }}</td>
+            <td class="actions">
+              <a href="/materias/modificar/{{ m.id }}/">Editar</a>
+              <a href="/materias/eliminar/{{ m.id }}/" onclick="return confirm('¿Eliminar esta materia?');">Eliminar</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="muted">No hay materias que coincidan con tu búsqueda.</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

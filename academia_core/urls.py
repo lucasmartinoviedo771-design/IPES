@@ -13,8 +13,11 @@ from .views_cbv import (
     # Docentes
     DocenteListView, DocenteCreateView,
     DocenteUpdateView, DocenteDeleteView,
+    # Materias
+    MateriaListView, MateriaCreateView,
+    MateriaUpdateView, MateriaDeleteView,
 )
-from .views_auth import RoleAwareLoginView  # login con redirección por rol
+from .views_auth import RoleAwareLoginView
 
 urlpatterns = [
     # Auth
@@ -31,8 +34,8 @@ urlpatterns = [
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
     # Panel (dos nombres para compatibilidad)
-    path("panel/", panel, name="panel"),                    # ← usado por reverse("panel")
-    path("panel/home/", panel_home, name="panel_home"),     # ← alias opcional
+    path("panel/", panel, name="panel"),
+    path("panel/home/", panel_home, name="panel_home"),
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
@@ -45,4 +48,10 @@ urlpatterns = [
     path("docentes/agregar/", DocenteCreateView.as_view(), name="agregar_docente"),
     path("docentes/modificar/<int:pk>/", DocenteUpdateView.as_view(), name="modificar_docente"),
     path("docentes/eliminar/<int:pk>/", DocenteDeleteView.as_view(), name="eliminar_docente"),
+
+    # ---- CBVs (Materias) ----
+    path("materias/", MateriaListView.as_view(), name="listado_materias"),
+    path("materias/agregar/", MateriaCreateView.as_view(), name="agregar_materia"),
+    path("materias/modificar/<int:pk>/", MateriaUpdateView.as_view(), name="modificar_materia"),
+    path("materias/eliminar/<int:pk>/", MateriaDeleteView.as_view(), name="eliminar_materia"),
 ]

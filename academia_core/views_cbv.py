@@ -8,10 +8,12 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 
 from .models import (
     Estudiante,
-    Docente,          # ← modelo Docente
+    Docente,
     Profesorado,
     Actividad,
+    EspacioCurricular,   # ← Materias
 )
+from .forms_espacios import EspacioForm   # ← Form para Materias/Espacios
 
 # ---------------- helpers de contexto para usar panel.html ----------------
 def _rol(user):
@@ -152,22 +154,22 @@ class EstudianteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
 class DocenteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
     """Reemplaza listado_docentes."""
     model = Docente
-    template_name = "panel.html"
+    template_name = "panel.html"  # Podés cambiar a un template dedicado si querés tabla
     context_object_name = "docentes"
     paginate_by = 25
     permission_required = "academia_core.view_docente"
     raise_exception = True
     panel_action = "doc_list"
     panel_title = "Listado de Docentes"
+    panel_subtitle = "Búsqueda por nombre, apellido, DNI o email"
     search_fields = ("apellido", "nombre", "dni", "email")
 
     def get_queryset(self):
         return self.apply_search(super().get_queryset().order_by("apellido", "nombre"))
 
 class DocenteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
-    """Reemplaza agregar_docente."""
     model = Docente
-    fields = "__all__"                 # usa tu DocenteForm si lo tenés: form_class = DocenteForm
+    fields = "__all__"                 # si tenés DocenteForm: form_class = DocenteForm
     template_name = "panel.html"
     success_url = reverse_lazy("listado_docentes")
     success_message = "Docente «%(apellido)s, %(nombre)s» creado."
@@ -178,7 +180,6 @@ class DocenteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_subtitle = "Completá los datos y guardá"
 
 class DocenteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
-    """Reemplaza modificar_docente."""
     model = Docente
     fields = "__all__"
     template_name = "panel.html"
@@ -191,9 +192,8 @@ class DocenteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
     panel_subtitle = "Actualizá los datos y guardá"
 
 class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
-    """Reemplaza eliminar_docente."""
     model = Docente
-    template_name = "confirmar_eliminacion.html"   # template unificado
+    template_name = "confirmar_eliminacion.html"
     success_url = reverse_lazy("listado_docentes")
     permission_required = "academia_core.delete_docente"
     raise_exception = True
@@ -216,6 +216,81 @@ class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
                 self.object.activo = False
                 self.object.save(update_fields=["activo"])
                 messages.success(request, f"«{nombre}» tenía datos vinculados: se marcó inactivo.")
+                return super().get(request, *a, **kw)
+            messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
+            return super().get(request, *a, **kw)
+
+# ================================ MATERIAS ================================
+
+class MateriaListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
+    """Listado de Materias (Espacios curriculares)."""
+    model = EspacioCurricular
+    template_name = "materias_list.html"     # Template con tabla
+    context_object_name = "materias"
+    paginate_by = 25
+    permission_required = "academia_core.view_espaciocurricular"
+    raise_exception = True
+    panel_action = "mat_list"
+    panel_title = "Materias / Espacios"
+    panel_subtitle = "Listado y búsqueda"
+    search_fields = ("nombre", "plan__resolucion", "profesorado__nombre", "anio")
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related("plan", "profesorado")
+        return self.apply_search(qs).order_by("profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
+
+class MateriaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+    """Alta de Materia (Espacio curricular)."""
+    model = EspacioCurricular
+    form_class = EspacioForm
+    template_name = "panel.html"             # Reutilizamos panel.html para el form
+    success_url = reverse_lazy("listado_materias")
+    success_message = "Materia «%(nombre)s» creada."
+    permission_required = "academia_core.add_espaciocurricular"
+    raise_exception = True
+    panel_action = "mat_add"
+    panel_title = "Nueva materia"
+    panel_subtitle = "Completá los datos y guardá"
+
+class MateriaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+    """Edición de Materia."""
+    model = EspacioCurricular
+    form_class = EspacioForm
+    template_name = "panel.html"
+    success_url = reverse_lazy("listado_materias")
+    success_message = "Materia «%(nombre)s» actualizada."
+    permission_required = "academia_core.change_espaciocurricular"
+    raise_exception = True
+    panel_action = "mat_edit"
+    panel_title = "Editar materia"
+    panel_subtitle = "Actualizá los datos y guardá"
+
+class MateriaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    """Eliminación/archivado de Materia (soft-delete si está protegida)."""
+    model = EspacioCurricular
+    template_name = "confirmar_eliminacion.html"
+    success_url = reverse_lazy("listado_materias")
+    permission_required = "academia_core.delete_espaciocurricular"
+    raise_exception = True
+
+    def get_context_data(self, **kw):
+        ctx = super().get_context_data(**kw)
+        obj = ctx.get("object") or self.get_object()
+        rot = f"{getattr(obj,'nombre','')} · {getattr(obj,'profesorado','')} – {getattr(obj,'plan','')}"
+        ctx.update({"titulo": "Eliminar materia", "rotulo": rot, "cancel_url": reverse_lazy("listado_materias")})
+        return ctx
+
+    def delete(self, request, *a, **kw):
+        self.object = self.get_object()
+        nombre = getattr(self.object, "nombre", "Materia")
+        try:
+            messages.success(request, f"Materia «{nombre}» eliminada.")
+            return super().delete(request, *a, **kw)
+        except ProtectedError:
+            if hasattr(self.object, "activo"):
+                self.object.activo = False
+                self.object.save(update_fields=["activo"])
+                messages.success(request, f"«{nombre}» tiene datos vinculados: se marcó como inactiva.")
                 return super().get(request, *a, **kw)
             messages.error(request, f"No se pudo eliminar «{nombre}» por registros relacionados.")
             return super().get(request, *a, **kw)
