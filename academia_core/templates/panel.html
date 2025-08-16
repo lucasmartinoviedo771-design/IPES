@@ -92,7 +92,6 @@
       align-items:start;
       margin-top:12px;
     }
-    /* tarjetas de 2 líneas centradas */
     #insc-prof-checks .chk{
       display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
       height:72px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25
@@ -109,6 +108,24 @@
       #insc-prof-checks{grid-template-columns:1fr 1fr}
       #insc-prof-extra{grid-template-columns:1fr}
     }
+  </style>
+  {% endif %}
+
+  {# ======= CSS: Inscribir a materia (cursada) ======= #}
+  {% if action == "insc_esp" %}
+  <style>
+    #insc-esp-grid-top{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px 24px;align-items:start
+    }
+    #insc-esp-grid-top label{display:block;font-weight:600;margin-bottom:6px}
+    #insc-esp-grid-top input,#insc-esp-grid-top select{width:100%}
+    #correl-box{margin-top:12px;border:1px solid #e6e3dd;border-radius:12px;padding:12px;background:#fafafa}
+    #correl-box h5{margin:0 0 8px;font-size:14px}
+    #correl-box ul{margin:0;padding-left:18px}
+    #correl-box li{margin:4px 0}
+    .muted{color:#6f7a83}
+    @media (max-width:900px){#insc-esp-grid-top{grid-template-columns:1fr}}
   </style>
   {% endif %}
 </head>
@@ -234,7 +251,7 @@
                 {% endfor %}
               </div>
 
-              <!-- Checkboxes reales en 3 columnas -->
+              <!-- Checkboxes en 3 columnas -->
               <div id="insc-prof-checks">
                 {% for f in form %}
                   {% if f.field.widget.input_type == 'checkbox' and f.name != 'activo' %}
@@ -259,15 +276,44 @@
                 {% endif %}
               </div>
 
-              {# Catch-all: lo que quede sin render y NO sea checkbox ni campos top/extra #}
+              {# Catch-all: campos no renderizados arriba #}
               {% for f in form %}
                 {% if f.field.widget.input_type != 'checkbox' and f.name != 'estudiante' and f.name != 'profesorado' and f.name != 'cohorte' and f.name != 'anio_academico' and f.name != 'ubicacion' and f.name != 'sede' and f.name != 'ubica' and f.name != 'curso_introductorio' and f.name != 'adeuda_detalle' and f.name != 'colegio' %}
                   <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
                 {% endif %}
               {% endfor %}
 
+            {% elif action == "insc_esp" %}
+              <!-- Top en 2 columnas -->
+              <div id="insc-esp-grid-top">
+                {% for f in form %}
+                  {% if f.name == 'inscripcion' or f.name == 'anio_academico' or f.name == 'espacio' %}
+                    <div>
+                      {{ f.label_tag }}{{ f }}
+                      {% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <!-- Caja de correlatividades -->
+              <div id="correl-box">
+                <h5>Correlatividades</h5>
+                <ul id="correl-list">
+                  <li class="muted">(Sin correlatividades definidas)</li>
+                </ul>
+              </div>
+
+              {# Cualquier otro campo “extra” no incluido arriba #}
+              {% for f in form %}
+                {% if f.name != 'inscripcion' and f.name != 'anio_academico' and f.name != 'espacio' and f.field.widget.input_type != 'checkbox' %}
+                  <label>{{ f.label }}</label>{{ f }}
+                  {% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                {% endif %}
+              {% endfor %}
+
             {% else %}
-              {# Resto de acciones: render genérico #}
+              {# Resto: render genérico #}
               {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
               {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
               {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
@@ -344,7 +390,6 @@
   document.addEventListener('DOMContentLoaded',syncUI); syncUI();
 
   // ===== Inscribir carrera (insc_prof) =====
-  // Adeuda -> muestra ¿Cuáles? y Colegio
   const adeuda = document.querySelector('input[type="checkbox"][name="adeuda_materias"]');
   const adeudaDetalle = document.querySelector('[name="adeuda_detalle"]');
   const colegio = document.querySelector('[name="colegio"]');
@@ -355,7 +400,6 @@
   }
   adeuda && adeuda.addEventListener('change', toggleAdeuda);
 
-  // Certificación Docente -> doc_* ON, título secundario OFF
   const selProf   = document.querySelector('[name="profesorado"]');
   const tituloSup = document.querySelector('[name="doc_titulo_superior_legalizado"]');
   const incumb    = document.querySelector('[name="doc_incumbencias_titulo"]');
@@ -373,10 +417,59 @@
   }
   selProf && selProf.addEventListener('change', toggleCertificacion);
 
-  // Init cuando es insc_prof
   if (document.querySelector('[name="action"]')?.value === 'insc_prof') {
     toggleAdeuda();
     toggleCertificacion();
+  }
+
+  // ===== Inscribir a materia (insc_esp) =====
+  const actionInput = document.querySelector('[name="action"]');
+  const espacioSel = document.getElementById('espacio-select') || document.querySelector('[name="espacio"]');
+  const correlList = document.getElementById('correl-list');
+  {% if correl_map %}
+    window.CORREL_MAP = {{ correl_map|safe }};
+  {% else %}
+    window.CORREL_MAP = {};
+  {% endif %}
+
+  function renderCorrels(){
+    if(!espacioSel || !correlList) return;
+    const id = String(espacioSel.value || '');
+    const items = window.CORREL_MAP[id] || [];
+    correlList.innerHTML = '';
+    if(!items.length){
+      correlList.innerHTML = '<li class="muted">(Sin correlatividades definidas)</li>';
+      return;
+    }
+    for(const it of items){
+      const li = document.createElement('li');
+      li.textContent = `${it.tipo}: ${it.nombre}`;
+      correlList.appendChild(li);
+    }
+  }
+
+  if (actionInput && actionInput.value === 'insc_esp') {
+    // (1) AUTOSUBMIT al cambiar Inscripción + bloqueo/rehabilitación del combo Espacio
+    const inscSel = document.querySelector('[name="inscripcion"]');
+    function lockEspacio(lock){ if(espacioSel){ espacioSel.disabled = !!lock; } }
+    lockEspacio(!inscSel || !inscSel.value);
+
+    if (inscSel) {
+      inscSel.addEventListener('change', function(){
+        lockEspacio(true);
+        const form = inscSel.form;
+        const tmp = document.createElement('input');
+        tmp.type = 'hidden';
+        tmp.name = 'refresh';
+        tmp.value = '1';
+        form.appendChild(tmp);
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      });
+    }
+
+    // (2) correlatividades
+    espacioSel && espacioSel.addEventListener('change', renderCorrels);
+    renderCorrels();
   }
 })();
 </script>

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -86,7 +87,7 @@ FORMS_MAP = {
 # ================ Vista principal ==========================
 
 @login_required
-def panel(request):
+def panel(request: HttpRequest) -> HttpResponse:
     action = request.GET.get("action") or request.POST.get("action") or "section_est"
     rol = _get_rol(request.user)
 
@@ -112,17 +113,17 @@ def panel(request):
         is_save = request.method == "POST" and request.POST.get("save") == "1"
 
         # Datos para bindear el form cuando NO estamos guardando (autosubmit de combos)
-        # Nota: POST tiene prioridad sobre GET si aparecen los mismos nombres de campo
         bound_data = None
         if request.method in ("GET", "POST") and not is_save:
             data = {}
             data.update(request.GET.dict())
             data.update(request.POST.dict())
-            # nunca bindeamos 'action' ni 'save'
-            data.pop("action", None)
-            data.pop("save", None)
+            # Nunca bindeamos 'action' ni 'save' (ni 'ok')
+            for k in ("action", "save", "ok"):
+                data.pop(k, None)
             bound_data = data
 
+        # Instanciar form (algunos aceptan user=)
         try:
             if is_save:
                 form = form_class(request.POST, request.FILES, user=request.user)
@@ -131,7 +132,6 @@ def panel(request):
             else:
                 form = form_class(user=request.user)
         except TypeError:
-            # el form no acepta user=...
             if is_save:
                 form = form_class(request.POST, request.FILES)
             elif bound_data:
@@ -141,13 +141,53 @@ def panel(request):
 
         if is_save:
             if form.is_valid():
-                form.save()
+                obj = form.save()
                 messages.success(request, "Guardado correctamente.")
-                # Redirijo para evitar reenvío de formulario y mostrar el flash
-                return redirect(f"{reverse('panel')}?action={action}&ok=1")
-            else:
-                messages.error(request, "Revisá los errores del formulario.")
 
+                # --- Sticky params tras guardar ---
+                params = {"action": action, "ok": 1}
+                if action == "insc_esp":
+                    try:
+                        insc_id = form.cleaned_data.get("inscripcion").pk
+                        anio = form.cleaned_data.get("anio_academico")
+                        if insc_id:
+                            params["inscripcion"] = str(insc_id)
+                        if anio:
+                            params["anio_academico"] = str(anio)
+                    except Exception:
+                        pass
+
+                url = f"{reverse('panel')}?{urlencode(params)}"
+                return redirect(url)
+            else:
+                messages.error(request, "Hay errores en el formulario.")
+                ctx["form"] = form
+                return render(request, "panel.html", ctx)
+
+        # GET o autosubmit: sólo render
         ctx["form"] = form
+
+        # Correlatividades para insc_esp (si podemos calcularlas)
+        if action == "insc_esp":
+            correl_map = {}
+            try:
+                qs = form.fields["espacio"].queryset
+                # Intento genérico de obtener requisitos
+                for e in qs:
+                    lst = []
+                    # Probamos distintos nombres comunes
+                    for attr in ("correlativas", "requisitos", "prerequisitos", "requisitos_previos"):
+                        if hasattr(e, attr):
+                            try:
+                                objs = getattr(e, attr).all()
+                                for o in objs:
+                                    lst.append({"tipo": "Requisito", "nombre": getattr(o, "nombre", str(o))})
+                            except Exception:
+                                pass
+                    if lst:
+                        correl_map[str(e.pk)] = lst
+            except Exception:
+                correl_map = {}
+            ctx["correl_map"] = correl_map
 
     return render(request, "panel.html", ctx)

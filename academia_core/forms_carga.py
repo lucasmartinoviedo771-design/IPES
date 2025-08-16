@@ -5,8 +5,6 @@ import re
 from django import forms
 from django.core.exceptions import ValidationError, FieldError
 from django.db.models import Q
-from django import forms
-from .models import EstudianteProfesorado
 
 from .models import (
     EstudianteProfesorado,
@@ -17,7 +15,7 @@ from .models import (
     Correlatividad,  # detectar si un espacio tiene reglas CURSAR/RENDIR
     InscripcionFinal,
     Movimiento,
-    _tiene_regularidad_vigente, # importada para el nuevo form
+    _tiene_regularidad_vigente,  # importada para el nuevo form
 )
 
 # Si hay helper de correlatividades:
@@ -179,6 +177,7 @@ class InscripcionProfesoradoForm(forms.ModelForm):
                     cleaned[k] = None
         return cleaned
 
+
 # ===================== Inscripción a Espacio (Cursada) =====================
 
 class InscripcionEspacioForm(forms.ModelForm):
@@ -188,7 +187,7 @@ class InscripcionEspacioForm(forms.ModelForm):
         widgets = {
             "anio_academico": forms.NumberInput(attrs={"class": "inp", "min": 2000, "max": 2100}),
             "inscripcion": forms.Select(attrs={"class": "inp"}),  # autosubmit removido
-            "espacio": forms.Select(attrs={"class": "inp"}),
+            "espacio": forms.Select(attrs={"class": "inp", "id": "espacio-select"}),
         }
         labels = {"anio_academico": "Año académico"}
 
@@ -405,7 +404,6 @@ class InscripcionEspacioForm(forms.ModelForm):
         return cleaned
 
 
-
 # ===================== Alta rápida de Estudiantes =====================
 
 class EstudianteForm(forms.ModelForm):
@@ -577,8 +575,250 @@ class CargarResultadoFinalForm(forms.ModelForm):
             obj.save()
         return obj
 
+
 # --- Ejemplo para formularios que cargan Movimiento (REG o FIN) ---
 class CargarRegularidadForm(forms.ModelForm):
+    # Nota entera 0..10
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"}),
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "fecha", "condicion", "nota_num"]
+        widgets = {
+            # ✅ autosubmit para recalcular "espacio"
+            "inscripcion": forms.Select(attrs={"class": "inp", "onchange": "this.form.submit()"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # tomada de data (autosubmit), de initial o de una instancia ya cargada
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+
+        if not insc_id:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        # que quede seleccionada visible
+        self.initial["inscripcion"] = insc_id
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # 1) si hay cursadas para esa inscripción, muestro esas
+        cursadas_ids = list(
+            InscripcionEspacio.objects
+            .filter(inscripcion=insc)
+            .values_list("espacio_id", flat=True)
+        )
+        if cursadas_ids:
+            base = (EspacioCurricular.objects
+                    .filter(id__in=cursadas_ids)
+                    .order_by("anio", "cuatrimestre", "nombre"))
+        else:
+            # 2) fallback: todos los espacios del profesorado (plan vigente si existe)
+            base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+            plan_vigente_id = _plan_vigente_id(insc.profesorado)
+            if plan_vigente_id:
+                base = base.filter(plan_id=plan_vigente_id)
+            base = base.order_by("anio", "cuatrimestre", "nombre")
+
+        self.fields["espacio"].queryset = base
+
+    def clean(self):
+        cleaned = super().clean()
+        cond = cleaned.get("condicion")
+        nota = cleaned.get("nota_num")
+
+        # para Regular/Promoción/Aprobado la nota es obligatoria y 0..10
+        if cond in {"Promoción", "Aprobado", "Regular"}:
+            if nota is None:
+                raise ValidationError("Debe seleccionar una nota (0–10).")
+            if not (0 <= nota <= 10):
+                raise ValidationError("La nota debe estar entre 0 y 10.")
+        else:
+            cleaned["nota_num"] = None
+        return cleaned
+
+    # si tu modelo usa 'nota_num' para REG, lo forzamos a entero con select:
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],  # 0..10
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"})
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "fecha", "condicion", "nota_num"]
+        widgets = {
+            # ✅ autosubmit SOLO para filtrar
+            "inscripcion": forms.Select(attrs={"class": "inp", "onchange": "this.form.submit()"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+
+        if not insc_id:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        # mantener visible la inscripción seleccionada
+        self.initial["inscripcion"] = insc_id
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # Si ya hay cursadas para esa inscripción, mostramos esas
+        cursadas_ids = list(
+            InscripcionEspacio.objects
+            .filter(inscripcion=insc)
+            .values_list("espacio_id", flat=True)
+        )
+
+        if cursadas_ids:
+            base = (EspacioCurricular.objects
+                    .filter(id__in=cursadas_ids)
+                    .order_by("anio", "cuatrimestre", "nombre"))
+        else:
+            # Fallback: todos los espacios del profesorado (plan vigente si hay)
+            base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+            plan_vigente_id = _plan_vigente_id(insc.profesorado)
+            if plan_vigente_id:
+                base = base.filter(plan_id=plan_vigente_id)
+            base = base.order_by("anio", "cuatrimestre", "nombre")
+
+        self.fields["espacio"].queryset = base
+
+    def clean(self):
+        cleaned = super().clean()
+        cond = cleaned.get("condicion")
+        nota = cleaned.get("nota_num")
+        if cond in {"Promoción", "Aprobado", "Regular"}:
+            if nota is None:
+                raise ValidationError("Debe seleccionar una nota (0–10).")
+            if not (0 <= nota <= 10):
+                raise ValidationError("La nota debe estar entre 0 y 10.")
+        else:
+            cleaned["nota_num"] = None
+        return cleaned
+
+    # si tu modelo usa 'nota_num' para REG, lo forzamos a entero con select:
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],  # 0..10
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"})
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "fecha", "condicion", "nota_num"]
+        widgets = {
+            "inscripcion": forms.Select(attrs={"class": "inp"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Filtrar ESPACIO según la inscripción elegida
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+
+        if not insc_id:
+            # hasta que elijan inscripción, no mostrar nada
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # Si ya hay cursadas creadas para esa inscripción, priorizamos esas
+        cursadas_ids = list(
+            InscripcionEspacio.objects
+            .filter(inscripcion=insc)
+            .values_list("espacio_id", flat=True)
+        )
+
+        if cursadas_ids:
+            base = (EspacioCurricular.objects
+                    .filter(id__in=cursadas_ids)
+                    .order_by("anio", "cuatrimestre", "nombre"))
+        else:
+            # Fallback: todos los espacios del profesorado (y plan vigente si hay)
+            base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+            plan_vigente_id = _plan_vigente_id(insc.profesorado)
+            if plan_vigente_id:
+                base = base.filter(plan_id=plan_vigente_id)
+            base = base.order_by("anio", "cuatrimestre", "nombre")
+
+        self.fields["espacio"].queryset = base
+
+    def clean(self):
+        cleaned = super().clean()
+        # Validación simple de nota para condiciones que la requieren
+        cond = cleaned.get("condicion")
+        nota = cleaned.get("nota_num")
+        if cond in {"Promoción", "Aprobado", "Regular"}:
+            if nota is None:
+                raise ValidationError("Debe seleccionar una nota (0–10).")
+            if not (0 <= nota <= 10):
+                raise ValidationError("La nota debe estar entre 0 y 10.")
+        else:
+            cleaned["nota_num"] = None
+        return cleaned
+
     # si tu modelo usa 'nota_num' para REG, lo forzamos a entero con select:
     nota_num = forms.TypedChoiceField(
         choices=NOTA_0_10, coerce=int, required=False,
@@ -610,7 +850,236 @@ class CargarRegularidadForm(forms.ModelForm):
             cleaned["nota_num"] = None
         return cleaned
 
+
 class CargarFinalForm(forms.ModelForm):
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"}),
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = [
+            "inscripcion", "espacio", "fecha", "condicion",
+            "nota_num", "ausente", "ausencia_justificada",
+            "nota_texto", "disposicion_interna",
+        ]
+        widgets = {
+            # ✅ autosubmit para recalcular "espacio"
+            "inscripcion": forms.Select(attrs={"class": "inp", "onchange": "this.form.submit()"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+            "nota_texto": forms.TextInput(attrs={"class": "inp"}),
+            "disposicion_interna": forms.TextInput(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+        if not insc_id:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        self.initial["inscripcion"] = insc_id
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # para finales: espacios del profesorado (plan vigente si existe)
+        base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+        plan_vigente_id = _plan_vigente_id(insc.profesorado)
+        if plan_vigente_id:
+            base = base.filter(plan_id=plan_vigente_id)
+        self.fields["espacio"].queryset = base.order_by("anio", "cuatrimestre", "nombre")
+
+    def clean(self):
+        cleaned = super().clean()
+        cond = cleaned.get("condicion")
+        aus = cleaned.get("ausente")
+        nota = cleaned.get("nota_num")
+
+        if cond == "Equivalencia":
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if aus:
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if nota is None:
+            raise ValidationError("Debe seleccionar una nota o marcar Ausente.")
+        if not (0 <= nota <= 10):
+            raise ValidationError("La nota debe estar entre 0 y 10.")
+        return cleaned
+
+    # para FIN Regular/Libre (no equivalencia), entero 0..10
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],  # 0..10
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"})
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "fecha", "condicion",
+                  "nota_num", "ausente", "ausencia_justificada",
+                  "nota_texto", "disposicion_interna"]
+        widgets = {
+            # ✅ autosubmit para filtrar el combo de espacio
+            "inscripcion": forms.Select(attrs={"class": "inp", "onchange": "this.form.submit()"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+            "nota_texto": forms.TextInput(attrs={"class": "inp"}),
+            "disposicion_interna": forms.TextInput(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+
+        if not insc_id:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        # mantener visible la inscripción seleccionada
+        self.initial["inscripcion"] = insc_id
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # Para finales mostramos los espacios del profesorado (plan vigente si hay)
+        base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+        plan_vigente_id = _plan_vigente_id(insc.profesorado)
+        if plan_vigente_id:
+            base = base.filter(plan_id=plan_vigente_id)
+        base = base.order_by("anio", "cuatrimestre", "nombre")
+        self.fields["espacio"].queryset = base
+
+    def clean(self):
+        cleaned = super().clean()
+        cond   = cleaned.get("condicion")
+        aus    = cleaned.get("ausente")
+        nota   = cleaned.get("nota_num")
+
+        if cond == "Equivalencia":
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if aus:
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if nota is None:
+            raise ValidationError("Debe seleccionar una nota o marcar Ausente.")
+        if not (0 <= nota <= 10):
+            raise ValidationError("La nota debe estar entre 0 y 10.")
+        return cleaned
+
+    # para FIN Regular/Libre (no equivalencia), entero 0..10
+    nota_num = forms.TypedChoiceField(
+        choices=[(i, str(i)) for i in range(11)],  # 0..10
+        coerce=int, required=False,
+        label="Nota (0–10)",
+        widget=forms.Select(attrs={"class": "inp"})
+    )
+
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "fecha", "condicion",
+                  "nota_num", "ausente", "ausencia_justificada",
+                  "nota_texto", "disposicion_interna"]
+        widgets = {
+            "inscripcion": forms.Select(attrs={"class": "inp"}),
+            "espacio": forms.Select(attrs={"class": "inp"}),
+            "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
+            "condicion": forms.Select(attrs={"class": "inp"}),
+            "nota_texto": forms.TextInput(attrs={"class": "inp"}),
+            "disposicion_interna": forms.TextInput(attrs={"class": "inp"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        insc_id = (
+            self.data.get("inscripcion")
+            or getattr(self.initial.get("inscripcion"), "pk", None)
+            or getattr(self.instance, "inscripcion_id", None)
+        )
+
+        if not insc_id:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            return
+
+        try:
+            insc = (
+                EstudianteProfesorado.objects
+                .select_related("profesorado")
+                .get(pk=insc_id)
+            )
+        except EstudianteProfesorado.DoesNotExist:
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            return
+
+        # Para finales, mostramos los espacios del profesorado (y plan vigente)
+        base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+        plan_vigente_id = _plan_vigente_id(insc.profesorado)
+        if plan_vigente_id:
+            base = base.filter(plan_id=plan_vigente_id)
+        base = base.order_by("anio", "cuatrimestre", "nombre")
+        self.fields["espacio"].queryset = base
+
+    def clean(self):
+        cleaned = super().clean()
+        cond   = cleaned.get("condicion")
+        aus    = cleaned.get("ausente")
+        nota   = cleaned.get("nota_num")
+
+        if cond == "Equivalencia":
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if aus:
+            cleaned["nota_num"] = None
+            return cleaned
+
+        if nota is None:
+            raise ValidationError("Debe seleccionar una nota o marcar Ausente.")
+        if not (0 <= nota <= 10):
+            raise ValidationError("La nota debe estar entre 0 y 10.")
+        return cleaned
+
     # para FIN Regular/Libre (no equivalencia), entero 0..10
     nota_num = forms.TypedChoiceField(
         choices=NOTA_0_10, coerce=int, required=False,
