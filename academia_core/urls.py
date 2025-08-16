@@ -6,7 +6,7 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-from .views_panel import panel  # ✅ panel unificado
+from .views_panel import panel, get_espacios_por_inscripcion
 
 from .views_cbv import (
     # Estudiantes
@@ -64,4 +64,8 @@ urlpatterns = [
     path("calificaciones/agregar/", CalificacionCreateView.as_view(), name="agregar_calificacion"),
     path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
     path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
+    
+    path("api/espacios-por-inscripcion/<int:insc_id>/", get_espacios_por_inscripcion, name="api_espacios_por_inscripcion"),
+    
+    
 ]

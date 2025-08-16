@@ -24,6 +24,67 @@ from .forms_carga import (
 from .models import Profesorado
 
 
+# imports necesarios arriba del archivo
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
+
+from .models import (
+    EstudianteProfesorado,
+    EspacioCurricular,
+    InscripcionEspacio,
+)
+
+def _plan_vigente_id(prof):
+    pv = getattr(prof, "plan_vigente", None)
+    return getattr(pv, "id", None)
+
+@login_required
+@require_GET
+def get_espacios_por_inscripcion(request, insc_id: int):
+    """
+    Devuelve JSON para poblar el <select name="espacio"> en forms dependientes.
+    Parámetros:
+      - mode: 'regularidad' (default) | 'final'
+        * regularidad: primero intenta cursadas de esa inscripción; si no hay, todos los espacios del profesorado
+        * final: todos los espacios del profesorado (opcionalmente por plan vigente si hay)
+    """
+    mode = request.GET.get("mode", "regularidad")
+    try:
+        insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
+    except EstudianteProfesorado.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "inscripcion_not_found", "items": []}, status=404)
+
+    # helper: espacios del profesorado (aplica plan vigente solo si tiene resultados)
+    def _espacios_profesorado():
+        base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+        plan_id = _plan_vigente_id(insc.profesorado)
+        if plan_id:
+            base_pv = base.filter(plan_id=plan_id)
+            if base_pv.exists():
+                base = base_pv
+        return base.order_by("anio", "cuatrimestre", "nombre")
+
+    if mode == "final":
+        esp_qs = _espacios_profesorado()
+    else:
+        # regularidad: si hay cursadas para esta inscripción, usamos esas
+        cursadas_ids = list(
+            InscripcionEspacio.objects
+            .filter(inscripcion=insc)   # ✅ en tu proyecto la FK se llama 'inscripcion'
+            .values_list("espacio_id", flat=True)
+            .distinct()
+        )
+        if cursadas_ids:
+            esp_qs = EspacioCurricular.objects.filter(id__in=cursadas_ids).order_by("anio", "cuatrimestre", "nombre")
+        else:
+            esp_qs = _espacios_profesorado()
+
+    items = [{"id": e.id, "nombre": e.nombre} for e in esp_qs]
+    return JsonResponse({"ok": True, "items": items})
+
+
+
 # ================ Helpers ===================
 
 def _get_rol(user) -> str:
