@@ -148,12 +148,10 @@ class EstudianteProfesorado(models.Model):
     doc_dni_legalizado = models.BooleanField(default=False)
     doc_titulo_sec_legalizado = models.BooleanField(default=False)
     doc_cert_medico = models.BooleanField(default=False)
-    doc_fotos_carnet = models.PositiveSmallIntegerField(
-        default=0, validators=[MinValueValidator(0), MaxValueValidator(2)]
-    )
-    doc_folios_oficio = models.PositiveSmallIntegerField(
-        default=0, validators=[MinValueValidator(0), MaxValueValidator(2)]
-    )
+    
+    # >>> CAMBIOS A BOOLEANOS APLICADOS AQUÍ <<<
+    doc_fotos_carnet = models.BooleanField(default=False, verbose_name="Fotos carnet")
+    doc_folios_oficio = models.BooleanField(default=False, verbose_name="Folios oficio")
 
     # DDJJ / Nota de compromiso
     nota_compromiso = models.BooleanField(default=False)
@@ -187,19 +185,20 @@ class EstudianteProfesorado(models.Model):
     def requisitos_obligatorios(self):
         """
         Requisitos de legajo:
-        - Profesorados comunes: DNI + Título secundario + Cert. médico + Fotos(2) + Folios(2)
-        - Certificación Docente: DNI + Cert. médico + Fotos(2) + Folios(2)
+        - Profesorados comunes: DNI + Título secundario + Cert. médico + Fotos + Folios
+        - Certificación Docente: DNI + Cert. médico + Fotos + Folios
           + Título superior legalizado + Incumbencias del título
           (NO se exige título secundario).
         """
         nombre = (self.profesorado.nombre or "").lower()
         es_cert = ("certificación" in nombre) or ("certificacion" in nombre)
 
+        # >>> LÓGICA AJUSTADA A LOS CAMPOS BOOLEANOS <<<
         base = [
             ("doc_dni_legalizado", True),
             ("doc_cert_medico", True),
-            ("doc_fotos_carnet", 2),
-            ("doc_folios_oficio", 2),
+            ("doc_fotos_carnet", True),
+            ("doc_folios_oficio", True),
         ]
         if es_cert:
             base += [

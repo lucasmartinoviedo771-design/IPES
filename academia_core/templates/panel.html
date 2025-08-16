@@ -30,7 +30,7 @@
    .card{ background:var(--card); border:1px solid var(--card-b);
           border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
 
-   /* ======= HERO (tamaños originales) ======= */
+   /* ======= HERO ======= */
    .hero{ display:grid; grid-template-columns:1fr 128px 1fr; align-items:center; gap:16px; margin-bottom:var(--gap) }
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
@@ -55,11 +55,62 @@
    input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d9e0e4; border-radius:12px }
    input:focus,select:focus{ outline:2px solid var(--green) }
    label{ display:block; margin-top:10px }
+   .muted{ color: var(--muted); }
    .submit{ margin-top:16px }
    .submit button{ background:var(--orange); border:0; color:#2b1b09; padding:12px 16px; border-radius:12px }
    .submit button:hover{ background:var(--orange-600) }
    .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
   </style>
+
+  {# ======= CSS: Alta de estudiante (2 columnas) ======= #}
+  {% if action == "add_est" %}
+  <style>
+    #add-est-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+    #add-est-grid .item{margin:0}
+    #add-est-grid label{display:block;font-weight:600;margin-bottom:6px}
+    #add-est-grid input[type="text"],#add-est-grid input[type="email"],#add-est-grid input[type="tel"],#add-est-grid input[type="date"],#add-est-grid input[type="number"],#add-est-grid input[type="file"],#add-est-grid select,#add-est-grid textarea{width:100%;box-sizing:border-box}
+    #add-est-grid .full{grid-column:1/-1}
+    #add-est-grid .check{display:flex;align-items:center;gap:8px}
+    #add-est-grid .check input[type="checkbox"]{width:auto!important;height:auto;margin:0;flex:0 0 auto}
+    #add-est-grid .check label{display:inline-block;margin:0;font-weight:600}
+    .err{color:#b00020;margin-top:4px;font-size:.9rem}
+    @media (max-width:900px){#add-est-grid{grid-template-columns:1fr}}
+  </style>
+  {% endif %}
+
+  {# ======= CSS: Inscribir carrera ======= #}
+  {% if action == "insc_prof" %}
+  <style>
+    #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+    #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
+    #insc-prof-grid-top input,#insc-prof-grid-top select,#insc-prof-grid-top textarea{width:100%}
+
+    #insc-prof-checks{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px 18px;
+      align-items:start;
+      margin-top:12px;
+    }
+    /* tarjetas de 2 líneas centradas */
+    #insc-prof-checks .chk{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+      height:72px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25
+    }
+    #insc-prof-checks .chk input[type="checkbox"]{width:auto;height:auto;margin:0 0 6px 0;flex:0 0 auto}
+    #insc-prof-checks .chk label{margin:0;font-weight:600}
+
+    #insc-prof-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start;margin-top:12px}
+    #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
+    #insc-prof-extra input,#insc-prof-extra select,#insc-prof-extra textarea{width:100%}
+    .err{color:#b00020;margin-top:4px;font-size:.9rem}
+    @media (max-width:900px){
+      #insc-prof-grid-top{grid-template-columns:1fr}
+      #insc-prof-checks{grid-template-columns:1fr 1fr}
+      #insc-prof-extra{grid-template-columns:1fr}
+    }
+  </style>
+  {% endif %}
 </head>
 <body>
 <div class="wrap">
@@ -94,38 +145,13 @@
     <aside class="left card sidenav">
       <h3>Acciones</h3>
       <ul class="menu-list">
-        <li class="menu-item">
-          <a href="?action=section_est"
-             class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">
-             Estudiantes
-          </a>
-        </li>
-        <li class="menu-item">
-          <a href="?action=section_insc"
-             class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">
-             Inscripciones
-          </a>
-        </li>
-        <li class="menu-item">
-          <a href="?action=section_calif"
-             class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">
-             Calificaciones
-          </a>
-        </li>
+        <li class="menu-item"><a href="?action=section_est" class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">Estudiantes</a></li>
+        <li class="menu-item"><a href="?action=section_insc" class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">Inscripciones</a></li>
+        <li class="menu-item"><a href="?action=section_calif" class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">Calificaciones</a></li>
         {% if can_admin %}
-        <li class="menu-item">
-          <a href="?action=section_admin"
-             class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">
-             Administración
-          </a>
-        </li>
+        <li class="menu-item"><a href="?action=section_admin" class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">Administración</a></li>
         {% endif %}
-        <li class="menu-item">
-          <a href="?action=section_help"
-             class="menu-link {% if action == 'section_help' %}active{% endif %}">
-             Ayuda
-          </a>
-        </li>
+        <li class="menu-item"><a href="?action=section_help" class="menu-link {% if action == 'section_help' %}active{% endif %}">Ayuda</a></li>
       </ul>
     </aside>
 
@@ -175,7 +201,6 @@
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
-          <!-- SIEMPRE POST: autosubmits también vienen por POST pero sin save=1 -->
           <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
@@ -184,21 +209,76 @@
               <div class="msg" role="alert">{{ form.non_field_errors }}</div>
             {% endif %}
 
-            {# Campos más comunes; si el form no los tiene, no pasa nada #}
-            {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
-            {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
-            {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
+            {# ===== Alta de estudiante ===== #}
+            {% if action == "add_est" %}
+              <div id="add-est-grid">
+                <div class="item">{{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.apellido.label_tag }}{{ form.apellido }}{% for e in form.apellido.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.nombre.label_tag }}{{ form.nombre }}{% for e in form.nombre.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{% for e in form.fecha_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{% for e in form.lugar_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.email.label_tag }}{{ form.email }}{% for e in form.email.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item">{{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item full check">{{ form.activo }} {{ form.activo.label_tag }}{% for e in form.activo.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                <div class="item full">{{ form.foto.label_tag }}{{ form.foto }}{% for e in form.foto.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+              </div>
 
-            {# Renderiza el resto, si hubiera #}
-            {% for f in form %}
-              {% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
-                {{ f.label_tag }}{{ f }}
-              {% endif %}
-            {% endfor %}
+            {% elif action == "insc_prof" %}
+              <!-- Top en 2 columnas -->
+              <div id="insc-prof-grid-top">
+                {% for f in form %}
+                  {% if f.name == 'estudiante' or f.name == 'profesorado' or f.name == 'cohorte' or f.name == 'anio_academico' or f.name == 'ubicacion' or f.name == 'sede' or f.name == 'ubica' or f.name == 'curso_introductorio' %}
+                    <div>{{ f.label_tag }}{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                  {% endif %}
+                {% endfor %}
+              </div>
 
-            <div class="submit">
-              <button type="submit" name="save" value="1">Guardar</button>
-            </div>
+              <!-- Checkboxes reales en 3 columnas -->
+              <div id="insc-prof-checks">
+                {% for f in form %}
+                  {% if f.field.widget.input_type == 'checkbox' and f.name != 'activo' %}
+                    <label class="chk">{{ f }} {{ f.label }}</label>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <!-- ¿Cuáles? + Colegio -->
+              <div id="insc-prof-extra">
+                {% if form.adeuda_detalle %}
+                  <div class="js-adeuda-field">
+                    {{ form.adeuda_detalle.label_tag }}{{ form.adeuda_detalle }}
+                    {% for e in form.adeuda_detalle.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                  </div>
+                {% endif %}
+                {% if form.colegio %}
+                  <div class="js-adeuda-field">
+                    {{ form.colegio.label_tag }}{{ form.colegio }}
+                    {% for e in form.colegio.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+
+              {# Catch-all: lo que quede sin render y NO sea checkbox ni campos top/extra #}
+              {% for f in form %}
+                {% if f.field.widget.input_type != 'checkbox' and f.name != 'estudiante' and f.name != 'profesorado' and f.name != 'cohorte' and f.name != 'anio_academico' and f.name != 'ubicacion' and f.name != 'sede' and f.name != 'ubica' and f.name != 'curso_introductorio' and f.name != 'adeuda_detalle' and f.name != 'colegio' %}
+                  <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                {% endif %}
+              {% endfor %}
+
+            {% else %}
+              {# Resto de acciones: render genérico #}
+              {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
+              {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
+              {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
+              {% for f in form %}
+                {% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
+                  {{ f.label_tag }}{{ f }}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+
+            <div class="submit"><button type="submit" name="save" value="1">Guardar</button></div>
           </form>
         {% endif %}
       {% endif %}
@@ -225,57 +305,79 @@
 (function () {
   // Helpers
   function qs(name){return document.querySelector('[name="'+name+'"]');}
-  function wrap(el){return el?.closest('p') || el?.parentElement;}
+  function wrap(el){return el?.closest('p') || el?.parentElement || el?.closest('div');}
   function showField(el,show){if(!el)return;const b=wrap(el)||el;b.style.display=show?'':'none';}
   function disableField(el,disabled,clear=true){if(!el)return;el.disabled=!!disabled;if(disabled&&clear)el.value='';}
 
+  // ===== Lógica de finales (si existiera en otros forms) =====
   const nota = qs('nota_final') || qs('nota_num') || qs('nota');
   const ausente = qs('ausente');
   const justif = qs('ausencia_justificada');
-
   const condicion = qs('condicion');
   const notaTexto = qs('nota_texto');
   const dispoInt = qs('disposicion_interna');
-
   function syncUI(){
     const isAus = !!(ausente && ausente.checked);
     const cond = condicion ? condicion.value : null;
     const isEq = (cond === 'Equivalencia');
-
     if(condicion){
-      showField(notaTexto,isEq);
-      showField(dispoInt,isEq);
-      showField(ausente,!isEq);
-      showField(justif,!isEq && isAus);
-      showField(nota,!isEq && !isAus);
-      disableField(nota, isEq || isAus);
+      showField(notaTexto,isEq); showField(dispoInt,isEq);
+      showField(ausente,!isEq); showField(justif,!isEq && isAus);
+      showField(nota,!isEq && !isAus); disableField(nota, isEq || isAus);
     }else{
-      disableField(nota,isAus);
-      showField(nota,!isAus);
-      showField(justif,isAus);
+      disableField(nota,isAus); showField(nota,!isAus); showField(justif,isAus);
     }
-
-    if(nota){
-      nota.setAttribute('min','0');
-      nota.setAttribute('max','10');
-      if(!nota._hasRangeListener){
-        nota.addEventListener('input',function(){
-          if(this.value===''){this.setCustomValidity('');return;}
-          let v=parseFloat(String(this.value).replace(',','.'));
-          if(isNaN(v)||v<0||v>10){this.setCustomValidity('La nota debe estar entre 0 y 10.');}
-          else{this.setCustomValidity('');}
-        });
-        nota._hasRangeListener = true;
-      }
+    if(nota && !nota._hasRangeListener){
+      nota.setAttribute('min','0'); nota.setAttribute('max','10');
+      nota.addEventListener('input',function(){
+        if(this.value===''){this.setCustomValidity('');return;}
+        let v=parseFloat(String(this.value).replace(',','.'));
+        if(isNaN(v)||v<0||v>10){this.setCustomValidity('La nota debe estar entre 0 y 10.');}
+        else{this.setCustomValidity('');}
+      });
+      nota._hasRangeListener = true;
     }
   }
-
   ausente && ausente.addEventListener('change',syncUI);
   justif && justif.addEventListener('change',syncUI);
   condicion && condicion.addEventListener('change',syncUI);
+  document.addEventListener('DOMContentLoaded',syncUI); syncUI();
 
-  document.addEventListener('DOMContentLoaded',syncUI);
-  syncUI();
+  // ===== Inscribir carrera (insc_prof) =====
+  // Adeuda -> muestra ¿Cuáles? y Colegio
+  const adeuda = document.querySelector('input[type="checkbox"][name="adeuda_materias"]');
+  const adeudaDetalle = document.querySelector('[name="adeuda_detalle"]');
+  const colegio = document.querySelector('[name="colegio"]');
+  function toggleAdeuda(){
+    const on = !!(adeuda && adeuda.checked);
+    showField(adeudaDetalle, on); disableField(adeudaDetalle, !on, false);
+    showField(colegio, on);       disableField(colegio, !on, false);
+  }
+  adeuda && adeuda.addEventListener('change', toggleAdeuda);
+
+  // Certificación Docente -> doc_* ON, título secundario OFF
+  const selProf   = document.querySelector('[name="profesorado"]');
+  const tituloSup = document.querySelector('[name="doc_titulo_superior_legalizado"]');
+  const incumb    = document.querySelector('[name="doc_incumbencias_titulo"]');
+  const tituloSec = document.querySelector('[name="doc_titulo_sec_legalizado"]');
+  function esCertificacionDocente(){
+    if(!selProf) return false;
+    const t = (selProf.options[selProf.selectedIndex]?.text || '').toLowerCase();
+    return t.includes('certificación docente') || t.includes('certificacion docente');
+  }
+  function toggleCertificacion(){
+    const cert = esCertificacionDocente();
+    showField(tituloSup, cert); disableField(tituloSup, !cert, false);
+    showField(incumb, cert);    disableField(incumb, !cert, false);
+    if (tituloSec){ showField(tituloSec, !cert); disableField(tituloSec, cert, false); }
+  }
+  selProf && selProf.addEventListener('change', toggleCertificacion);
+
+  // Init cuando es insc_prof
+  if (document.querySelector('[name="action"]')?.value === 'insc_prof') {
+    toggleAdeuda();
+    toggleCertificacion();
+  }
 })();
 </script>
 </body>

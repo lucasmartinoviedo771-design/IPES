@@ -5,6 +5,8 @@ import re
 from django import forms
 from django.core.exceptions import ValidationError, FieldError
 from django.db.models import Q
+from django import forms
+from .models import EstudianteProfesorado
 
 from .models import (
     EstudianteProfesorado,
@@ -99,42 +101,33 @@ def _ie_get_fecha_regularidad(rec):
 
 class InscripcionProfesoradoForm(forms.ModelForm):
     """Crea EstudianteProfesorado (vínculo Estudiante ↔ Profesorado + datos de legajo)."""
+
     class Meta:
         model = EstudianteProfesorado
         fields = [
             "estudiante", "profesorado",
-            "cohorte", "libreta",
+            "cohorte",
             "curso_introductorio",
-
-            # Documentación entregada
-            "doc_dni_legalizado",
-            "doc_titulo_sec_legalizado",
-            "doc_cert_medico",
-            "doc_fotos_carnet",
-            "doc_folios_oficio",
-            "nota_compromiso",
-
-            # Libreta entregada
+            # Documentación
+            "doc_dni_legalizado", "doc_titulo_sec_legalizado", "doc_cert_medico",
+            "doc_fotos_carnet", "doc_folios_oficio", "nota_compromiso",
+            # Libreta (solo check)
             "legajo_entregado",
-
-            # Adeuda materia
-            "adeuda_materias",
-            "adeuda_detalle",
-            "colegio",
-
-            # Sólo Certificación Docente
-            "doc_titulo_superior_legalizado",
-            "doc_incumbencias_titulo",
+            # Adeuda
+            "adeuda_materias", "adeuda_detalle", "colegio",
+            # Certificación Docente
+            "doc_titulo_superior_legalizado", "doc_incumbencias_titulo",
         ]
         widgets = {
             "estudiante": forms.Select(attrs={"class": "inp"}),
             "profesorado": forms.Select(attrs={"class": "inp"}),
             "cohorte": forms.TextInput(attrs={"placeholder": "2025", "class": "inp"}),
-            "libreta": forms.TextInput(attrs={"class": "inp", "placeholder": "Nº físico (si aplica)"}),
             "curso_introductorio": forms.Select(attrs={"class": "inp"}),
 
-            "doc_fotos_carnet": forms.NumberInput(attrs={"class": "inp", "min": 0, "max": 2}),
-            "doc_folios_oficio": forms.NumberInput(attrs={"class": "inp", "min": 0, "max": 2}),
+            # ✅ Cambiados a checkbox
+            "doc_fotos_carnet": forms.CheckboxInput(),
+            "doc_folios_oficio": forms.CheckboxInput(),
+
             "doc_dni_legalizado": forms.CheckboxInput(),
             "doc_titulo_sec_legalizado": forms.CheckboxInput(),
             "doc_cert_medico": forms.CheckboxInput(),
@@ -151,14 +144,14 @@ class InscripcionProfesoradoForm(forms.ModelForm):
         }
         labels = {
             "cohorte": "Cohorte",
-            "libreta": "Libreta",
             "curso_introductorio": "Curso introductorio",
 
             "doc_dni_legalizado": "DNI legalizado",
             "doc_titulo_sec_legalizado": "Título Secundario legalizado",
             "doc_cert_medico": "Certificado médico",
-            "doc_fotos_carnet": "Fotos carnet (0–2)",
-            "doc_folios_oficio": "Folios oficio (0–2)",
+            # ✅ Etiquetas sin (0–2)
+            "doc_fotos_carnet": "Fotos carnet",
+            "doc_folios_oficio": "Folios oficio",
             "nota_compromiso": "DDJJ / Nota compromiso",
 
             "legajo_entregado": "Libreta entregada",
@@ -173,9 +166,18 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Filtro de profesorados por usuario (como ya tenías)
         profes_qs = _profes_qs_for_user(user)
         self.fields["profesorado"].queryset = profes_qs.order_by("nombre")
 
+    def clean(self):
+        cleaned = super().clean()
+        # Si NO adeuda, vaciamos los campos dependientes para evitar datos “fantasma”
+        if not cleaned.get("adeuda_materias"):
+            for k in ("adeuda_detalle", "colegio"):
+                if k in self.fields:
+                    cleaned[k] = None
+        return cleaned
 
 # ===================== Inscripción a Espacio (Cursada) =====================
 
@@ -781,7 +783,7 @@ class CargarNotaFinalForm(forms.ModelForm):
         if not ausente and nota is None:
             raise ValidationError("Debe cargar una nota o marcarlo como Ausente.")
         if not ausente and nota is not None and (nota < 0 or nota > 10):
-             raise ValidationError("La nota debe estar entre 0 y 10.")
+                 raise ValidationError("La nota debe estar entre 0 y 10.")
         return cleaned
 
     def save(self, commit=True):
