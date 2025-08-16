@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
   <style>
    :root{
     --ink:#2e2f33; --bg:#ebd4c5; --card:#fff; --card-b:#e9e4da;
@@ -19,8 +18,8 @@
    }
    *{ box-sizing:border-box }
    body{ margin:0; background:var(--bg); color:var(--ink);
-         font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
-         -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale }
+        font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+        -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale }
    a{ color:var(--green-600); text-decoration:none }
    a:hover{ text-decoration:underline }
    .wrap{ max-width:1400px; margin:0 auto; padding:20px }
@@ -30,6 +29,8 @@
    .btn:hover{ background:var(--green-050) }
    .card{ background:var(--card); border:1px solid var(--card-b);
           border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
+
+   /* ======= HERO (volver a tamaños originales) ======= */
    .hero{ display:grid; grid-template-columns:1fr 128px 1fr; align-items:center; gap:16px; margin-bottom:var(--gap) }
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
@@ -41,31 +42,23 @@
    .grid{ display:grid; grid-template-columns:260px 1fr 320px; gap:var(--gap) }
    @media (max-width:1100px){ .grid{ grid-template-columns:1fr } .right{ order:3 } .left{ order:2 } .center{ order:1 } }
 
-   /* ===== Menú lateral (5 items) ===== */
    .sidenav h3{ margin:0 0 10px }
    .menu-list{ list-style:none; margin:0; padding:0 }
    .menu-item{ margin:2px 0 }
-   .menu-link{
-     display:block; padding:10px 12px; border-radius:10px; color:var(--ink);
-     font-weight:600;
-   }
-   .menu-link:hover{ background:#f3f6f4; text-decoration:none }
+   .menu-link{ display:block; padding:10px 12px; border-radius:10px; font-weight:600; color:var(--ink) }
+   .menu-link:hover{ background:#f3f6f4 }
    .menu-link.active{ background:var(--green-050); outline:2px solid #d9ebe3 }
-   .muted{ color:var(--muted) }
 
-   /* contenido */
    .section-links{ list-style:none; padding:0; margin:8px 0 0 }
-   .section-links li{ margin:6px 0 }
    .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
 
-   input,select,textarea{ background:#fff; border:1px solid #d9e0e4; border-radius:12px; padding:10px 12px; width:100%; color:var(--ink); font-family:inherit }
-   input:focus,select:focus,textarea:focus{ outline:2px solid var(--green); border-color:var(--green) }
-   label{ display:block; margin:10px 0 4px; color:var(--muted); font-size:14px }
+   input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d9e0e4; border-radius:12px }
+   input:focus,select:focus{ outline:2px solid var(--green) }
+   label{ display:block; margin-top:10px }
    .submit{ margin-top:16px }
-   .submit button{ padding:12px 16px; border-radius:12px; border:0; background:var(--orange); color:#2b1b09; font-weight:700; box-shadow:0 6px 18px rgba(232,137,42,.25) }
+   .submit button{ background:var(--orange); border:0; color:#2b1b09; padding:12px 16px; border-radius:12px }
    .submit button:hover{ background:var(--orange-600) }
-   .msg{ margin:8px 0; padding:12px 14px; border-radius:12px; background:#f1f5f2; border:1px solid var(--card-b) }
-   .msg[role="alert"]{ background:#fff1ec; border-color:#f6cbb1 }
+   .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
   </style>
 </head>
 <body>
@@ -90,41 +83,58 @@
 
   {% if messages %}
     {% for message in messages %}
-      <div class="msg {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</div>
+      <div class="msg {{ message.tags }}">{{ message }}</div>
     {% endfor %}
   {% endif %}
 
   <div class="grid">
-    <!-- ================ MENU LATERAL (SOLO 5 ITEMS) ================ -->
     <aside class="left card sidenav">
-      <h3 style="margin:0 0 8px">Acciones</h3>
+      <h3>Acciones</h3>
       <ul class="menu-list">
-        <li class="menu-item">
-          <a class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}" href="?action=section_est">Estudiantes</a>
-        </li>
-        <li class="menu-item">
-          <a class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' %}active{% endif %}" href="?action=section_insc">Inscripciones</a>
-        </li>
-        <li class="menu-item">
-          <a class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_final' %}active{% endif %}" href="?action=section_calif">Calificaciones</a>
-        </li>
-        {% if can_admin %}
-        <li class="menu-item">
-          <a class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}" href="?action=section_admin">Administración</a>
-        </li>
-        {% endif %}
-        <li class="menu-item">
-          <a class="menu-link {% if action == 'section_help' %}active{% endif %}" href="?action=section_help">Ayuda</a>
-        </li>
-      </ul>
+  <li class="menu-item">
+    <a href="?action=section_est"
+       class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">
+       Estudiantes
+    </a>
+  </li>
+
+  <li class="menu-item">
+    <a href="?action=section_insc"
+       class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">
+       Inscripciones
+    </a>
+  </li>
+
+  <li class="menu-item">
+    <a href="?action=section_calif"
+       class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">
+       Calificaciones
+    </a>
+  </li>
+
+  {% if can_admin %}
+  <li class="menu-item">
+    <a href="?action=section_admin"
+       class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">
+       Administración
+    </a>
+  </li>
+  {% endif %}
+
+  <li class="menu-item">
+    <a href="?action=section_help"
+       class="menu-link {% if action == 'section_help' %}active{% endif %}">
+       Ayuda
+    </a>
+  </li>
+</ul>
+
     </aside>
 
-    <!-- ================== CONTENIDO CENTRAL ================== -->
-    <main class="center card" aria-label="Contenido principal">
-      <h3 style="margin-top:0">{{ action_title }}</h3>
-      {% if action_subtitle %}<p class="muted" style="margin-top:-6px">{{ action_subtitle|safe }}</p>{% endif %}
+    <main class="center card">
+      <h3>{{ action_title }}</h3>
+      {% if action_subtitle %}<p class="muted">{{ action_subtitle|safe }}</p>{% endif %}
 
-      {# ======= SECCIONES: muestran enlaces internos ======= #}
       {% if action == 'section_est' %}
         <h4>Estudiantes</h4>
         <ul class="section-links">
@@ -136,205 +146,161 @@
         <ul class="section-links">
           <li><a href="?action=insc_prof">➜ Inscribir a carrera</a></li>
           <li><a href="?action=insc_esp">➜ Inscribir a materia (cursada)</a></li>
+          <li><a href="?action=insc_final">➜ Inscribir a mesa de final</a></li>
         </ul>
 
       {% elif action == 'section_calif' %}
         <h4>Calificaciones</h4>
         <ul class="section-links">
-          <li><a href="?action=cargar_cursada">➜ Cargar cursada (Regularidad / Promoción)</a></li>
-          <li><a href="?action=cargar_final">➜ Cargar nota de final</a></li>
+          <li><a href="?action=cargar_cursada">➜ Cargar cursada</a></li>
+          <li><a href="?action=cargar_nota_final">➜ Cargar nota de final</a></li>
+          <li><a href="?action=cargar_final_resultado">➜ Registrar resultado final</a></li>
         </ul>
 
       {% elif action == 'section_admin' and can_admin %}
         <h4>Administración</h4>
         <ul class="section-links">
-          <li><a href="?action=espacios_admin">➜ Gestionar espacios curriculares</a></li>
-          <li><a href="?action=correlativas">➜ Gestionar correlatividades</a></li>
+          <li><a href="?action=espacios_admin">➜ Espacios curriculares</a></li>
+          <li><a href="?action=correlativas">➜ Correlatividades</a></li>
           <li><a href="?action=prof_new">➜ Crear profesorado</a></li>
-          <li><a href="?action=plan_new">➜ Crear plan de estudios</a></li>
+          <li><a href="?action=plan_new">➜ Crear plan</a></li>
           <li><a href="?action=admin_rename">➜ Renombrar entidades</a></li>
           <li><a href="?action=admin_delete">➜ Eliminar entidades</a></li>
         </ul>
 
       {% elif action == 'section_help' %}
         <h4>Ayuda</h4>
-        <p class="muted">¿Encontraste un problema o necesitás soporte?</p>
-        <p><a href="mailto:soporte@ejemplo.edu?subject=Reporte%20de%20bug">➜ Reportar bug</a></p>
+        <p class="muted">¿Encontraste un problema?</p>
+        <a href="mailto:soporte@ejemplo.edu">➜ Reportar bug</a>
 
-      {# ======= ACCIONES ESPECÍFICAS: muestran formularios ======= #}
       {% elif form %}
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
-          <form method="post" enctype="multipart/form-data">
+          <form method="{% if action == 'insc_esp' %}get{% else %}post{% endif %}" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
-            {% if form.non_field_errors %}<div class="msg" role="alert">{{ form.non_field_errors }}</div>{% endif %}
-            {{ form.as_p }}
+            {% if form.non_field_errors %}
+              <div class="msg" role="alert">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {# Campos más comunes; si un form no los tiene, no pasa nada #}
+            {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
+            {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
+            {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
+
+            {# Renderiza el resto, si hubiera #}
+            {% for f in form %}
+			{% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
+			{{ f.label_tag }}{{ f }}
+			{% endif %}
+			{% endfor %}
+
             <div class="submit">
-              <button type="submit" name="save" value="1" {% if not puede_editar %}disabled{% endif %}>Guardar</button>
+              <button type="submit" name="save" value="1">Guardar</button>
             </div>
-          </form>
-        {% endif %}
-      {% endif %}
-
-      {# === Bloques de administración sin 'form' (listas/tablas) === #}
-      {% if not form %}
-        {% if action == "espacios_admin" %}
-          <hr class="divider">
-          <h4>Editar espacios del plan</h4>
-          <form method="get" class="card" style="margin-bottom:12px">
-            <input type="hidden" name="action" value="espacios_admin">
-            {{ filtro_form.as_p }}
-            <div class="submit"><button class="btn" type="submit">Filtrar</button></div>
-          </form>
-          {% if espacios %}
-            <table style="width:100%; border-collapse:collapse; margin:10px 0 14px">
-              <thead><tr>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Año</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Nombre</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Horas</th>
-                <th style="text-align:left; padding:8px; border-bottom:1px solid var(--card-b)">Acciones</th>
-              </tr></thead>
-              <tbody>
-              {% for e in espacios %}
-                <tr>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.anio }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.nombre }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">{{ e.horas }}</td>
-                  <td style="padding:8px; border-bottom:1px solid var(--card-b)">
-                    <a class="btn" href="?action=espacios_admin&edit={{ e.id }}&profesorado={{ e.profesorado_id }}&plan={{ e.plan_id }}">Editar</a>
-                    <form method="post" action="" style="display:inline-block" onsubmit="return confirm('¿Eliminar este espacio?');">
-                      {% csrf_token %}
-                      <input type="hidden" name="action" value="espacios_admin">
-                      <input type="hidden" name="op" value="delete">
-                      <input type="hidden" name="id" value="{{ e.id }}">
-                      <button class="btn" type="submit">Eliminar</button>
-                    </form>
-                  </td>
-                </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-          {% endif %}
-          <h4 style="margin-top:18px">{% if editando %}Editar espacio{% else %}Crear espacio{% endif %}</h4>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="espacios_admin">
-            <input type="hidden" name="op" value="save">
-            {% if editando %}<input type="hidden" name="id" value="{{ editando }}">{% endif %}
-            {{ espacio_form.as_p }}
-            <div class="submit"><button type="submit">Guardar</button></div>
-          </form>
-        {% endif %}
-
-        {% if action == "correlativas" %}
-          <hr class="divider">
-          <h4>Correlatividades</h4>
-          <form method="get" id="form-correlativas">
-              <input type="hidden" name="action" value="correlativas">
-              {{ sel_form.profesorado.label_tag }}{{ sel_form.profesorado }}
-              {{ sel_form.plan.label_tag }}{{ sel_form.plan }}
-              {{ sel_form.espacio.label_tag }}{{ sel_form.espacio }}
-              <div class="submit"><button class="btn" type="submit">Seleccionar Espacio</button></div>
-          </form>
-          {% if edit_form %}
-            <hr class="divider">
-            <h4>Editando: {{ espacio_sel.nombre }}</h4>
-            {{ edit_form.non_field_errors }}
-            <form method="post">{% csrf_token %}
-              <input type="hidden" name="action" value="correlativas">
-              <input type="hidden" name="profesorado" value="{{ espacio_sel.profesorado_id }}">
-              <input type="hidden" name="plan" value="{{ espacio_sel.plan_id }}">
-              <input type="hidden" name="espacio" value="{{ espacio_sel.id }}">
-              <h4>Para CURSAR: tener REGULARIZADA</h4>
-              {{ edit_form.cursar_regularizadas }}
-              <h4>Para CURSAR: tener APROBADA</h4>
-              {{ edit_form.cursar_aprobadas }}
-              <h4>Para RENDIR: tener APROBADA</h4>
-              {{ edit_form.rendir_aprobadas }}
-              <div class="submit" style="margin-top:18px">
-                <button type="submit">Guardar correlatividades</button>
-              </div>
-            </form>
-          {% endif %}
-        {% endif %}
-
-        {% if action == "prof_new" %}
-          <hr class="divider">
-          <h4>Nuevo profesorado</h4>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="prof_new">
-            {{ profesorado_form.as_p }}
-            <div class="submit"><button type="submit">Crear</button></div>
-          </form>
-        {% endif %}
-
-        {% if action == "plan_new" %}
-          <hr class="divider">
-          <h4>Nuevo plan</h4>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="plan_new">
-            {{ plan_form.as_p }}
-            <div class="submit"><button type="submit">Crear</button></div>
-          </form>
-        {% endif %}
-
-        {% if action == "admin_rename" %}
-          <hr class="divider">
-          <h4>Renombrar</h4>
-          <form method="post" style="margin-bottom:18px">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_rename_profesorado">
-            {{ ren_profesorado_form.as_p }}
-            <div class="submit"><button type="submit">Renombrar profesorado</button></div>
-          </form>
-          <form method="post" style="margin-bottom:18px">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_rename_plan">
-            {{ ren_plan_form.as_p }}
-            <div class="submit"><button type="submit">Renombrar plan</button></div>
-          </form>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_rename_espacio">
-            {{ ren_espacio_form.as_p }}
-            <div class="submit"><button type="submit">Renombrar espacio</button></div>
-          </form>
-        {% endif %}
-
-        {% if action == "admin_delete" %}
-          <hr class="divider">
-          <h4>Eliminar</h4>
-          <form method="post" style="margin-bottom:14px">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_delete_profesorado">
-            {{ del_profesorado_form.as_p }}
-            <button class="btn" type="submit">🗑️ Eliminar profesorado</button>
-          </form>
-          <form method="post" style="margin-bottom:14px">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_delete_plan">
-            {{ del_plan_form.as_p }}
-            <button class="btn" type="submit">🗑️ Eliminar plan</button>
-          </form>
-          <form method="post">{% csrf_token %}
-            <input type="hidden" name="action" value="admin_delete_espacio">
-            {{ del_espacio_form.as_p }}
-            <button class="btn" type="submit">🗑️ Eliminar espacio</button>
           </form>
         {% endif %}
       {% endif %}
     </main>
 
-    <!-- ================== LATERAL DERECHO ================== -->
     <aside class="right card">
-      <h3 style="margin:0 0 8px">Profesorados disponibles</h3>
+      <h3>Profesorados disponibles</h3>
       {% if profesorados %}
-        <ul class="list" style="margin:0;padding-left:18px">
+        <ul>
           {% for p in profesorados %}
-            <li><strong>{{ p.nombre }}</strong><br><span class="muted">Plan vigente: {{ p.plan_vigente }}</span></li>
+            <li><strong>{{ p.nombre }}</strong><br><span class="muted">Plan: {{ p.plan_vigente }}</span></li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="muted">Sin profesorados visibles para tu rol.</p>
+        <p class="muted">Sin profesorados.</p>
       {% endif %}
     </aside>
   </div>
 </div>
+<style>
+  /* por si necesitás ocultar contenedores rápidamente */
+  .hidden { display: none !important; }
+</style>
+
+<script>
+(function () {
+  // Helpers
+  function qs(name) { return document.querySelector('[name="'+name+'"]'); }
+  function wrap(el) {
+    // cuando se usa as_p el campo suele estar dentro de <p>, si no, usamos parentElement
+    return el?.closest('p') || el?.parentElement;
+  }
+  function showField(el, show) {
+    if (!el) return;
+    const box = wrap(el) || el;
+    box.style.display = show ? '' : 'none';
+  }
+  function disableField(el, disabled, clear = true) {
+    if (!el) return;
+    el.disabled = !!disabled;
+    if (disabled && clear) el.value = '';
+  }
+
+  // Intentamos cubrir todos los nombres que usamos en los formularios
+  const nota    = qs('nota_final') || qs('nota_num') || qs('nota');
+  const ausente = qs('ausente');
+  const justif  = qs('ausencia_justificada');
+
+  // Para formularios de Movimiento (final)
+  const condicion  = qs('condicion');             // 'Regular' | 'Libre' | 'Equivalencia'
+  const notaTexto  = qs('nota_texto');            // solo Equivalencia
+  const dispoInt   = qs('disposicion_interna');   // solo Equivalencia
+
+  function syncUI() {
+    const isAus = !!(ausente && ausente.checked);
+    const cond  = condicion ? condicion.value : null;
+    const isEq  = (cond === 'Equivalencia');
+
+    // === Equivalencia: solo texto + disposición; sin nota numérica ni ausente ===
+    if (condicion) {
+      showField(notaTexto,  isEq);
+      showField(dispoInt,   isEq);
+      showField(ausente,   !isEq);
+      showField(justif,    !isEq && isAus);
+      showField(nota,      !isEq && !isAus);
+      disableField(nota,    isEq || isAus);
+    } else {
+      // Formularios sin 'condicion' (p.ej. InscripcionFinal / CargarResultadoFinal)
+      disableField(nota, isAus);
+      showField(nota,   !isAus);
+      showField(justif,  isAus);
+    }
+
+    // Validación 0..10 para la nota (si existe)
+    if (nota) {
+      nota.setAttribute('min', '0');
+      nota.setAttribute('max', '10');
+      // evitemos duplicar listeners:
+      if (!nota._hasRangeListener) {
+        nota.addEventListener('input', function () {
+          if (this.value === '') { this.setCustomValidity(''); return; }
+          let v = parseFloat(String(this.value).replace(',', '.'));
+          if (isNaN(v) || v < 0 || v > 10) {
+            this.setCustomValidity('La nota debe estar entre 0 y 10.');
+          } else {
+            this.setCustomValidity('');
+          }
+        });
+        nota._hasRangeListener = true;
+      }
+    }
+  }
+
+  // Eventos
+  ausente   && ausente.addEventListener('change',   syncUI);
+  justif    && justif.addEventListener('change',    syncUI);
+  condicion && condicion.addEventListener('change', syncUI);
+
+  // Primer render
+  document.addEventListener('DOMContentLoaded', syncUI);
+  syncUI();
+})();
+</script>
 </body>
 </html>

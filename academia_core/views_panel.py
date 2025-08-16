@@ -6,30 +6,30 @@ from typing import Any, Dict, Tuple
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render, redirect
 from django.urls import reverse
 
+# Importamos TODOS los formularios posibles
 from .forms_carga import (
     CargarRegularidadForm,
     CargarFinalForm,
     InscripcionProfesoradoForm,
     InscripcionEspacioForm,
+    InscripcionFinalForm,
     EstudianteForm,
+    CargarNotaFinalForm,
+    CargarResultadoFinalForm,
 )
-from .forms_espacios import EspacioForm, FiltroEspaciosForm
-from .forms_correlativas import SeleccionEspacioForm, EditaCorrelativasForm
-from .forms_admin import (
-    ProfesoradoCreateForm, PlanCreateForm,
-    RenombrarProfesoradoForm, RenombrarPlanForm, RenombrarEspacioForm,
-    DeleteProfesoradoForm, DeletePlanForm, DeleteEspacioForm
-)
-from .models import Profesorado, EspacioCurricular, Actividad
+from .models import Profesorado
 
-# =====================================================================================
 
-def _get_rol(user):
+# ================ Helpers ===================
+
+def _get_rol(user) -> str:
     perfil = getattr(user, "perfil", None)
-    return (getattr(perfil, "rol", None) or "USUARIO").upper()
+    rol = getattr(perfil, "rol", None)
+    return (rol or "USUARIO").upper()
 
 def _profesorados_sidebar(user):
     perfil = getattr(user, "perfil", None)
@@ -43,60 +43,71 @@ class Evento:
     accion: str
     detalle: str
 
-def _get_last_events(user):
+def _get_last_events(user, limit=15):
     return []
 
-def _log(user, rol, accion, detalle):
-    try:
-        Actividad.objects.create(user=user, rol_cache=rol, accion=accion, detalle=detalle)
-    except Exception:
-        pass
+def _log_actividad(user, rol, accion, detalle):
+    pass
 
-# =====================================================================================
+
+# =============== Títulos / subtítulos ======================
 
 ACTION_COPY: Dict[str, Tuple[str, str]] = {
-    # Secciones
+    # secciones del menú
     "section_est":  ("Estudiantes", ""),
     "section_insc": ("Inscripciones", ""),
     "section_calif":("Calificaciones", ""),
     "section_admin":("Administración", ""),
     "section_help": ("Ayuda", ""),
 
-    # Formularios simples
-    "add_est":     ("Nuevo estudiante", ""),
-    "insc_prof":   ("Inscribir a carrera", ""),
-    "insc_esp":    ("Inscribir a materia", ""),
-    "cargar_cursada": ("Cargar Regularidad/Promoción", ""),
-    "cargar_final":   ("Cargar nota de final", ""),
+    # formularios reales
+    "add_est": ("Nuevo estudiante", "Cargá un estudiante nuevo."),
+    "insc_prof": ("Inscribir a carrera", "Vincular estudiante a profesorado."),
+    "insc_esp": ("Inscribir a materia", "Inscripción a cursada."),
+    "insc_final": ("Inscribir a mesa de final", "Selecciona cursada regular vigente."),
 
-    # Administración
-    "espacios_admin": ("Espacios curriculares", ""),
-    "correlativas": ("Correlatividades", ""),
-    "prof_new": ("Nuevo profesorado", ""),
-    "plan_new": ("Nuevo plan", ""),
-    "admin_rename": ("Renombrar entidades", ""),
-    "admin_delete": ("Eliminar entidades", ""),
+    "cargar_cursada": ("Cargar Regularidad / Promoción", ""),
+    "cargar_final": ("Cargar nota de final", ""),
+    "cargar_nota_final": ("Cargar nota de final", ""),
+    "cargar_final_resultado": ("Cargar resultado de final", ""),
 }
+
+
+# ============= Mapa formularios ============================
 
 FORMS_MAP = {
     "add_est": EstudianteForm,
     "insc_prof": InscripcionProfesoradoForm,
     "insc_esp": InscripcionEspacioForm,
+    "insc_final": InscripcionFinalForm,
     "cargar_cursada": CargarRegularidadForm,
     "cargar_final":  CargarFinalForm,
+    "cargar_nota_final": CargarNotaFinalForm,
+    "cargar_final_resultado": CargarResultadoFinalForm,
 }
 
-# =====================================================================================
+
+# ================ Vista principal ==========================
 
 @login_required
-def panel(request):
+def panel(request: HttpRequest) -> HttpResponse:
+    """
+    Vista del nuevo panel lateral.
+    Si action empieza con 'section_' se muestran solo links,
+    de lo contrario tratamos de renderizar un formulario.
+    """
+    # Acción activa
     action = request.GET.get("action") or request.POST.get("action") or "section_est"
     rol = _get_rol(request.user)
 
+    # Título
+    action_title, action_subtitle = ACTION_COPY.get(action, ("Panel", ""))
+
+    # Base del contexto
     ctx: Dict[str, Any] = {
         "action": action,
-        "action_title": ACTION_COPY.get(action, ("Panel", ""))[0],
-        "action_subtitle": ACTION_COPY.get(action, ("Panel", ""))[1],
+        "action_title": action_title,
+        "action_subtitle": action_subtitle,
         "form": None,
         "puede_cargar": True,
         "puede_editar": True,
@@ -107,11 +118,16 @@ def panel(request):
         "rol": rol,
     }
 
-    # =============== Formularios sencillos (altas / inscripciones / calif) ============
+    # --- detectamos si es un formulario concreto ---
     form_class = FORMS_MAP.get(action)
-    if form_class:
+    if form_class is not None:
         if request.method == "POST" and request.POST.get("save") == "1":
-            form = form_class(request.POST, request.FILES, user=request.user)
+            # Intenta instanciar el form pasando el usuario; si falla, lo instancia sin él
+            try:
+                form = form_class(request.POST, request.FILES, user=request.user)
+            except TypeError:
+                form = form_class(request.POST, request.FILES)
+
             if form.is_valid():
                 obj = form.save()
                 messages.success(request, "Guardado correctamente.")
@@ -119,111 +135,12 @@ def panel(request):
             else:
                 messages.error(request, "Revisá los errores del formulario.")
         else:
-            form = form_class(user=request.user)
+            # Para GET, intenta instanciar el form pasando el usuario; si falla, lo instancia vacío
+            try:
+                form = form_class(user=request.user)
+            except TypeError:
+                form = form_class()
+        
         ctx["form"] = form
-        return render(request, "panel.html", ctx)
 
-    # =============== BLOQUES ADMIN (listados / ediciones) ============================
-    if action == "espacios_admin":
-        data = request.POST if request.method == "POST" else request.GET
-        filtro = FiltroEspaciosForm(data or None)
-        plan_sel = filtro.cleaned_data.get("plan") if filtro.is_valid() else None
-
-        if request.method == "POST":
-            if request.POST.get("op") == "delete":
-                esp = get_object_or_404(EspacioCurricular, pk=request.POST.get("id"))
-                esp.delete()
-                messages.success(request, "Espacio eliminado.")
-                return redirect(f"{reverse('panel')}?action=espacios_admin")
-            if request.POST.get("op") == "save":
-                esp_id = request.POST.get("id") or None
-                inst = get_object_or_404(EspacioCurricular, pk=esp_id) if esp_id else None
-                form_esp = EspacioForm(request.POST, instance=inst)
-                if form_esp.is_valid():
-                    form_esp.save()
-                    messages.success(request, "Guardado.")
-                    return redirect(f"{reverse('panel')}?action=espacios_admin")
-
-        lista = EspacioCurricular.objects.filter(plan=plan_sel) if plan_sel else []
-        ctx.update({"filtro_form": filtro, "espacios": lista, "espacio_form": EspacioForm()})
-        return render(request, "panel.html", ctx)
-
-    if action == "correlativas":
-        data = request.POST if request.method == "POST" else request.GET
-        sel = SeleccionEspacioForm(data or None)
-        esp = sel.cleaned_data.get("espacio") if sel.is_valid() else None
-
-        if request.method == "POST" and esp:
-            form = EditaCorrelativasForm(esp, request.POST)
-            if form.is_valid():
-                form.save()
-                messages.success(request, "Correlatividades guardadas.")
-            return redirect(f"{reverse('panel')}?action=correlativas&espacio={esp.id}")
-
-        ctx.update({"sel_form": sel, "espacio_sel": esp})
-        if esp:
-            ctx["edit_form"] = EditaCorrelativasForm(esp)
-        return render(request, "panel.html", ctx)
-
-    if action == "prof_new":
-        form = ProfesoradoCreateForm(request.POST or None)
-        if request.method == "POST" and form.is_valid():
-            form.save()
-            messages.success(request, "Profesorado creado.")
-            return redirect(f"{reverse('panel')}?action=prof_new")
-        ctx["profesorado_form"] = form
-        return render(request, "panel.html", ctx)
-
-    if action == "plan_new":
-        form = PlanCreateForm(request.POST or None)
-        if request.method == "POST" and form.is_valid():
-            form.save()
-            messages.success(request, "Plan creado.")
-            return redirect(f"{reverse('panel')}?action=plan_new")
-        ctx["plan_form"] = form
-        return render(request, "panel.html", ctx)
-
-    if action == "admin_rename":
-        p_form = RenombrarProfesoradoForm(request.POST or None)
-        pl_form = RenombrarPlanForm(request.POST or None)
-        e_form = RenombrarEspacioForm(request.POST or None)
-        if request.method == "POST":
-            if p_form.is_valid():
-                obj = p_form.save(); messages.success(request, "Profesorado renombrado.")
-            if pl_form.is_valid():
-                obj = pl_form.save(); messages.success(request, "Plan renombrado.")
-            if e_form.is_valid():
-                obj = e_form.save(); messages.success(request, "Espacio renombrado.")
-            return redirect(f"{reverse('panel')}?action=admin_rename")
-        ctx.update({
-            "ren_profesorado_form": p_form,
-            "ren_plan_form": pl_form,
-            "ren_espacio_form": e_form
-        })
-        return render(request, "panel.html", ctx)
-
-    if action == "admin_delete":
-        dp = DeleteProfesoradoForm(request.POST or None)
-        dpl = DeletePlanForm(request.POST or None)
-        de = DeleteEspacioForm(request.POST or None)
-        if request.method == "POST":
-            form_name = request.POST.get("action")
-            if form_name == "admin_delete_profesorado" and dp.is_valid():
-                dp.cleaned_data["profesorado"].delete()
-                messages.success(request, "Profesorado eliminado.")
-            if form_name == "admin_delete_plan" and dpl.is_valid():
-                dpl.cleaned_data["plan"].delete()
-                messages.success(request, "Plan eliminado.")
-            if form_name == "admin_delete_espacio" and de.is_valid():
-                de.cleaned_data["espacio"].delete()
-                messages.success(request, "Espacio eliminado.")
-            return redirect(f"{reverse('panel')}?action=admin_delete")
-        ctx.update({
-            "del_profesorado_form": dp,
-            "del_plan_form": dpl,
-            "del_espacio_form": de
-        })
-        return render(request, "panel.html", ctx)
-
-    # Si caemos acá → es una section_* → se muestran enlaces
     return render(request, "panel.html", ctx)
