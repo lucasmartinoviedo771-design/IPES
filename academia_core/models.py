@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.contrib.auth import get_user_model
 
 
+
 # ---------- Helpers para archivos ----------
 def estudiante_foto_path(instance, filename):
     """
@@ -274,7 +275,7 @@ class EspacioCurricular(models.Model):
     ]
     profesorado  = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="espacios")
     plan         = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="espacios",
-                                     null=True, blank=True)
+                                       null=True, blank=True)
     anio         = models.CharField(max_length=10)  # ej: "1°", "2°"
     cuatrimestre = models.CharField(max_length=1, choices=CUATRIS)
     nombre       = models.CharField(max_length=160)
@@ -439,7 +440,24 @@ class Movimiento(models.Model):
     tipo = models.CharField(max_length=3, choices=TIPO_MOV)
     fecha = models.DateField(null=True, blank=True)
 
-    condicion = models.CharField(max_length=20)  # validamos en clean() según tipo
+    # Opciones "base". El formulario las ajusta dinámicamente según el espacio elegido.
+    CONDICION_CHOICES = [
+        ("Regular", "Regular"),
+        ("Libre", "Libre"),
+        ("Promoción", "Promoción"),
+        ("Aprobado", "Aprobado"),
+        ("No aprobado", "No aprobado"),
+        ("Equivalencia", "Equivalencia"),
+    ]
+
+    condicion = models.CharField(
+        max_length=20,
+        choices=CONDICION_CHOICES,
+        blank=True,  # permitimos vacío para que el form pueda renderizar "---------"
+        default="",
+        verbose_name="Condición",
+    )
+    
     # Si querés forzar enteros aquí también, podemos migrar a PositiveSmallIntegerField.
     nota_num = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     nota_texto = models.CharField(max_length=40, blank=True)
@@ -571,7 +589,7 @@ class Movimiento(models.Model):
                 raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
 
     def __str__(self):
-        return f"[{self.tipo}] {self.inscripcion.estudiante} - {self.espacio.nombre} - {self.condicion}"
+        return f"{self.inscripcion} · {self.espacio} · {self.condicion}"
 
 
 # ===================== Inscripción a espacios (cursada por año) =====================

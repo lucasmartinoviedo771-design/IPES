@@ -345,7 +345,7 @@
     if (condicion) {
       show(notaTexto, isEq); show(dispoInt, isEq);
       show(ausente, !isEq); show(justif, !isEq && isAus);
-      show(nota,   !isEq && !isAus); disable(nota, isEq || isAus);
+      show(nota,    !isEq && !isAus); disable(nota, isEq || isAus);
     } else {
       disable(nota, isAus); show(nota, !isAus); show(justif, isAus);
     }
@@ -392,8 +392,8 @@
   const actionVal = actionInput ? actionInput.value : '';
 
   const inscSel    = byId('id_inscripcion') || qs('select[name="inscripcion"]');
-  const espacioSel = byId('id_espacio')     || qs('select[name="espacio"]');
-  const condSel    = byId('id_condicion')   || qs('select[name="condicion"]');
+  const espacioSel = byId('id_espacio')      || qs('select[name="espacio"]');
+  const condSel    = byId('id_condicion')    || qs('select[name="condicion"]');
 
   const isRegularidad = (actionVal === 'cargar_cursada');
   const isFinalNota   = (actionVal === 'cargar_nota_final' || actionVal === 'cargar_final_resultado');
@@ -496,6 +496,68 @@
       restrictCondOptions(getAllowedFromSelected());
     });
   }
+
+  
+  // ===== INSC. PROF: Adeuda + Certificación Docente toggles =====
+  (function(){
+    const adeudaChk = document.querySelector('input[name="adeuda_materias"]');
+    const adeudaBoxes = document.querySelectorAll('.js-adeuda-field');
+    function toggleAdeuda(){
+      const on = !!(adeudaChk && adeudaChk.checked);
+      adeudaBoxes.forEach(box => {
+        box.style.display = on ? '' : 'none';
+        box.querySelectorAll('input,textarea,select').forEach(el => el.disabled = !on);
+      });
+    }
+    adeudaChk && adeudaChk.addEventListener('change', toggleAdeuda);
+    toggleAdeuda();
+
+    const profSel = document.querySelector('select[name="profesorado"]');
+    const sec   = document.querySelector('input[name="doc_titulo_sec_legalizado"]');
+    const sup   = document.querySelector('input[name="doc_titulo_superior_legalizado"]');
+    const inc   = document.querySelector('input[name="doc_incumbencias_titulo"]');
+    function toggleCertDoc(){
+      if(!profSel) return;
+      const txt = (profSel.options[profSel.selectedIndex]?.text || '').toLowerCase();
+      const esCert = txt.includes('certificacion docente') || txt.includes('certificación docente');
+      if (sec) { const lab = sec.closest('label') || sec.parentElement; lab && (lab.style.display = esCert ? 'none' : ''); sec.disabled = esCert; }
+      [sup, inc].forEach(el => { if(!el) return; const lab = el.closest('label') || el.parentElement; lab && (lab.style.display = esCert ? '' : 'none'); el.disabled = !el || !esCert; });
+    }
+    profSel && profSel.addEventListener('change', toggleCertDoc);
+    toggleCertDoc();
+  })();
+// ===== CARGAR CURSADA: Condición dinámica según ESPACIO =====
+  if (document.querySelector('[name="action"]')?.value === 'cargar_cursada') {
+    const selEspacio = document.querySelector('select[name="espacio"]');
+    const selEstado  = document.querySelector('select[name="estado"]');
+
+    async function cargarCondiciones() {
+      if (!selEspacio || !selEstado) return;
+      const id = selEspacio.value;
+      // Limpiamos
+      selEstado.innerHTML = '<option value="">---------</option>';
+      if (!id) return;
+
+      try {
+        const resp = await fetch(`/api/condiciones-por-espacio/${id}/`, {credentials:'same-origin'});
+        const data = await resp.json();
+        for (const it of data) {
+          const opt = document.createElement('option');
+          opt.value = it.value;
+          opt.textContent = it.label;
+          selEstado.appendChild(opt);
+        }
+      } catch (e) {
+        console.error('Error cargando condiciones:', e);
+        selEstado.innerHTML = '<option value="">(error)</option>';
+      }
+    }
+
+    selEspacio && selEspacio.addEventListener('change', cargarCondiciones);
+    // Al entrar a la pantalla, por si el form viene con un espacio ya cargado:
+    cargarCondiciones();
+  }
+
 })();
 </script>
 </body>

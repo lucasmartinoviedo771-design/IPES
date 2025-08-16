@@ -7,12 +7,13 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render, redirect
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.views.decorators.http import require_GET
 
 from .forms_carga import (
-    CargarRegularidadForm,
+    CargarCursadaForm,  # Reemplazado CargarRegularidadForm
     CargarFinalForm,
     InscripcionProfesoradoForm,
     InscripcionEspacioForm,
@@ -21,19 +22,26 @@ from .forms_carga import (
     CargarNotaFinalForm,
     CargarResultadoFinalForm,
 )
-from .models import Profesorado
-
-
-# imports necesarios arriba del archivo
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_GET
-
 from .models import (
+    Profesorado,
     EstudianteProfesorado,
     EspacioCurricular,
     InscripcionEspacio,
 )
+
+from .condiciones import (
+    # (moved) Condiciones y helpers en academia_core/condiciones.py
+
+# ============================================================
+#  API Endpoints (AJAX)
+# ============================================================
+
+@login_required
+def get_condiciones_por_espacio(request: HttpRequest, espacio_id: int) -> JsonResponse:
+    """API: condiciones por espacio (para poblar el combo vía AJAX)"""
+    esp = get_object_or_404(EspacioCurricular, pk=espacio_id)
+    data = [{"value": v, "label": l} for (v, l) in _choices_condicion_para_espacio(esp)]
+    return JsonResponse(data, safe=False)
 
 def _plan_vigente_id(prof):
     pv = getattr(prof, "plan_vigente", None)
@@ -71,7 +79,7 @@ def get_espacios_por_inscripcion(request, insc_id: int):
         # regularidad: si hay cursadas para esta inscripción, usamos esas
         cursadas_ids = list(
             InscripcionEspacio.objects
-            .filter(inscripcion=insc)   # ✅ en tu proyecto la FK se llama 'inscripcion'
+            .filter(inscripcion=insc)  # ✅ en tu proyecto la FK se llama 'inscripcion'
             .values_list("espacio_id", flat=True)
             .distinct()
         )
@@ -80,8 +88,11 @@ def get_espacios_por_inscripcion(request, insc_id: int):
         else:
             esp_qs = _espacios_profesorado()
 
-    items = [{"id": e.id, "nombre": e.nombre} for e in esp_qs]
-    return JsonResponse({"ok": True, "items": items})
+    def _cond_opts_para(e):
+        return [v for (v, _l) in _choices_condicion_para_espacio(e)]
+    items = [{"id": e.id, "nombre": e.nombre, "cond_opts": _cond_opts_para(e)} for e in esp_qs]
+    default = _cond_opts_para(esp_qs.first()) if hasattr(esp_qs, 'first') and esp_qs.exists() else []
+    return JsonResponse({"ok": True, "items": items, "cond_opts": default})
 
 
 
@@ -138,7 +149,7 @@ FORMS_MAP = {
     "insc_prof": InscripcionProfesoradoForm,
     "insc_esp": InscripcionEspacioForm,
     "insc_final": InscripcionFinalForm,
-    "cargar_cursada": CargarRegularidadForm,
+    "cargar_cursada": CargarCursadaForm, # ACTUALIZADO
     "cargar_final":  CargarFinalForm,
     "cargar_nota_final": CargarNotaFinalForm,
     "cargar_final_resultado": CargarResultadoFinalForm,

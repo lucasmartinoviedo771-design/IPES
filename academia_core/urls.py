@@ -6,7 +6,8 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-from .views_panel import panel, get_espacios_por_inscripcion
+# Se añade la importación de la nueva vista
+from .views_panel import panel, get_espacios_por_inscripcion, get_condiciones_por_espacio
 
 from .views_cbv import (
     # Estudiantes
@@ -65,7 +66,9 @@ urlpatterns = [
     path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
     path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
     
+    # ---- APIs para el panel (AJAX) ----
     path("api/espacios-por-inscripcion/<int:insc_id>/", get_espacios_por_inscripcion, name="api_espacios_por_inscripcion"),
     
-    
+    # Ruta añadida
+    path("api/condiciones-por-espacio/<int:espacio_id>/", get_condiciones_por_espacio, name="get_condiciones_por_espacio"),
 ]
