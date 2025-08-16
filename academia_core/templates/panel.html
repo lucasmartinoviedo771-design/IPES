@@ -62,7 +62,6 @@
    .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
   </style>
 
-  {# ======= CSS: Alta de estudiante (2 columnas) ======= #}
   {% if action == "add_est" %}
   <style>
     #add-est-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
@@ -78,27 +77,15 @@
   </style>
   {% endif %}
 
-  {# ======= CSS: Inscribir carrera ======= #}
   {% if action == "insc_prof" %}
   <style>
     #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
     #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
     #insc-prof-grid-top input,#insc-prof-grid-top select,#insc-prof-grid-top textarea{width:100%}
-
-    #insc-prof-checks{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px 18px;
-      align-items:start;
-      margin-top:12px;
-    }
-    #insc-prof-checks .chk{
-      display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
-      height:72px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25
-    }
+    #insc-prof-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
+    #insc-prof-checks .chk{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:72px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25}
     #insc-prof-checks .chk input[type="checkbox"]{width:auto;height:auto;margin:0 0 6px 0;flex:0 0 auto}
     #insc-prof-checks .chk label{margin:0;font-weight:600}
-
     #insc-prof-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start;margin-top:12px}
     #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
     #insc-prof-extra input,#insc-prof-extra select,#insc-prof-extra textarea{width:100%}
@@ -111,13 +98,9 @@
   </style>
   {% endif %}
 
-  {# ======= CSS: Inscribir a materia (cursada) ======= #}
   {% if action == "insc_esp" %}
   <style>
-    #insc-esp-grid-top{
-      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px 24px;align-items:start
-    }
+    #insc-esp-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
     #insc-esp-grid-top label{display:block;font-weight:600;margin-bottom:6px}
     #insc-esp-grid-top input,#insc-esp-grid-top select{width:100%}
     #correl-box{margin-top:12px;border:1px solid #e6e3dd;border-radius:12px;padding:12px;background:#fafafa}
@@ -226,7 +209,6 @@
               <div class="msg" role="alert">{{ form.non_field_errors }}</div>
             {% endif %}
 
-            {# ===== Alta de estudiante ===== #}
             {% if action == "add_est" %}
               <div id="add-est-grid">
                 <div class="item">{{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
@@ -273,7 +255,6 @@
                 {% endif %}
               </div>
 
-              {# Catch-all: campos no renderizados arriba #}
               {% for f in form %}
                 {% if f.field.widget.input_type != 'checkbox' and f.name != 'estudiante' and f.name != 'profesorado' and f.name != 'cohorte' and f.name != 'anio_academico' and f.name != 'ubicacion' and f.name != 'sede' and f.name != 'ubica' and f.name != 'curso_introductorio' and f.name != 'adeuda_detalle' and f.name != 'colegio' %}
                   <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
@@ -299,7 +280,6 @@
                 </ul>
               </div>
 
-              {# Cualquier otro campo “extra” no incluido arriba #}
               {% for f in form %}
                 {% if f.name != 'inscripcion' and f.name != 'anio_academico' and f.name != 'espacio' and f.field.widget.input_type != 'checkbox' %}
                   <label>{{ f.label }}</label>{{ f }}
@@ -308,7 +288,6 @@
               {% endfor %}
 
             {% else %}
-              {# Resto: render genérico #}
               {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
               {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
               {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
@@ -349,14 +328,16 @@
   function qs(sel){return document.querySelector(sel);}
   function show(el, on){ if(!el) return; (el.closest('div')||el).style.display = on ? '' : 'none'; }
   function disable(el, on){ if(!el) return; el.disabled = !!on; }
+  function norm(s){ return String(s||'').trim().toLowerCase(); }
 
-  // ====== Lógica de finales existente (dejala como está arriba si la tenías) ======
+  // ===== Lógica de finales existente =====
   const nota = qs('[name="nota_final"]') || qs('[name="nota_num"]') || qs('[name="nota"]');
   const ausente = qs('[name="ausente"]');
   const justif  = qs('[name="ausencia_justificada"]');
-  const condicion = qs('[name="condicion"]');
+  const condicion = qs('[name="condicion"]') || byId('id_condicion');
   const notaTexto = qs('[name="nota_texto"]');
   const dispoInt  = qs('[name="disposicion_interna"]');
+
   function syncUI(){
     const isAus = !!(ausente && ausente.checked);
     const cond  = condicion ? condicion.value : null;
@@ -384,8 +365,7 @@
   condicion && condicion.addEventListener('change',syncUI);
   document.addEventListener('DOMContentLoaded', syncUI); syncUI();
 
-
-  // ====== Correlatividades (insc_esp) – no tocado ======
+  // ===== Correlatividades (insc_esp) =====
   const espacioSelCorr = byId('espacio-select') || qs('[name="espacio"]');
   const correlList = byId('correl-list');
   if (typeof window.CORREL_MAP === 'undefined') window.CORREL_MAP = {};
@@ -407,27 +387,56 @@
   espacioSelCorr && espacioSelCorr.addEventListener('change', renderCorrels);
   renderCorrels();
 
-
-  // ====== Cargar espacios vía AJAX (cargar_cursada / cargar_nota_final / cargar_final_resultado) ======
+  // ===== AJAX de espacios + condición dinámica (calificaciones/finales) =====
   const actionInput = qs('[name="action"]');
   const actionVal = actionInput ? actionInput.value : '';
 
-  // IDs estándar de Django:
   const inscSel    = byId('id_inscripcion') || qs('select[name="inscripcion"]');
   const espacioSel = byId('id_espacio')     || qs('select[name="espacio"]');
+  const condSel    = byId('id_condicion')   || qs('select[name="condicion"]');
 
-  // Sólo si estamos en pantallas de calificaciones/finales
   const isRegularidad = (actionVal === 'cargar_cursada');
   const isFinalNota   = (actionVal === 'cargar_nota_final' || actionVal === 'cargar_final_resultado');
-  const shouldWireAjax = isRegularidad || isFinalNota;
+  const shouldWireAjax = (isRegularidad || isFinalNota);
+
+  // Restringe opciones del select de condición a una lista permitida (por valor o por texto)
+  function restrictCondOptions(allowed){
+    if (!condSel) return;
+    const allow = (allowed || []).map(norm);
+    let keepSelected = false;
+
+    for (const opt of Array.from(condSel.options)) {
+      if (opt.value === '') { opt.hidden = false; opt.disabled = false; continue; }
+      const ok = (!allow.length) ||
+                 allow.includes(norm(opt.value)) ||
+                 allow.includes(norm(opt.text));
+      opt.hidden = !ok;
+      opt.disabled = !ok;
+      if (ok && opt.selected) keepSelected = true;
+    }
+    if (!keepSelected) condSel.value = ''; // limpia si la actual quedó inválida
+  }
+
+  // Toma allowed conds del <option> seleccionado (si las hay)
+  function getAllowedFromSelected(){
+    const opt = espacioSel && espacioSel.options[espacioSel.selectedIndex];
+    if (!opt) return [];
+    try{
+      if (opt.dataset && opt.dataset.conds) return JSON.parse(opt.dataset.conds || '[]');
+    }catch(_){}
+    return [];
+  }
 
   function fillEspacios(inscId, mode){
     if (!espacioSel) return;
-    // Limpieza + feedback
+
+    // feedback de carga
     espacioSel.innerHTML = '';
-    const optLoading = new Option('Cargando...', '');
-    espacioSel.add(optLoading);
+    espacioSel.add(new Option('Cargando...', ''));
     disable(espacioSel, true);
+
+    // reset de condición (hasta saber qué habilitar)
+    restrictCondOptions([]);
 
     if (!inscId) {
       espacioSel.innerHTML = '';
@@ -441,14 +450,23 @@
       .then(r => r.json())
       .then(data => {
         espacioSel.innerHTML = '';
-        const opts = data && data.items ? data.items : [];
-        if (!opts.length) {
+        const items = (data && data.items) ? data.items : [];
+        const defaultConds = (data && data.cond_opts) ? data.cond_opts : [];
+
+        if (!items.length) {
           espacioSel.add(new Option('Sin espacios disponibles', ''));
+          restrictCondOptions(defaultConds);
         } else {
+          // opción vacía
           espacioSel.add(new Option('---------', ''));
-          for (const it of opts) {
-            espacioSel.add(new Option(it.nombre, it.id));
+          // cargo items y adjunto conds específicas por opción si vienen
+          for (const it of items) {
+            const opt = new Option(it.nombre, it.id);
+            if (it.cond_opts) opt.dataset.conds = JSON.stringify(it.cond_opts);
+            espacioSel.add(opt);
           }
+          // si hay condiciones por defecto a nivel payload, aplico
+          restrictCondOptions(defaultConds);
         }
         disable(espacioSel, false);
       })
@@ -457,19 +475,25 @@
         espacioSel.innerHTML = '';
         espacioSel.add(new Option('Error al cargar', ''));
         disable(espacioSel, false);
+        // ante error, no restrinjo condiciones
+        restrictCondOptions([]);
       });
   }
 
   if (shouldWireAjax && inscSel && espacioSel) {
-    // Modo según pantalla
     const mode = isRegularidad ? 'regularidad' : 'final';
 
     // Carga inicial si ya hay inscripción seleccionada
     if (inscSel.value) fillEspacios(inscSel.value, mode);
 
-    // Y recarga ante cambios
+    // Recarga ante cambios de inscripción
     inscSel.addEventListener('change', function(){
       fillEspacios(this.value, mode);
+    });
+
+    // Al cambiar el espacio, ajusto condiciones usando data-conds del option
+    espacioSel.addEventListener('change', function(){
+      restrictCondOptions(getAllowedFromSelected());
     });
   }
 })();

@@ -20,7 +20,6 @@ from .models import (
 # -----------------------------------------------------------
 
 def _plan_vigente_id(profesorado: Profesorado | None) -> int | None:
-    """Devuelve el id del plan vigente del profesorado si existe, sino None."""
     if profesorado is None:
         return None
     pv = getattr(profesorado, "plan_vigente", None)
@@ -28,11 +27,6 @@ def _plan_vigente_id(profesorado: Profesorado | None) -> int | None:
 
 
 def _build_q_for_insc_space(insc: EstudianteProfesorado) -> Q:
-    """
-    Construye un Q() para filtrar InscripcionEspacio por la inscripción,
-    probando nombres comunes de FK que pueda tener ese modelo, pero
-    **solo** agregando los que realmente existan para evitar FieldError.
-    """
     field_names = {f.name for f in InscripcionEspacio._meta.get_fields()}
     candidates = ("inscripcion", "inscripcion_cursada", "inscripcion_profesorado")
     q = Q()
@@ -41,7 +35,7 @@ def _build_q_for_insc_space(insc: EstudianteProfesorado) -> Q:
         if fname in field_names:
             q |= Q(**{fname: insc})
             added = True
-    return q if added else Q(pk__in=[])  # vacío si no existe ninguno
+    return q if added else Q(pk__in=[])
 
 
 # -----------------------------------------------------------
@@ -49,10 +43,6 @@ def _build_q_for_insc_space(insc: EstudianteProfesorado) -> Q:
 # -----------------------------------------------------------
 
 class EstudianteForm(forms.ModelForm):
-    """
-    Alta/edición de Estudiante usado en el panel (acción 'add_est').
-    Campos según tu EstudianteCreateView.
-    """
     class Meta:
         model = Estudiante
         fields = [
@@ -76,7 +66,6 @@ class EstudianteForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Pequeños toques de usabilidad
         self.fields["dni"].help_text = self.fields["dni"].help_text or ""
         self.fields["activo"].initial = self.fields["activo"].initial if self.instance and self.instance.pk else True
 
@@ -86,10 +75,6 @@ class EstudianteForm(forms.ModelForm):
 # -----------------------------------------------------------
 
 class InscripcionProfesoradoForm(forms.ModelForm):
-    """
-    Vínculo Estudiante ↔ Profesorado + datos de legajo.
-    Usamos fields='__all__' para tolerar variaciones del modelo.
-    """
     class Meta:
         model = EstudianteProfesorado
         fields = "__all__"
@@ -97,7 +82,6 @@ class InscripcionProfesoradoForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Widgets amables si existen los campos
         for nombre in ("estudiante", "profesorado", "curso_introductorio"):
             if nombre in self.fields:
                 self.fields[nombre].widget.attrs.update({"class": "inp"})
@@ -111,7 +95,6 @@ class InscripcionProfesoradoForm(forms.ModelForm):
                 attrs={"rows": 2, "class": "inp", "placeholder": "Listado (si corresponde)"}
             )
 
-        # Documentación típica como checkbox
         for n in [
             "doc_dni_legalizado",
             "doc_titulo_sec_legalizado",
@@ -127,7 +110,6 @@ class InscripcionProfesoradoForm(forms.ModelForm):
             if n in self.fields:
                 self.fields[n].widget = forms.CheckboxInput()
 
-        # Filtrado simple de profesorados (orden alfabético)
         if "profesorado" in self.fields:
             self.fields["profesorado"].queryset = Profesorado.objects.order_by("nombre")
 
@@ -137,10 +119,6 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 # -----------------------------------------------------------
 
 class InscripcionEspacioForm(forms.ModelForm):
-    """
-    Inscribe un estudiante (mediante EstudianteProfesorado) a un espacio.
-    Filtra 'espacio' por el profesorado/plan y evita reinscripciones duplicadas.
-    """
     class Meta:
         model = InscripcionEspacio
         fields = "__all__"
@@ -181,7 +159,6 @@ class InscripcionEspacioForm(forms.ModelForm):
             base_pv = base.filter(plan_id=plan_id)
             base = base_pv if base_pv.exists() else base
 
-        # evitar reinscribir al mismo espacio
         ya_ids = list(InscripcionEspacio.objects.filter(inscripcion=insc).values_list("espacio_id", flat=True))
         if ya_ids:
             base = base.exclude(id__in=ya_ids)
@@ -195,10 +172,6 @@ class InscripcionEspacioForm(forms.ModelForm):
 # -----------------------------------------------------------
 
 class InscripcionFinalForm(forms.ModelForm):
-    """
-    Pide Estudiante y filtra el campo que referencia a InscripcionEspacio
-    (nombre puede variar) mostrando solo cursadas de ese estudiante.
-    """
     class Meta:
         model = InscripcionFinal
         fields = "__all__"
@@ -217,13 +190,10 @@ class InscripcionFinalForm(forms.ModelForm):
             )
             if est_id:
                 self.initial["estudiante"] = est_id
-
-                # Detectá el campo FK a InscripcionEspacio en este form
                 target_fks = ("inscripcion_cursada", "inscripcion_espacio", "insc_espacio", "inscripcion")
                 fk_name = next((n for n in target_fks if n in self.fields), None)
 
                 if fk_name:
-                    # InscripcionEspacio SIEMPRE la filtramos por inscripcion__estudiante_id (tu modelo lo tiene)
                     qs = (InscripcionEspacio.objects
                           .select_related("inscripcion", "espacio")
                           .filter(inscripcion__estudiante_id=est_id)
@@ -236,7 +206,12 @@ class InscripcionFinalForm(forms.ModelForm):
 # -----------------------------------------------------------
 
 class CargarRegularidadForm(forms.ModelForm):
-    """Carga regularidad/promoción sobre Movimiento."""
+    """
+    Condición dinámica:
+      - Taller/Seminario/Laboratorio/Práctica → Aprobado / No aprobado
+      - Promocional → Promoción / Regular
+      - Resto (con final) → Regular / Libre
+    """
     nota_num = forms.TypedChoiceField(
         choices=[(i, str(i)) for i in range(11)],
         coerce=int, required=False, label="Nota (0–10)",
@@ -247,23 +222,37 @@ class CargarRegularidadForm(forms.ModelForm):
         model = Movimiento
         fields = ["inscripcion", "espacio", "fecha", "condicion", "nota_num"]
         widgets = {
-            "inscripcion": forms.Select(attrs={"class": "inp"}),  # si tenías autosubmit, lo quitamos para AJAX
+            "inscripcion": forms.Select(attrs={"class": "inp"}),
             "espacio": forms.Select(attrs={"class": "inp"}),
             "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
             "condicion": forms.Select(attrs={"class": "inp"}),
         }
 
+    @staticmethod
+    def _condiciones_para(espacio: EspacioCurricular | None) -> list[tuple[str, str]]:
+        # Heurística robusta basada en nombre/formato y flags comunes
+        if espacio is None:
+            # Default para que NUNCA quede vacío
+            return [("Regular", "Regular"), ("Libre", "Libre")]
+
+        nombre = (getattr(espacio, "nombre", "") or "").lower()
+        formato = (getattr(espacio, "formato", "") or "").lower()
+        # Flags usuales si existen en tu modelo
+        es_promocional = bool(
+            getattr(espacio, "promociona", False) or
+            getattr(espacio, "regimen_promocion", False)
+        )
+        es_practico = any(w in (nombre + " " + formato)
+                          for w in ("taller", "seminar", "seminario", "laboratorio", "práctica", "practica"))
+
+        if es_practico:
+            return [("Aprobado", "Aprobado"), ("No aprobado", "No aprobado")]
+        if es_promocional:
+            return [("Promoción", "Promoción"), ("Regular", "Regular")]
+        return [("Regular", "Regular"), ("Libre", "Libre")]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Choices seguros por si el modelo no los define
-        if not getattr(self.fields["condicion"], "choices", None) or len(self.fields["condicion"].choices) == 0:
-            self.fields["condicion"].choices = [
-                ("Regular", "Regular"),
-                ("Promoción", "Promoción"),
-                ("Aprobado", "Aprobado"),
-                ("Libre", "Libre"),
-            ]
 
         insc_id = (
             self.data.get("inscripcion")
@@ -274,6 +263,8 @@ class CargarRegularidadForm(forms.ModelForm):
         if not insc_id:
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
             self.fields["espacio"].help_text = "Elegí una inscripción primero."
+            # Condición default para que no quede vacío
+            self.fields["condicion"].choices = [("", "---------"), ("Regular", "Regular"), ("Libre", "Libre")]
             return
 
         self.initial["inscripcion"] = insc_id
@@ -282,10 +273,10 @@ class CargarRegularidadForm(forms.ModelForm):
             insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
         except EstudianteProfesorado.DoesNotExist:
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+            self.fields["condicion"].choices = [("", "---------"), ("Regular", "Regular"), ("Libre", "Libre")]
             return
 
-        # 1) Si el alumno ya tiene cursadas, mostramos solo esas materias
-        q = _build_q_for_insc_space(insc)  # <-- evita FieldError si el campo no existe
+        q = _build_q_for_insc_space(insc)
         cursadas_ids = list(
             InscripcionEspacio.objects.filter(q).values_list("espacio_id", flat=True).distinct()
         )
@@ -293,7 +284,6 @@ class CargarRegularidadForm(forms.ModelForm):
         if cursadas_ids:
             base = EspacioCurricular.objects.filter(id__in=cursadas_ids)
         else:
-            # 2) Fallback: todas las del profesorado (opcionalmente por plan vigente)
             base = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
             plan_id = _plan_vigente_id(insc.profesorado)
             if plan_id:
@@ -302,18 +292,37 @@ class CargarRegularidadForm(forms.ModelForm):
 
         self.fields["espacio"].queryset = base.order_by("anio", "cuatrimestre", "nombre")
 
+        # Determinar condiciones según el espacio seleccionado (si viene en self.data/initial/instance)
+        esp_id = (
+            self.data.get("espacio")
+            or getattr(self.initial.get("espacio"), "pk", None)
+            or getattr(self.instance, "espacio_id", None)
+        )
+        espacio = None
+        if esp_id:
+            try:
+                espacio = base.get(pk=esp_id)
+            except EspacioCurricular.DoesNotExist:
+                espacio = None
+
+        conds = self._condiciones_para(espacio)
+        self.fields["condicion"].choices = [("", "---------")] + conds
+
     def clean(self):
         cleaned = super().clean()
         cond = cleaned.get("condicion")
         nota = cleaned.get("nota_num")
 
+        # Nota sólo obligatoria en Promoción / Aprobado / Regular
         if cond in {"Promoción", "Aprobado", "Regular"}:
             if nota is None:
                 raise ValidationError("Debe seleccionar una nota (0–10).")
             if not (0 <= nota <= 10):
                 raise ValidationError("La nota debe estar entre 0 y 10.")
         else:
+            # Libre y No aprobado no requieren nota
             cleaned["nota_num"] = None
+
         return cleaned
 
 
@@ -322,10 +331,6 @@ class CargarRegularidadForm(forms.ModelForm):
 # -----------------------------------------------------------
 
 class CargarFinalForm(forms.ModelForm):
-    """
-    Carga un final sobre Movimiento.
-    Si es Equivalencia o Ausente, no requiere nota.
-    """
     nota_num = forms.TypedChoiceField(
         choices=[(i, str(i)) for i in range(11)],
         coerce=int, required=False, label="Nota (0–10)",
@@ -340,7 +345,7 @@ class CargarFinalForm(forms.ModelForm):
             "nota_texto", "disposicion_interna",
         ]
         widgets = {
-            "inscripcion": forms.Select(attrs={"class": "inp"}),  # si tenías autosubmit, lo quitamos para AJAX
+            "inscripcion": forms.Select(attrs={"class": "inp"}),
             "espacio": forms.Select(attrs={"class": "inp"}),
             "fecha": forms.DateInput(attrs={"type": "date", "class": "inp"}),
             "condicion": forms.Select(attrs={"class": "inp"}),
@@ -405,7 +410,6 @@ class CargarFinalForm(forms.ModelForm):
         return cleaned
 
 
-# Aliases (por si tu panel mapea estas acciones con nombres distintos)
 class CargarResultadoFinalForm(CargarFinalForm):
     pass
 
