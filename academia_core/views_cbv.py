@@ -106,7 +106,7 @@ class EstudianteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelConte
 class EstudianteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
     model = Estudiante
     fields = ["dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento","email","telefono","localidad","activo","foto"]
-    template_name = "panel.html"
+    template_name = "alumno_form.html"
     success_url = reverse_lazy("listado_alumnos")
     success_message = "Estudiante «%(apellido)s, %(nombre)s» creado."
     permission_required = "academia_core.add_estudiante"

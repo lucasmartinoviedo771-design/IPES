@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nuevo estudiante</title>
+
+  <style>
+    /* —— layout básico —— */
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background:#faf7f4; }
+    .wrap { max-width: 980px; margin: 28px auto; padding: 0 16px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    p.lead { color:#666; margin:0 0 20px; }
+
+    /* —— grilla de 2 columnas —— */
+    .two-cols {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 24px;              /* filas x columnas */
+      align-items: start;
+      background: #fff;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+    .item { margin:0; }
+    .item label { display:block; font-weight:600; margin-bottom:6px; }
+    .item input[type="text"],
+    .item input[type="email"],
+    .item input[type="tel"],
+    .item input[type="date"],
+    .item input[type="number"],
+    .item input[type="file"],
+    .item select,
+    .item textarea {
+      width:100%; box-sizing:border-box; padding:.55rem .7rem;
+      border:1px solid #d8d5d2; border-radius:10px; background:#fff;
+    }
+
+    /* checkbox y file a todo el ancho */
+    .item.full { grid-column: 1 / -1; }
+    .check { display:flex; align-items:center; gap:.5rem; }
+    .check label { margin:0; font-weight:600; }
+
+    /* errores */
+    .err { color:#b00020; margin-top:4px; font-size:.9rem; }
+
+    /* acciones */
+    .actions { display:flex; gap:12px; justify-content:flex-end; margin-top:18px; }
+    .btn {
+      padding:.6rem 1rem; border-radius:10px; border:0; cursor:pointer; font-weight:600;
+    }
+    .btn-primary { background:#e39a4b; color:#1d130b; }
+    .btn-secondary { background:#eee; color:#333; text-decoration:none; display:inline-block; }
+
+    /* responsive: 1 columna en móviles */
+    @media (max-width: 768px) {
+      .two-cols { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <h1>Nuevo estudiante</h1>
+    <p class="lead">Cargá un estudiante nuevo.</p>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      {# errores no asociados a campos #}
+      {% if form.non_field_errors %}
+        <div class="err">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="two-cols">
+        <div class="item">
+          {{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.apellido.label_tag }}{{ form.apellido }}{% for e in form.apellido.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.nombre.label_tag }}{{ form.nombre }}{% for e in form.nombre.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{% for e in form.fecha_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{% for e in form.lugar_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.email.label_tag }}{{ form.email }}{% for e in form.email.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item">
+          {{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item full check">
+          {{ form.activo }} {{ form.activo.label_tag }}{% for e in form.activo.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="item full">
+          {{ form.foto.label_tag }}{{ form.foto }}{% for e in form.foto.errors %}<div class="err">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="actions">
+        <a href="{% url 'listado_alumnos' %}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

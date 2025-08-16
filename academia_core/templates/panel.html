@@ -30,7 +30,7 @@
    .card{ background:var(--card); border:1px solid var(--card-b);
           border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
 
-   /* ======= HERO (volver a tamaños originales) ======= */
+   /* ======= HERO (tamaños originales) ======= */
    .hero{ display:grid; grid-template-columns:1fr 128px 1fr; align-items:center; gap:16px; margin-bottom:var(--gap) }
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
@@ -86,49 +86,47 @@
       <div class="msg {{ message.tags }}">{{ message }}</div>
     {% endfor %}
   {% endif %}
+  {% if request.GET.ok == '1' %}
+    <div class="msg success">Guardado correctamente.</div>
+  {% endif %}
 
   <div class="grid">
     <aside class="left card sidenav">
       <h3>Acciones</h3>
       <ul class="menu-list">
-  <li class="menu-item">
-    <a href="?action=section_est"
-       class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">
-       Estudiantes
-    </a>
-  </li>
-
-  <li class="menu-item">
-    <a href="?action=section_insc"
-       class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">
-       Inscripciones
-    </a>
-  </li>
-
-  <li class="menu-item">
-    <a href="?action=section_calif"
-       class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">
-       Calificaciones
-    </a>
-  </li>
-
-  {% if can_admin %}
-  <li class="menu-item">
-    <a href="?action=section_admin"
-       class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">
-       Administración
-    </a>
-  </li>
-  {% endif %}
-
-  <li class="menu-item">
-    <a href="?action=section_help"
-       class="menu-link {% if action == 'section_help' %}active{% endif %}">
-       Ayuda
-    </a>
-  </li>
-</ul>
-
+        <li class="menu-item">
+          <a href="?action=section_est"
+             class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">
+             Estudiantes
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="?action=section_insc"
+             class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">
+             Inscripciones
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="?action=section_calif"
+             class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">
+             Calificaciones
+          </a>
+        </li>
+        {% if can_admin %}
+        <li class="menu-item">
+          <a href="?action=section_admin"
+             class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">
+             Administración
+          </a>
+        </li>
+        {% endif %}
+        <li class="menu-item">
+          <a href="?action=section_help"
+             class="menu-link {% if action == 'section_help' %}active{% endif %}">
+             Ayuda
+          </a>
+        </li>
+      </ul>
     </aside>
 
     <main class="center card">
@@ -177,24 +175,26 @@
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
-          <form method="{% if action == 'insc_esp' %}get{% else %}post{% endif %}" enctype="multipart/form-data">
+          <!-- SIEMPRE POST: autosubmits también vienen por POST pero sin save=1 -->
+          <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
+
             {% if form.non_field_errors %}
               <div class="msg" role="alert">{{ form.non_field_errors }}</div>
             {% endif %}
 
-            {# Campos más comunes; si un form no los tiene, no pasa nada #}
+            {# Campos más comunes; si el form no los tiene, no pasa nada #}
             {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
             {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
             {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
 
             {# Renderiza el resto, si hubiera #}
             {% for f in form %}
-			{% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
-			{{ f.label_tag }}{{ f }}
-			{% endif %}
-			{% endfor %}
+              {% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
+                {{ f.label_tag }}{{ f }}
+              {% endif %}
+            {% endfor %}
 
             <div class="submit">
               <button type="submit" name="save" value="1">Guardar</button>
@@ -218,87 +218,63 @@
     </aside>
   </div>
 </div>
-<style>
-  /* por si necesitás ocultar contenedores rápidamente */
-  .hidden { display: none !important; }
-</style>
+
+<style>.hidden{display:none!important}</style>
 
 <script>
 (function () {
   // Helpers
-  function qs(name) { return document.querySelector('[name="'+name+'"]'); }
-  function wrap(el) {
-    // cuando se usa as_p el campo suele estar dentro de <p>, si no, usamos parentElement
-    return el?.closest('p') || el?.parentElement;
-  }
-  function showField(el, show) {
-    if (!el) return;
-    const box = wrap(el) || el;
-    box.style.display = show ? '' : 'none';
-  }
-  function disableField(el, disabled, clear = true) {
-    if (!el) return;
-    el.disabled = !!disabled;
-    if (disabled && clear) el.value = '';
-  }
+  function qs(name){return document.querySelector('[name="'+name+'"]');}
+  function wrap(el){return el?.closest('p') || el?.parentElement;}
+  function showField(el,show){if(!el)return;const b=wrap(el)||el;b.style.display=show?'':'none';}
+  function disableField(el,disabled,clear=true){if(!el)return;el.disabled=!!disabled;if(disabled&&clear)el.value='';}
 
-  // Intentamos cubrir todos los nombres que usamos en los formularios
-  const nota    = qs('nota_final') || qs('nota_num') || qs('nota');
+  const nota = qs('nota_final') || qs('nota_num') || qs('nota');
   const ausente = qs('ausente');
-  const justif  = qs('ausencia_justificada');
+  const justif = qs('ausencia_justificada');
 
-  // Para formularios de Movimiento (final)
-  const condicion  = qs('condicion');             // 'Regular' | 'Libre' | 'Equivalencia'
-  const notaTexto  = qs('nota_texto');            // solo Equivalencia
-  const dispoInt   = qs('disposicion_interna');   // solo Equivalencia
+  const condicion = qs('condicion');
+  const notaTexto = qs('nota_texto');
+  const dispoInt = qs('disposicion_interna');
 
-  function syncUI() {
+  function syncUI(){
     const isAus = !!(ausente && ausente.checked);
-    const cond  = condicion ? condicion.value : null;
-    const isEq  = (cond === 'Equivalencia');
+    const cond = condicion ? condicion.value : null;
+    const isEq = (cond === 'Equivalencia');
 
-    // === Equivalencia: solo texto + disposición; sin nota numérica ni ausente ===
-    if (condicion) {
-      showField(notaTexto,  isEq);
-      showField(dispoInt,   isEq);
-      showField(ausente,   !isEq);
-      showField(justif,    !isEq && isAus);
-      showField(nota,      !isEq && !isAus);
-      disableField(nota,    isEq || isAus);
-    } else {
-      // Formularios sin 'condicion' (p.ej. InscripcionFinal / CargarResultadoFinal)
-      disableField(nota, isAus);
-      showField(nota,   !isAus);
-      showField(justif,  isAus);
+    if(condicion){
+      showField(notaTexto,isEq);
+      showField(dispoInt,isEq);
+      showField(ausente,!isEq);
+      showField(justif,!isEq && isAus);
+      showField(nota,!isEq && !isAus);
+      disableField(nota, isEq || isAus);
+    }else{
+      disableField(nota,isAus);
+      showField(nota,!isAus);
+      showField(justif,isAus);
     }
 
-    // Validación 0..10 para la nota (si existe)
-    if (nota) {
-      nota.setAttribute('min', '0');
-      nota.setAttribute('max', '10');
-      // evitemos duplicar listeners:
-      if (!nota._hasRangeListener) {
-        nota.addEventListener('input', function () {
-          if (this.value === '') { this.setCustomValidity(''); return; }
-          let v = parseFloat(String(this.value).replace(',', '.'));
-          if (isNaN(v) || v < 0 || v > 10) {
-            this.setCustomValidity('La nota debe estar entre 0 y 10.');
-          } else {
-            this.setCustomValidity('');
-          }
+    if(nota){
+      nota.setAttribute('min','0');
+      nota.setAttribute('max','10');
+      if(!nota._hasRangeListener){
+        nota.addEventListener('input',function(){
+          if(this.value===''){this.setCustomValidity('');return;}
+          let v=parseFloat(String(this.value).replace(',','.'));
+          if(isNaN(v)||v<0||v>10){this.setCustomValidity('La nota debe estar entre 0 y 10.');}
+          else{this.setCustomValidity('');}
         });
         nota._hasRangeListener = true;
       }
     }
   }
 
-  // Eventos
-  ausente   && ausente.addEventListener('change',   syncUI);
-  justif    && justif.addEventListener('change',    syncUI);
-  condicion && condicion.addEventListener('change', syncUI);
+  ausente && ausente.addEventListener('change',syncUI);
+  justif && justif.addEventListener('change',syncUI);
+  condicion && condicion.addEventListener('change',syncUI);
 
-  // Primer render
-  document.addEventListener('DOMContentLoaded', syncUI);
+  document.addEventListener('DOMContentLoaded',syncUI);
   syncUI();
 })();
 </script>

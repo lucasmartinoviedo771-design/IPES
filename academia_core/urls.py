@@ -1,3 +1,4 @@
+# academia_core/urls.py
 from django.urls import path
 from django.contrib.auth.views import LogoutView
 
@@ -5,7 +6,7 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-from .views_panel import panel     # ✅ usamos solo "panel"
+from .views_panel import panel  # ✅ panel unificado
 
 from .views_cbv import (
     # Estudiantes
@@ -36,9 +37,9 @@ urlpatterns = [
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/", carton_por_prof_y_plan, name="carton_generico"),
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
-    # Nuevo panel unificado
+    # Panel unificado
     path("panel/", panel, name="panel"),
-    path("panel/home/", panel, name="panel_home"),   # ✅ mantuvimos esta URL por compatibilidad, pero apunta al mismo panel
+    path("panel/home/", panel, name="panel_home"),  # compat: apunta al mismo panel
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
