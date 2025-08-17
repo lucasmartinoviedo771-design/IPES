@@ -387,7 +387,7 @@
   espacioSelCorr && espacioSelCorr.addEventListener('change', renderCorrels);
   renderCorrels();
 
-  // ===== AJAX de espacios + condición dinámica (calificaciones/finales) =====
+  // ===== AJAX de espacios (cargar_cursada / finales) =====
   const actionInput = qs('[name="action"]');
   const actionVal = actionInput ? actionInput.value : '';
 
@@ -399,7 +399,6 @@
   const isFinalNota   = (actionVal === 'cargar_nota_final' || actionVal === 'cargar_final_resultado');
   const shouldWireAjax = (isRegularidad || isFinalNota);
 
-  // Restringe opciones del select de condición a una lista permitida (por valor o por texto)
   function restrictCondOptions(allowed){
     if (!condSel) return;
     const allow = (allowed || []).map(norm);
@@ -414,10 +413,9 @@
       opt.disabled = !ok;
       if (ok && opt.selected) keepSelected = true;
     }
-    if (!keepSelected) condSel.value = ''; // limpia si la actual quedó inválida
+    if (!keepSelected) condSel.value = '';
   }
 
-  // Toma allowed conds del <option> seleccionado (si las hay)
   function getAllowedFromSelected(){
     const opt = espacioSel && espacioSel.options[espacioSel.selectedIndex];
     if (!opt) return [];
@@ -430,12 +428,9 @@
   function fillEspacios(inscId, mode){
     if (!espacioSel) return;
 
-    // feedback de carga
     espacioSel.innerHTML = '';
     espacioSel.add(new Option('Cargando...', ''));
     disable(espacioSel, true);
-
-    // reset de condición (hasta saber qué habilitar)
     restrictCondOptions([]);
 
     if (!inscId) {
@@ -457,15 +452,12 @@
           espacioSel.add(new Option('Sin espacios disponibles', ''));
           restrictCondOptions(defaultConds);
         } else {
-          // opción vacía
           espacioSel.add(new Option('---------', ''));
-          // cargo items y adjunto conds específicas por opción si vienen
           for (const it of items) {
             const opt = new Option(it.nombre, it.id);
             if (it.cond_opts) opt.dataset.conds = JSON.stringify(it.cond_opts);
             espacioSel.add(opt);
           }
-          // si hay condiciones por defecto a nivel payload, aplico
           restrictCondOptions(defaultConds);
         }
         disable(espacioSel, false);
@@ -475,90 +467,82 @@
         espacioSel.innerHTML = '';
         espacioSel.add(new Option('Error al cargar', ''));
         disable(espacioSel, false);
-        // ante error, no restrinjo condiciones
         restrictCondOptions([]);
       });
   }
 
   if (shouldWireAjax && inscSel && espacioSel) {
     const mode = isRegularidad ? 'regularidad' : 'final';
-
-    // Carga inicial si ya hay inscripción seleccionada
     if (inscSel.value) fillEspacios(inscSel.value, mode);
-
-    // Recarga ante cambios de inscripción
-    inscSel.addEventListener('change', function(){
-      fillEspacios(this.value, mode);
-    });
-
-    // Al cambiar el espacio, ajusto condiciones usando data-conds del option
-    espacioSel.addEventListener('change', function(){
-      restrictCondOptions(getAllowedFromSelected());
-    });
+    inscSel.addEventListener('change', function(){ fillEspacios(this.value, mode); });
+    espacioSel.addEventListener('change', function(){ restrictCondOptions(getAllowedFromSelected()); });
   }
 
-  
-  // ===== INSC. PROF: Adeuda + Certificación Docente toggles =====
-  (function(){
-    const adeudaChk = document.querySelector('input[name="adeuda_materias"]');
-    const adeudaBoxes = document.querySelectorAll('.js-adeuda-field');
-    function toggleAdeuda(){
-      const on = !!(adeudaChk && adeudaChk.checked);
-      adeudaBoxes.forEach(box => {
-        box.style.display = on ? '' : 'none';
-        box.querySelectorAll('input,textarea,select').forEach(el => el.disabled = !on);
-      });
-    }
-    adeudaChk && adeudaChk.addEventListener('change', toggleAdeuda);
-    toggleAdeuda();
+  // ===== ESTADO/CONDICIÓN (insc_esp / cargar_cursada) =====
+  const action = (document.querySelector('input[name="action"]')||{}).value || '';
 
-    const profSel = document.querySelector('select[name="profesorado"]');
-    const sec   = document.querySelector('input[name="doc_titulo_sec_legalizado"]');
-    const sup   = document.querySelector('input[name="doc_titulo_superior_legalizado"]');
-    const inc   = document.querySelector('input[name="doc_incumbencias_titulo"]');
-    function toggleCertDoc(){
-      if(!profSel) return;
-      const txt = (profSel.options[profSel.selectedIndex]?.text || '').toLowerCase();
-      const esCert = txt.includes('certificacion docente') || txt.includes('certificación docente');
-      if (sec) { const lab = sec.closest('label') || sec.parentElement; lab && (lab.style.display = esCert ? 'none' : ''); sec.disabled = esCert; }
-      [sup, inc].forEach(el => { if(!el) return; const lab = el.closest('label') || el.parentElement; lab && (lab.style.display = esCert ? '' : 'none'); el.disabled = !el || !esCert; });
-    }
-    profSel && profSel.addEventListener('change', toggleCertDoc);
-    toggleCertDoc();
-  })();
-// ===== CARGAR CURSADA: Condición dinámica según ESPACIO =====
-  if (document.querySelector('[name="action"]')?.value === 'cargar_cursada') {
-    const selEspacio = document.querySelector('select[name="espacio"]');
-    const selEstado  = document.querySelector('select[name="estado"]');
+  function findSelect(preferred, regex){
+    let el = document.querySelector(preferred);
+    if (el) return el;
+    const list = Array.from(document.querySelectorAll('select'));
+    return list.find(s => regex.test(s.name||'') || regex.test(s.id||'')) || null;
+  }
 
-    async function cargarCondiciones() {
-      if (!selEspacio || !selEstado) return;
-      const id = selEspacio.value;
-      // Limpiamos
-      selEstado.innerHTML = '<option value="">---------</option>';
+  const selEstado   = findSelect('#id_estado,  select[name="estado"]',  /estado/i);
+  const selEspacio2 = findSelect('#id_espacio, select[name="espacio"]', /espacio/i);
+
+  function setOptions(el, options, selectedValue){
+    if (!el) return;
+    el.innerHTML = '';
+    el.add(new Option('---------',''));
+    for (const [val,label] of options){
+      el.add(new Option(label, val));
+    }
+    if (selectedValue) el.value = selectedValue;
+  }
+
+  async function cargarEstadoOCondicion() {
+    if (!selEstado) return;
+
+    // INSCRIBIR A MATERIA: solo EN_CURSO o BAJA
+    if (action === 'insc_esp') {
+      setOptions(selEstado, [
+        ['EN_CURSO', 'En curso'],
+        ['BAJA',     'Baja'],
+      ], 'EN_CURSO'); // quitá 'EN_CURSO' si querés dejar vacío
+      return;
+    }
+
+    // CARGAR CURSADA: condiciones desde backend por espacio
+    if (action === 'cargar_cursada') {
+      const id = selEspacio2 ? selEspacio2.value : '';
+      setOptions(selEstado, []); // reset
       if (!id) return;
 
       try {
         const resp = await fetch(`/api/condiciones-por-espacio/${id}/`, {credentials:'same-origin'});
-        const data = await resp.json();
-        for (const it of data) {
-          const opt = document.createElement('option');
-          opt.value = it.value;
-          opt.textContent = it.label;
-          selEstado.appendChild(opt);
-        }
+        const data = await resp.json(); // [{value,label}] o [["REGULAR","Regular"], ...]
+        const opts = Array.isArray(data)
+          ? data.map(it => [
+              (it?.value ?? it?.[0] ?? ''),
+              (it?.label ?? it?.[1] ?? (it?.value ?? ''))
+            ])
+          : [];
+        setOptions(selEstado, opts);
       } catch (e) {
         console.error('Error cargando condiciones:', e);
-        selEstado.innerHTML = '<option value="">(error)</option>';
+        setOptions(selEstado, []);
       }
     }
-
-    selEspacio && selEspacio.addEventListener('change', cargarCondiciones);
-    // Al entrar a la pantalla, por si el form viene con un espacio ya cargado:
-    cargarCondiciones();
   }
 
+  if (['insc_esp','cargar_cursada'].includes(action)) {
+    selEspacio2 && selEspacio2.addEventListener('change', cargarEstadoOCondicion);
+    cargarEstadoOCondicion(); // al entrar
+  }
 })();
 </script>
+
+<script src="{% static 'academia/panel_hooks.js' %}"></script>
 </body>
 </html>

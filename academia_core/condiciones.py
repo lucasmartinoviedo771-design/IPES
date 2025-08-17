@@ -1,62 +1,68 @@
 # academia_core/condiciones.py
+# Fuente única de verdades para "Condición" por formato de espacio curricular.
 
-from __future__ import annotations
+from typing import List, Tuple
 
-from .models import EspacioCurricular
-
-# Listas de opciones de "Condición" por formato
-COND_ASIGNATURA = [
-    ("REGULAR",        "Regular"),
+# Listas de condiciones por formato
+COND_ASIGNATURA: List[Tuple[str, str]] = [
+    ("REGULAR", "Regular"),
     ("DESAPROBADO_TP", "Desaprobado TP"),
-    ("DESAPROBADO_PA", "Desaprobado Parcial"),
-    ("LIBRE_I",        "Libre por inasistencias"),
-    ("LIBRE_AT",       "Libre por abandono temprano"),
-]
-COND_MODULO = [
-    ("PROMOCION",      "Promoción"),
-    ("REGULAR",        "Regular"),
-    ("DESAPROBADO_TP", "Desaprobado TP"),
-    ("DESAPROBADO_PA", "Desaprobado Parcial"),
-    ("LIBRE_I",        "Libre por inasistencias"),
-    ("LIBRE_AT",       "Libre por abandono temprano"),
-]
-COND_TALLER = [
-    ("APROBADO",       "Aprobado"),
-    ("DESAPROBADO_TP", "Desaprobado TP"),
-    ("LIBRE_I",        "Libre por inasistencias"),
-    ("LIBRE_AT",       "Libre por abandono temprano"),
-]
-COND_PRACTICAS = [
-    ("APROBADO",       "Aprobado"),
-    ("DESAPROBADO_TP", "Desaprobado TP"),
-    ("DESAPROBADO_PA", "Desaprobado Parcial"),
-    ("LIBRE_I",        "Libre por inasistencias"),
-    ("LIBRE_AT",       "Libre por abandono temprano"),
+    ("DESAPROBADO_PARCIAL", "Desaprobado Parcial"),
+    ("LIBRE_INASISTENCIAS", "Libre por inasistencias"),
+    ("LIBRE_ABANDONO_TEMPRANO", "Libre por abandono temprano"),
 ]
 
-def _normalizar_formato(raw: str | None) -> str:
-    """Devuelve 'asignatura' | 'modulo' | 'taller' | 'practicas'."""
-    if not raw:
-        return ""
-    t = str(raw).strip().lower()
-    if "asig" in t:
+COND_MODULO: List[Tuple[str, str]] = [
+    ("PROMOCION", "Promoción"),
+    ("REGULAR", "Regular"),
+    ("DESAPROBADO_TP", "Desaprobado TP"),
+    ("DESAPROBADO_PARCIAL", "Desaprobado Parcial"),
+    ("LIBRE_INASISTENCIAS", "Libre por inasistencias"),
+    ("LIBRE_ABANDONO_TEMPRANO", "Libre por abandono temprano"),
+]
+
+COND_TALLER: List[Tuple[str, str]] = [
+    ("APROBADO", "Aprobado"),
+    ("DESAPROBADO_TP", "Desaprobado TP"),
+    ("LIBRE_INASISTENCIAS", "Libre por inasistencias"),
+    ("LIBRE_ABANDONO_TEMPRANO", "Libre por abandono temprano"),
+]
+
+COND_PRACTICAS: List[Tuple[str, str]] = [
+    ("APROBADO", "Aprobado"),
+    ("DESAPROBADO_TP", "Desaprobado TP"),
+    ("DESAPROBADO_PARCIAL", "Desaprobado Parcial"),
+    ("LIBRE_INASISTENCIAS", "Libre por inasistencias"),
+    ("LIBRE_ABANDONO_TEMPRANO", "Libre por abandono temprano"),
+]
+
+
+def _normalizar_formato(valor: str | None) -> str:
+    """Normaliza el string de formato a: asignatura|modulo|taller|practicas."""
+    s = (valor or "").strip().lower()
+    if s.startswith("asignatura"):
         return "asignatura"
-    if "mód" in t or "mod" in t:
+    if s.startswith("módulo") or s.startswith("modulo"):
         return "modulo"
-    if "taller" in t or "semin" in t or "lab" in t:
+    if "taller" in s or "seminario" in s or "laboratorio" in s:
         return "taller"
-    if "práct" in t or "pract" in t:
+    if "práctica" in s or "practica" in s or "prácticas" in s or "practicas" in s:
         return "practicas"
     return "asignatura"
 
-def _choices_condicion_para_espacio(espacio: EspacioCurricular | None):
-    if not espacio:
-        return COND_ASIGNATURA
-    clave = _normalizar_formato(getattr(espacio, "formato", None))
-    if clave == "modulo":
-        return COND_MODULO
-    if clave == "taller":
-        return COND_TALLER
-    if clave == "practicas":
-        return COND_PRACTICAS
-    return COND_ASIGNATURA
+
+def _choices_condicion_para_espacio(espacio) -> List[Tuple[str, str]]:
+    """Devuelve choices (value, label) según el formato del espacio."""
+    fmt = _normalizar_formato(getattr(espacio, "formato", None))
+    if fmt == "asignatura":
+        choices = COND_ASIGNATURA
+    elif fmt == "modulo":
+        choices = COND_MODULO
+    elif fmt == "taller":
+        choices = COND_TALLER
+    elif fmt == "practicas":
+        choices = COND_PRACTICAS
+    else:
+        choices = COND_ASIGNATURA
+    # Copia defensiva (evita aliasing de listas)
+    return [(v, l) for (v, l) in choices]

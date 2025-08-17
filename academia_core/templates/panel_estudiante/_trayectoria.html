@@ -1,0 +1,66 @@
+{% comment %}
+Usa: bloques_tray = [
+  { anio, cuatri, espacio, rows: [
+      { reg_fecha, reg_cond, reg_nota, fin_fecha, fin_cond, fin_nota, folio, libro }
+  ]}
+]
+{% endcomment %}
+
+{% if not sel_est or not sel_prof %}
+  <p class="muted">Seleccioná estudiante y profesorado para ver la trayectoria.</p>
+{% else %}
+  <h4>Histórico</h4>
+  {% if bloques_tray %}
+    <div style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px">Año</th>
+            <th style="width:70px">Cuat.</th>
+            <th>Espacio curricular</th>
+            <th style="width:110px">Fecha REG</th>
+            <th style="width:140px">Cond. REG</th>
+            <th style="width:90px">Nota REG</th>
+            <th style="width:110px">Fecha FIN</th>
+            <th style="width:140px">Cond. FIN</th>
+            <th style="width:90px">Nota FIN</th>
+            <th style="width:80px">Folio</th>
+            <th style="width:80px">Libro</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bloques_tray %}
+            <tr>
+              <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.anio }}</td>
+              <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.cuatri }}</td>
+              <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.espacio }}</td>
+
+              <td>{{ b.rows.0.reg_fecha }}</td>
+              <td>{{ b.rows.0.reg_cond }}</td>
+              <td>{{ b.rows.0.reg_nota }}</td>
+              <td>{{ b.rows.0.fin_fecha }}</td>
+              <td>{{ b.rows.0.fin_cond }}</td>
+              <td>{{ b.rows.0.fin_nota }}</td>
+              <td>{{ b.rows.0.folio }}</td>
+              <td>{{ b.rows.0.libro }}</td>
+            </tr>
+            {% for r in b.rows|slice:"1:" %}
+              <tr>
+                <td>{{ r.reg_fecha }}</td>
+                <td>{{ r.reg_cond }}</td>
+                <td>{{ r.reg_nota }}</td>
+                <td>{{ r.fin_fecha }}</td>
+                <td>{{ r.fin_cond }}</td>
+                <td>{{ r.fin_nota }}</td>
+                <td>{{ r.folio }}</td>
+                <td>{{ r.libro }}</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Sin registros.</p>
+  {% endif %}
+{% endif %}

@@ -1,0 +1,152 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Panel de Estudiante</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{
+      --ink:#2e2f33; --bg:#ebd4c5; --card:#fff; --card-b:#e9e4da;
+      --green:#3e7d59; --green-600:#2e6446; --green-050:#eaf3ef;
+      --muted:#6f7a83; --shadow:0 8px 26px rgba(23,36,44,.08);
+      --radius:16px; --gap:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui, -apple-system, "Segoe UI", Inter, Roboto, Arial, sans-serif}
+    a{color:var(--green-600);text-decoration:none} a:hover{text-decoration:underline}
+    .wrap{max-width:1300px;margin:0 auto;padding:18px}
+    .grid{display:grid;grid-template-columns:260px 1fr 320px;gap:16px}
+    @media (max-width:1100px){.grid{grid-template-columns:1fr}.right{order:3}.left{order:2}.center{order:1}}
+    .card{background:var(--card);border:1px solid var(--card-b);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+    .sidenav h3{margin:0 0 10px}
+    .menu{list-style:none;margin:0;padding:0}
+    .menu li{margin:4px 0}
+    .menu a{display:block;padding:10px 12px;border-radius:10px;font-weight:600;color:var(--ink)}
+    .menu a.active{background:var(--green-050);outline:2px solid #d9ebe3}
+    label{display:block;margin:8px 0 6px;font-weight:600}
+    select,input{width:100%;padding:10px 12px;border:1px solid #d9e0e4;border-radius:12px}
+    .muted{color:#6f7a83}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #e5e2da;padding:8px}
+    th{background:#f5f4f1;text-align:left}
+    .rowspan{vertical-align:top}
+    .toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px}
+    .btn{border:1px solid var(--card-b);background:#fff;padding:8px 12px;border-radius:10px}
+    .btn:hover{background:#f3f6f4}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <a class="btn" href="{% url 'panel' %}">Panel general</a>
+    <a class="btn" href="{% url 'logout' %}">Cerrar sesión</a>
+  </div>
+
+  <div class="grid">
+    <!-- Lateral -->
+    <aside class="left card">
+      <h3>Acciones</h3>
+      <ul class="menu">
+        <li>
+          <a class="{% if active_tab == 'trayectoria' %}active{% endif %}"
+             href="?tab=trayectoria{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Trayectoria
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'panel_estudiante_carton' %}{% if qs_est_prof %}?{{ qs_est_prof }}{% endif %}"
+             target="_blank" rel="noopener">
+             Trayectoria (cartón)
+          </a>
+        </li>
+        <li><a class="{% if active_tab == 'correlatividades' %}active{% endif %}"
+               href="?tab=correlatividades{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+               Correlatividades
+        </a></li>
+        <li><a class="{% if active_tab == 'situacion' %}active{% endif %}"
+               href="?tab=situacion{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+               Situación académica
+        </a></li>
+        <li><a class="{% if active_tab == 'horarios' %}active{% endif %}"
+               href="?tab=horarios{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+               Horarios
+        </a></li>
+        <li><a class="{% if active_tab == 'insc_materia' %}active{% endif %}"
+               href="?tab=insc_materia{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+               Inscripción a materias
+        </a></li>
+        <li><a class="{% if active_tab == 'insc_final' %}active{% endif %}"
+               href="?tab=insc_final{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+               Inscripción a finales
+        </a></li>
+      </ul>
+    </aside>
+
+    <!-- Centro -->
+    <main class="center card">
+      <h3>Panel de Estudiante</h3>
+
+      {% if puede_elegir %}
+      <form method="get" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
+        <input type="hidden" name="tab" value="{{ active_tab|default:'trayectoria' }}">
+        <div>
+          <label>Estudiante</label>
+          <select name="est" onchange="this.form.submit()">
+            <option value="">—</option>
+            {% for o in opciones_estudiantes %}
+              <option value="{{ o.id }}" {% if sel_est and sel_est.id == o.id %}selected{% endif %}>{{ o.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Profesorado</label>
+          <select name="prof" onchange="this.form.submit()">
+            <option value="">—</option>
+            {% for o in opciones_profesorados %}
+              <option value="{{ o.id }}" {% if sel_prof and sel_prof.id == o.id %}selected{% endif %}>{{ o.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <a class="btn" href="{% url 'panel_estudiante_carton' %}{% if qs_est_prof %}?{{ qs_est_prof }}{% endif %}" target="_blank" rel="noopener">Abrir cartón</a>
+        </div>
+      </form>
+      {% else %}
+        {% if sel_est and sel_prof %}
+          <p class="muted">Estudiante: <strong>{{ sel_est }}</strong> · Profesorado: <strong>{{ sel_prof }}</strong></p>
+          <p><a class="btn" href="{% url 'panel_estudiante_carton' %}{% if qs_est_prof %}?{{ qs_est_prof }}{% endif %}" target="_blank" rel="noopener">Abrir cartón</a></p>
+        {% else %}
+          <p class="muted">No se detectó tu inscripción a un profesorado.</p>
+        {% endif %}
+      {% endif %}
+
+      {% if active_tab == 'trayectoria' %}
+        {% include "panel_estudiante/_trayectoria.html" %}
+      {% elif active_tab == 'correlatividades' %}
+        <p class="muted">Consulta de correlatividades (en preparación).</p>
+      {% elif active_tab == 'situacion' %}
+        <p class="muted">Situación académica (en preparación).</p>
+      {% elif active_tab == 'horarios' %}
+        <p class="muted">Horarios (en preparación).</p>
+      {% elif active_tab == 'insc_materia' %}
+        <p class="muted">Inscripción a materias (en preparación).</p>
+      {% elif active_tab == 'insc_final' %}
+        <p class="muted">Inscripción a finales (en preparación).</p>
+      {% endif %}
+    </main>
+
+    <!-- Derecha -->
+    <aside class="right card">
+      <h3>Info</h3>
+      {% if sel_est %}
+        <p><strong>DNI:</strong> {{ sel_est.dni }}</p>
+        <p><strong>Email:</strong> {{ sel_est.email|default:"—" }}</p>
+      {% else %}
+        <p class="muted">Seleccioná un estudiante.</p>
+      {% endif %}
+    </aside>
+  </div>
+</div>
+</body>
+</html>

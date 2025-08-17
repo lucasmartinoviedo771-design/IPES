@@ -6,8 +6,15 @@ from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
     carton_por_prof_y_plan, carton_generico_pdf,
 )
-# Se añade la importación de la nueva vista
-from .views_panel import panel, get_espacios_por_inscripcion, get_condiciones_por_espacio
+
+from .views_panel import (
+    panel,
+    get_espacios_por_inscripcion,
+    get_condiciones_por_espacio,
+    get_correlatividades,
+    panel_estudiante,
+    panel_estudiante_carton,  # <<< NUEVO
+)
 
 from .views_cbv import (
     # Estudiantes
@@ -38,9 +45,13 @@ urlpatterns = [
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/", carton_por_prof_y_plan, name="carton_generico"),
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
-    # Panel unificado
+    # Panel unificado (general)
     path("panel/", panel, name="panel"),
-    path("panel/home/", panel, name="panel_home"),  # compat: apunta al mismo panel
+    path("panel/home/", panel, name="panel_home"),
+
+    # Panel de Estudiante
+    path("panel/estudiante/", panel_estudiante, name="panel_estudiante"),
+    path("panel/estudiante/carton/", panel_estudiante_carton, name="panel_estudiante_carton"), # <<< NUEVO
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
@@ -65,10 +76,9 @@ urlpatterns = [
     path("calificaciones/agregar/", CalificacionCreateView.as_view(), name="agregar_calificacion"),
     path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
     path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
-    
+
     # ---- APIs para el panel (AJAX) ----
     path("api/espacios-por-inscripcion/<int:insc_id>/", get_espacios_por_inscripcion, name="api_espacios_por_inscripcion"),
-    
-    # Ruta añadida
     path("api/condiciones-por-espacio/<int:espacio_id>/", get_condiciones_por_espacio, name="get_condiciones_por_espacio"),
+    path("api/correlatividades/<int:espacio_id>/", get_correlatividades, name="api_correlatividades"),
 ]

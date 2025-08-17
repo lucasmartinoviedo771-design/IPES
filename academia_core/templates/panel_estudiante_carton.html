@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Cartón - {% if estudiante %}{{ estudiante.apellido }}, {{ estudiante.nombre }}{% else %}Sin selección{% endif %}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { margin: 0 0 12px 0; }
+    .toolbar { display:flex; gap:8px; justify-content:flex-end; margin: 10px 0 14px; }
+    .btn{ border:1px solid #999; background:#f8f8f8; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:14px; text-decoration:none; color:#111; display:inline-block; }
+    .btn:hover{ background:#eee; }
+    @media print{ .toolbar { display:none !important; } body{ margin:0; } }
+    .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:12px; background:#e5e7eb; color:#111827; border:1px solid #d1d5db; }
+    .badge.ok   { background:#dcfce7; border-color:#86efac; color:#065f46; }
+    .badge.warn { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+
+    .cabecera-grid{ display:grid; grid-template-columns: 1fr 1fr auto; gap:24px; align-items:start; margin-bottom: 16px; }
+    .box{ overflow:hidden; }
+
+    .cabecera-grid table, .main-grid { width:100%; border-collapse:collapse; table-layout:fixed; font-size:14px; }
+    th, td { border:1px solid #999; padding:6px 8px; }
+    th { background:#efefef; text-align:left; }
+
+    .foto-alumno{ width:110px; height:140px; object-fit:cover; border:1px solid #ccc; border-radius:4px; display:block; }
+
+    .w-espacio { min-width:320px; }
+    .center { text-align:center; }
+    tbody tr:nth-child(odd) td { background:#fafafa; }
+  </style>
+</head>
+<body>
+
+  <h1>Cartón Académico – {% if profesorado %}{{ profesorado.nombre }}{% else %}Sin selección{% endif %}</h1>
+
+  <div class="toolbar">
+    {% if pdf_url %}
+      <a class="btn" href="{{ pdf_url }}" target="_blank" rel="noopener">Descargar PDF</a>
+    {% endif %}
+    <button class="btn" onclick="window.print()">Imprimir</button>
+  </div>
+
+  <div style="margin-bottom:8px;">
+    <strong>Estudiante:</strong>
+    {% if estudiante %}{{ estudiante.apellido }}, {{ estudiante.nombre }} (DNI {{ estudiante.dni }}){% else %}—{% endif %}
+  </div>
+
+  <div class="cabecera-grid">
+    <div class="box">
+      <table>
+        <tr>
+          <th style="width:18%;">Fecha Nac.</th>
+          <td style="width:32%;">{% if estudiante and estudiante.fecha_nacimiento %}{{ estudiante.fecha_nacimiento|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+          <th style="width:18%;">Email</th>
+          <td style="width:32%;">{% if estudiante and estudiante.email %}{{ estudiante.email }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <th>Teléfono</th>
+          <td>{% if estudiante and estudiante.telefono %}{{ estudiante.telefono }}{% else %}—{% endif %}</td>
+          <th>Localidad</th>
+          <td>{% if estudiante and estudiante.localidad %}{{ estudiante.localidad }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <th>Cohorte</th>
+          <td>{% if inscripcion and inscripcion.cohorte %}{{ inscripcion.cohorte }}{% else %}—{% endif %}</td>
+          <th>Curso Introductorio</th>
+          <td>{% if inscripcion and inscripcion.curso_introductorio %}{{ inscripcion.curso_introductorio }}{% else %}—{% endif %}</td>
+        </tr>
+        <tr>
+          <th>Libreta / Legajo</th>
+          <td>
+            {% if inscripcion and inscripcion.libreta %}{{ inscripcion.libreta }}{% else %}—{% endif %} /
+            {% if inscripcion and inscripcion.legajo %}{{ inscripcion.legajo }}{% else %}—{% endif %}
+          </td>
+          <th>Plan</th>
+          <td>
+            {% if plan %}
+              {% if plan.resolucion %}Res. {{ plan.resolucion }}{% else %}Plan vigente{% endif %}
+              {% if plan.nombre %} ({{ plan.nombre }}){% endif %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="box">
+      <table>
+        <tr>
+          <th>Legajo (estado)</th>
+          <td>
+            {% if inscripcion and inscripcion.legajo_estado == "Completo" %}
+              <span class="badge ok">Completo</span>
+            {% elif inscripcion and inscripcion.legajo_estado %}
+              <span class="badge warn">{{ inscripcion.legajo_estado }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Promedio General</th>
+          <td>{% if inscripcion and inscripcion.promedio_general %}{{ inscripcion.promedio_general }}{% else %}—{% endif %}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="box" style="justify-self:end;">
+      {% if estudiante and estudiante.foto %}
+        <img src="{{ estudiante.foto.url }}" alt="Foto del estudiante" class="foto-alumno">
+      {% else %}
+        <div class="foto-alumno" style="display:flex;align-items:center;justify-content:center;color:#999;">
+          sin foto
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <table class="main-grid">
+    <thead>
+      <tr>
+        <th style="width:60px;">Año</th>
+        <th style="width:70px;">Cuatr.</th>
+        <th class="w-espacio">Espacio Curricular</th>
+        <th style="width:110px;">Fecha REG</th>
+        <th style="width:120px;">Cond. REG</th>
+        <th style="width:110px;">Nota REG</th>
+        <th style="width:110px;">Fecha FIN</th>
+        <th style="width:110px;">Cond. FIN</th>
+        <th style="width:110px;">Nota FIN</th>
+        <th style="width:70px;">Folio</th>
+        <th style="width:70px;">Libro</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bloques %}
+        <tr>
+          <td class="center" rowspan="{{ b.rows|length }}">{{ b.anio }}</td>
+          <td class="center" rowspan="{{ b.rows|length }}">{{ b.cuatri }}</td>
+          <td rowspan="{{ b.rows|length }}">{{ b.espacio }}</td>
+
+          <td class="center">{{ b.rows.0.reg_fecha }}</td>
+          <td class="center">{{ b.rows.0.reg_cond }}</td>
+          <td class="center">{{ b.rows.0.reg_nota }}</td>
+          <td class="center">{{ b.rows.0.fin_fecha }}</td>
+          <td class="center">{{ b.rows.0.fin_cond }}</td>
+          <td class="center">{{ b.rows.0.fin_nota }}</td>
+          <td class="center">{{ b.rows.0.folio }}</td>
+          <td class="center">{{ b.rows.0.libro }}</td>
+        </tr>
+        {% for row in b.rows|slice:"1:" %}
+          <tr>
+            <td class="center">{{ row.reg_fecha }}</td>
+            <td class="center">{{ row.reg_cond }}</td>
+            <td class="center">{{ row.reg_nota }}</td>
+            <td class="center">{{ row.fin_fecha }}</td>
+            <td class="center">{{ row.fin_cond }}</td>
+            <td class="center">{{ row.fin_nota }}</td>
+            <td class="center">{{ row.folio }}</td>
+            <td class="center">{{ row.libro }}</td>
+          </tr>
+        {% endfor %}
+      {% empty %}
+        <tr><td colspan="11" class="center">Sin datos para mostrar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</body>
+</html>
