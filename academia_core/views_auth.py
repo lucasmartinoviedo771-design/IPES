@@ -1,23 +1,17 @@
-# academia_core/views_auth.py
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
 
 def _redirect_por_rol(user) -> str:
     """
-    Devuelve la URL de destino por rol de usuario cuando NO hay ?next=.
-    - ESTUDIANTE -> búsqueda de cartón (no panel)
-    - BEDEL / SECRETARIA -> panel con acción operativa por defecto
-    - DOCENTE / admin / otros -> panel
+    Redirección post-login sin ?next= según tu handoff:
+    - Estudiante -> /panel/estudiante/
+    - Admin/Secretaría -> /panel/
     """
-    rol = getattr(getattr(user, "perfil", None), "rol", None)
-
-    if rol == "ESTUDIANTE":
-        return str(reverse_lazy("buscar_carton_primaria"))
-
-    if rol in {"BEDEL", "SECRETARIA"}:
-        return f"{reverse_lazy('panel_home')}?action=cargar_mov"
-
-    return str(reverse_lazy("panel_home"))
+    # Admin/Secretaría por staff/superuser o por grupo explícito
+    if user.is_staff or user.is_superuser or user.groups.filter(name__in=["SECRETARIA","ADMIN"]).exists():
+        return str(reverse_lazy("panel"))
+    # Resto (alumno/docente) → Panel estudiante
+    return str(reverse_lazy("panel_estudiante"))
 
 
 class RoleAwareLoginView(LoginView):

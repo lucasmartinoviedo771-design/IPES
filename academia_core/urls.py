@@ -1,4 +1,3 @@
-# academia_core/urls.py
 from django.urls import path
 from django.contrib.auth.views import LogoutView
 
@@ -8,12 +7,15 @@ from .views import (
 )
 
 from .views_panel import (
+    # Paneles
     panel,
+    panel_estudiante,
+    panel_estudiante_carton,
+    # APIs (AJAX) — ahora importadas desde views_panel
     get_espacios_por_inscripcion,
     get_condiciones_por_espacio,
     get_correlatividades,
-    panel_estudiante,
-    panel_estudiante_carton,  # <<< NUEVO
+    get_situacion_academica,
 )
 
 from .views_cbv import (
@@ -51,7 +53,7 @@ urlpatterns = [
 
     # Panel de Estudiante
     path("panel/estudiante/", panel_estudiante, name="panel_estudiante"),
-    path("panel/estudiante/carton/", panel_estudiante_carton, name="panel_estudiante_carton"), # <<< NUEVO
+    path("panel/estudiante/carton/", panel_estudiante_carton, name="panel_estudiante_carton"),
 
     # ---- CBVs (Alumnos) ----
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
@@ -81,4 +83,5 @@ urlpatterns = [
     path("api/espacios-por-inscripcion/<int:insc_id>/", get_espacios_por_inscripcion, name="api_espacios_por_inscripcion"),
     path("api/condiciones-por-espacio/<int:espacio_id>/", get_condiciones_por_espacio, name="get_condiciones_por_espacio"),
     path("api/correlatividades/<int:espacio_id>/", get_correlatividades, name="api_correlatividades"),
+    path("api/situacion-academica/<int:insc_id>/", get_situacion_academica, name="api_situacion_academica"),
 ]

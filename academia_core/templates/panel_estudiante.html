@@ -28,19 +28,34 @@
     select,input{width:100%;padding:10px 12px;border:1px solid #d9e0e4;border-radius:12px}
     .muted{color:#6f7a83}
     table{width:100%;border-collapse:collapse}
-    th,td{border:1px solid #e5e2da;padding:8px}
+    th,td{border:1px solid #e5e2da;padding:8px;vertical-align:top}
     th{background:#f5f4f1;text-align:left}
-    .rowspan{vertical-align:top}
     .toolbar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px}
     .btn{border:1px solid var(--card-b);background:#fff;padding:8px 12px;border-radius:10px}
     .btn:hover{background:#f3f6f4}
+    .kpi-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:10px 0}
+    .kpi{background:#fff;border:1px solid var(--card-b);border-radius:12px;padding:10px;text-align:center}
+    .kpi b{display:block;font-size:22px}
+    .list-clean{margin:6px 0 0 16px;padding:0}
+    .err{color:#b11}
+    .ok{color:#2e6446}
+    .skeleton{display:inline-block;min-width:60px;background:#eee;border-radius:8px;height:1em;vertical-align:middle}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef3ee;border:1px solid #dbe7dd;font-size:12px}
   </style>
 </head>
 <body>
 <div class="wrap">
+
+  <!-- toolbar -->
   <div class="toolbar">
     <a class="btn" href="{% url 'panel' %}">Panel general</a>
     <a class="btn" href="{% url 'logout' %}">Cerrar sesión</a>
+  </div>
+
+  <!-- datos para JS -->
+  <div id="page-data"
+       data-active-tab="{{ active_tab|default:'trayectoria' }}"
+       data-insc-id="{{ inscripcion.id|default:'' }}">
   </div>
 
   <div class="grid">
@@ -49,7 +64,7 @@
       <h3>Acciones</h3>
       <ul class="menu">
         <li>
-          <a class="{% if active_tab == 'trayectoria' %}active{% endif %}"
+          <a class="{% if active_tab == 'trayectoria' or not active_tab %}active{% endif %}"
              href="?tab=trayectoria{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
              Trayectoria
           </a>
@@ -60,26 +75,36 @@
              Trayectoria (cartón)
           </a>
         </li>
-        <li><a class="{% if active_tab == 'correlatividades' %}active{% endif %}"
-               href="?tab=correlatividades{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
-               Correlatividades
-        </a></li>
-        <li><a class="{% if active_tab == 'situacion' %}active{% endif %}"
-               href="?tab=situacion{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
-               Situación académica
-        </a></li>
-        <li><a class="{% if active_tab == 'horarios' %}active{% endif %}"
-               href="?tab=horarios{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
-               Horarios
-        </a></li>
-        <li><a class="{% if active_tab == 'insc_materia' %}active{% endif %}"
-               href="?tab=insc_materia{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
-               Inscripción a materias
-        </a></li>
-        <li><a class="{% if active_tab == 'insc_final' %}active{% endif %}"
-               href="?tab=insc_final{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
-               Inscripción a finales
-        </a></li>
+        <li>
+          <a class="{% if active_tab == 'correlatividades' %}active{% endif %}"
+             href="?tab=correlatividades{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Correlatividades
+          </a>
+        </li>
+        <li>
+          <a class="{% if active_tab == 'situacion' %}active{% endif %}"
+             href="?tab=situacion{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Situación académica
+          </a>
+        </li>
+        <li>
+          <a class="{% if active_tab == 'horarios' %}active{% endif %}"
+             href="?tab=horarios{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Horarios
+          </a>
+        </li>
+        <li>
+          <a class="{% if active_tab == 'insc_materia' %}active{% endif %}"
+             href="?tab=insc_materia{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Inscripción a materias
+          </a>
+        </li>
+        <li>
+          <a class="{% if active_tab == 'insc_final' %}active{% endif %}"
+             href="?tab=insc_final{% if sel_est %}&est={{ sel_est.id }}{% endif %}{% if sel_prof %}&prof={{ sel_prof.id }}{% endif %}">
+             Inscripción a finales
+          </a>
+        </li>
       </ul>
     </aside>
 
@@ -121,19 +146,99 @@
         {% endif %}
       {% endif %}
 
-      {% if active_tab == 'trayectoria' %}
-        {% include "panel_estudiante/_trayectoria.html" %}
-      {% elif active_tab == 'correlatividades' %}
+      {% with tab=active_tab|default:'trayectoria' %}
+      {% if tab == 'trayectoria' %}
+        <!-- Trayectoria inline (sin include) -->
+        {% if trayectoria_blocks %}
+          <table>
+            <thead>
+              <tr>
+                <th style="width:60px">Año</th>
+                <th style="width:70px">Cuatr.</th>
+                <th>Espacio</th>
+                <th style="width:30%">REG (fecha · condición · nota)</th>
+                <th style="width:30%">FIN (fecha · estado · nota)</th>
+                <th style="width:70px">Folio</th>
+                <th style="width:70px">Libro</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in trayectoria_blocks %}
+                {% if b.rows %}
+                  {% for r in b.rows %}
+                  <tr>
+                    {% if forloop.first %}
+                      <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.anio|default:"—" }}</td>
+                      <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.cuatri|default:"—" }}</td>
+                      <td class="rowspan" rowspan="{{ b.rows|length }}">{{ b.espacio|default:"—" }}</td>
+                    {% endif %}
+                    <td>
+                      {% if r.reg %}
+                        <span class="pill">{{ r.reg.fecha|default:"—" }}</span>
+                        · {{ r.reg.condicion|default:"—" }}
+                        · <strong>{{ r.reg.nota|default:"—" }}</strong>
+                      {% else %} — {% endif %}
+                    </td>
+                    <td>
+                      {% if r.fin %}
+                        <span class="pill">{{ r.fin.fecha|default:"—" }}</span>
+                        · {{ r.fin.condicion|default:"—" }}
+                        · <strong>{{ r.fin.nota|default:"—" }}</strong>
+                      {% else %} — {% endif %}
+                    </td>
+                    <td>{{ r.folio|default:"—" }}</td>
+                    <td>{{ r.libro|default:"—" }}</td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td>{{ b.anio|default:"—" }}</td>
+                    <td>{{ b.cuatri|default:"—" }}</td>
+                    <td>{{ b.espacio|default:"—" }}</td>
+                    <td colspan="4">—</td>
+                  </tr>
+                {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="muted">No hay trayectoria para mostrar.</p>
+        {% endif %}
+
+      {% elif tab == 'correlatividades' %}
         <p class="muted">Consulta de correlatividades (en preparación).</p>
-      {% elif active_tab == 'situacion' %}
-        <p class="muted">Situación académica (en preparación).</p>
-      {% elif active_tab == 'horarios' %}
+
+      {% elif tab == 'situacion' %}
+        <!-- Situación académica (KPIs) -->
+        <div id="kpi-box">
+          <div class="kpi-row">
+            <div class="kpi"><span>Promedio</span><b id="kpi-promedio"><span class="skeleton">&nbsp;</span></b></div>
+            <div class="kpi"><span>Aprobadas</span><b id="kpi-aprobadas"><span class="skeleton">&nbsp;</span></b></div>
+            <div class="kpi"><span>Promocionadas</span><b id="kpi-promocionadas"><span class="skeleton">&nbsp;</span></b></div>
+            <div class="kpi"><span>Libres</span><b id="kpi-libres"><span class="skeleton">&nbsp;</span></b></div>
+            <div class="kpi"><span>Pendientes</span><b id="kpi-pendientes"><span class="skeleton">&nbsp;</span></b></div>
+          </div>
+
+          <h4 style="margin:14px 0 6px">Regularidades próximas a vencer</h4>
+          <ul id="kpi-reg-vencer" class="list-clean muted"><li>Cargando…</li></ul>
+
+          <h4 style="margin:14px 0 6px">Correlativas faltantes</h4>
+          <ul id="kpi-correl-falt" class="list-clean muted"><li>Cargando…</li></ul>
+        </div>
+
+        <div id="kpi-error" class="err" style="display:none;margin-top:8px"></div>
+
+      {% elif tab == 'horarios' %}
         <p class="muted">Horarios (en preparación).</p>
-      {% elif active_tab == 'insc_materia' %}
+
+      {% elif tab == 'insc_materia' %}
         <p class="muted">Inscripción a materias (en preparación).</p>
-      {% elif active_tab == 'insc_final' %}
+
+      {% elif tab == 'insc_final' %}
         <p class="muted">Inscripción a finales (en preparación).</p>
+
       {% endif %}
+      {% endwith %}
     </main>
 
     <!-- Derecha -->
@@ -142,11 +247,96 @@
       {% if sel_est %}
         <p><strong>DNI:</strong> {{ sel_est.dni }}</p>
         <p><strong>Email:</strong> {{ sel_est.email|default:"—" }}</p>
+        {% if sel_prof %}
+          <p><strong>Profesorado:</strong> {{ sel_prof }}</p>
+        {% endif %}
       {% else %}
         <p class="muted">Seleccioná un estudiante.</p>
       {% endif %}
     </aside>
   </div>
 </div>
+
+<script>
+(function(){
+  const root = document.getElementById('page-data');
+  const activeTab = (root?.dataset?.activeTab || 'trayectoria').trim();
+
+  // Solo ejecutamos el fetch de KPIs en el tab "situacion"
+  if (activeTab !== 'situacion') return;
+
+  // 1) Intentar tomar insc_id del contexto (inscripcion.id)
+  let inscId = (root?.dataset?.inscId || '').trim();
+
+  // 2) Fallback: intentar de la query ?insc=123
+  if (!inscId) {
+    const q = new URLSearchParams(location.search);
+    const qInsc = q.get('insc') || q.get('insc_id');
+    if (qInsc) inscId = qInsc;
+  }
+
+  const showErr = (msg) => {
+    const el = document.getElementById('kpi-error');
+    if (el) {
+      el.style.display = 'block';
+      el.textContent = msg;
+    } else {
+      alert(msg);
+    }
+  };
+
+  if (!inscId) {
+    showErr('No se pudo determinar la inscripción (insc_id). Abrí este tab desde una inscripción válida.');
+    // Dejar skeletons visibles, sin romper
+    return;
+  }
+
+  fetch(`/api/situacion-academica/${inscId}/`, { credentials: 'same-origin' })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+    .then(json => {
+      if (!json || !json.ok) throw new Error(json && json.error ? json.error : 'Respuesta inválida');
+
+      const k = json.kpis || {};
+      const tot = k.totales || {};
+
+      const setText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = (val === null || val === undefined || val === '') ? '—' : val;
+      };
+
+      setText('kpi-promedio', k.promedio ?? '—');
+      setText('kpi-aprobadas', tot.aprobadas ?? 0);
+      setText('kpi-promocionadas', tot.promocionadas ?? 0);
+      setText('kpi-libres', tot.libres ?? 0);
+      setText('kpi-pendientes', tot.pendientes ?? 0);
+
+      const renderList = (id, arr, emptyText) => {
+        const ul = document.getElementById(id);
+        if (!ul) return;
+        ul.innerHTML = '';
+        if (!arr || !arr.length) {
+          ul.innerHTML = `<li class="muted">(${emptyText})</li>`;
+          return;
+        }
+        arr.forEach(item => {
+          if (id === 'kpi-reg-vencer') {
+            ul.insertAdjacentHTML('beforeend', `<li>${(item.nombre||'—')} — ~${(item.vence_en_dias_est||'—')} días</li>`);
+          } else if (id === 'kpi-correl-falt') {
+            const motivos = (item.motivos||[]).join('; ');
+            ul.insertAdjacentHTML('beforeend', `<li>${(item.nombre||'—')}: ${motivos||'—'}</li>`);
+          }
+        });
+      };
+
+      renderList('kpi-reg-vencer', k.reg_proximas_a_vencer, 'Sin alertas');
+      renderList('kpi-correl-falt', k.correlativas_faltantes, 'Sin pendientes por correlativas');
+    })
+    .catch(err => {
+      console.error(err);
+      showErr('No se pudo cargar la situación académica. ' + (err && err.message ? err.message : ''));
+    });
+})();
+</script>
+
 </body>
 </html>

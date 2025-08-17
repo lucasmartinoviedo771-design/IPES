@@ -43,7 +43,7 @@ class Profesorado(models.Model):
 
 class PlanEstudios(models.Model):
     profesorado = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="planes")
-    resolucion = models.CharField(max_length=30)      # ej: 1935/14
+    resolucion = models.CharField(max_length=30)    # ej: 1935/14
     resolucion_slug = models.SlugField(max_length=100, blank=True, null=True)
     nombre = models.CharField(max_length=120, blank=True)   # ej: Plan 2014
     vigente = models.BooleanField(default=True)
@@ -79,6 +79,15 @@ class Estudiante(models.Model):
 
     # Foto del alumno
     foto = models.ImageField(upload_to=estudiante_foto_path, null=True, blank=True)
+
+    # ### INICIO DE LA ACTUALIZACIÓN SOLICITADA ###
+    contacto_emergencia_tel = models.CharField(
+        "Tel. de emergencia", max_length=30, blank=True, null=True
+    )
+    contacto_emergencia_parentesco = models.CharField(
+        "Parentesco (emergencia)", max_length=50, blank=True, null=True
+    )
+    # ### FIN DE LA ACTUALIZACIÓN SOLICITADA ###
 
     class Meta:
         ordering = ["apellido", "nombre"]
@@ -150,7 +159,6 @@ class EstudianteProfesorado(models.Model):
     doc_titulo_sec_legalizado = models.BooleanField(default=False)
     doc_cert_medico = models.BooleanField(default=False)
     
-    # >>> CAMBIOS A BOOLEANOS APLICADOS AQUÍ <<<
     doc_fotos_carnet = models.BooleanField(default=False, verbose_name="Fotos carnet")
     doc_folios_oficio = models.BooleanField(default=False, verbose_name="Folios oficio")
 
@@ -184,17 +192,8 @@ class EstudianteProfesorado(models.Model):
 
     # --------- Lógica de legajo y promedio ---------
     def requisitos_obligatorios(self):
-        """
-        Requisitos de legajo:
-        - Profesorados comunes: DNI + Título secundario + Cert. médico + Fotos + Folios
-        - Certificación Docente: DNI + Cert. médico + Fotos + Folios
-          + Título superior legalizado + Incumbencias del título
-          (NO se exige título secundario).
-        """
         nombre = (self.profesorado.nombre or "").lower()
         es_cert = ("certificación" in nombre) or ("certificacion" in nombre)
-
-        # >>> LÓGICA AJUSTADA A LOS CAMPOS BOOLEANOS <<<
         base = [
             ("doc_dni_legalizado", True),
             ("doc_cert_medico", True),
@@ -220,22 +219,22 @@ class EstudianteProfesorado(models.Model):
                 ok = ok and (val >= requerido)
         return "Completo" if ok else "Incompleto"
 
-    # Helpers de legajo
     def legajo_completo(self) -> bool:
-        """True si cumple todos los requisitos obligatorios (puede rendir mesa)."""
         return self.calcular_legajo_estado() == "Completo"
 
     @property
     def es_condicional(self) -> bool:
-        """True si el legajo está incompleto (puede cursar, pero no aprobar/promocionar por cursada ni rendir final)."""
         return not self.legajo_completo()
 
     def _mov_aprueba(self, m) -> bool:
+        if m.condicion is None:
+            return False
+        
         # FIN Regular >=6
-        if m.tipo == "FIN" and m.condicion == "Regular" and m.nota_num is not None and m.nota_num >= 6:
+        if m.tipo == "FIN" and m.condicion.codigo == "REGULAR" and m.nota_num is not None and m.nota_num >= 6:
             return True
-        # REG Promoción/Aprobado con nota >=6 (num o texto con número >=6)
-        if m.tipo == "REG" and m.condicion in {"Promoción", "Aprobado"}:
+        # REG Promoción/Aprobado con nota >=6
+        if m.tipo == "REG" and m.condicion.codigo in {"PROMOCION", "APROBADO"}:
             if m.nota_num is not None and m.nota_num >= 6:
                 return True
             if m.nota_texto:
@@ -275,7 +274,7 @@ class EspacioCurricular(models.Model):
     ]
     profesorado  = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="espacios")
     plan         = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="espacios",
-                                       null=True, blank=True)
+                                     null=True, blank=True)
     anio         = models.CharField(max_length=10)  # ej: "1°", "2°"
     cuatrimestre = models.CharField(max_length=1, choices=CUATRIS)
     nombre       = models.CharField(max_length=160)
@@ -313,12 +312,6 @@ class EspacioCurricular(models.Model):
 # ===================== Correlatividades =====================
 
 class Correlatividad(models.Model):
-    """
-    Regla de correlatividad para un espacio (de un plan).
-    - tipo = CURSAR -> requisitos para inscribirse/cursar (cargar REG)
-    - tipo = RENDIR -> requisitos para rendir final (cargar FIN)
-    - requisito = REGULARIZADA / APROBADA
-    """
     TIPO = [("CURSAR", "Para cursar"), ("RENDIR", "Para rendir")]
     REQ  = [("REGULARIZADA", "Regularizada"), ("APROBADA", "Aprobada")]
 
@@ -358,20 +351,51 @@ class Correlatividad(models.Model):
         return f"[{self.plan.resolucion}] {self.espacio.nombre} / {self.tipo} → {self.requisito}: {req}"
 
 
+# ===================== Condiciones Académicas (Dinámicas) =====================
+
+class TipoCondicion(models.TextChoices):
+    CURSADA = "REG", "Cursada"
+    FINAL = "FIN", "Final"
+
+class Condicion(models.Model):
+    codigo = models.CharField(max_length=50, primary_key=True, help_text="Código único, ej: 'REGULAR', 'PROMOCION'")
+    nombre = models.CharField(max_length=100, help_text="Nombre para mostrar, ej: 'Regular', 'Promoción'")
+    tipo   = models.CharField(max_length=3, choices=TipoCondicion.choices)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.get_tipo_display()})"
+
+    class Meta:
+        verbose_name = "Condición Académica"
+        verbose_name_plural = "Condiciones Académicas"
+
+class EspacioCondicion(models.Model):
+    espacio    = models.ForeignKey(EspacioCurricular, on_delete=models.CASCADE)
+    condicion  = models.ForeignKey(Condicion, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.espacio.nombre} → permite {self.condicion.nombre}"
+
+    class Meta:
+        unique_together = (("espacio", "condicion"),)
+        verbose_name = "Condición por Espacio"
+        verbose_name_plural = "Condiciones por Espacio"
+
+
 # ---------- Helpers de estado académico (correlatividades) ----------
 
-REG_OK = {"Promoción", "Aprobado", "Regular"}
+REG_OK_CODIGOS = {"PROMOCION", "APROBADO", "REGULAR"}
 
 def _tiene_regularizada(insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_fecha=None) -> bool:
-    qs = insc.movimientos.filter(espacio=esp, tipo="REG", condicion__in=REG_OK)
+    qs = insc.movimientos.filter(espacio=esp, tipo="REG", condicion__codigo__in=REG_OK_CODIGOS)
     if hasta_fecha:
         qs = qs.filter(fecha__lte=hasta_fecha)
     return qs.exists()
 
 def _tiene_aprobada(insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_fecha=None) -> bool:
-    qs1 = insc.movimientos.filter(espacio=esp, tipo="REG", condicion__in={"Promoción", "Aprobado"})
-    qs2 = insc.movimientos.filter(espacio=esp, tipo="FIN", condicion="Regular", nota_num__gte=6)
-    qs3 = insc.movimientos.filter(espacio=esp, tipo="FIN", condicion="Equivalencia", nota_texto__iexact="Equivalencia")
+    qs1 = insc.movimientos.filter(espacio=esp, tipo="REG", condicion__codigo__in={"PROMOCION", "APROBADO"})
+    qs2 = insc.movimientos.filter(espacio=esp, tipo="FIN", condicion__codigo="REGULAR", nota_num__gte=6)
+    qs3 = insc.movimientos.filter(espacio=esp, tipo="FIN", condicion__codigo="EQUIVALENCIA", nota_texto__iexact="Equivalencia")
     if hasta_fecha:
         qs1 = qs1.filter(fecha__lte=hasta_fecha)
         qs2 = qs2.filter(fecha__lte=hasta_fecha)
@@ -379,9 +403,6 @@ def _tiene_aprobada(insc: EstudianteProfesorado, esp: EspacioCurricular, hasta_f
     return qs1.exists() or qs2.exists() or qs3.exists()
 
 def _cumple_correlativas(insc: EstudianteProfesorado, esp: EspacioCurricular, tipo: str, fecha=None):
-    """
-    Devuelve (ok, faltantes[]) para correlatividades de 'esp' según 'tipo' (CURSAR/RENDIR).
-    """
     reglas = Correlatividad.objects.filter(plan=esp.plan, espacio=esp, tipo=tipo)
     faltan = []
     for r in reglas:
@@ -403,34 +424,15 @@ def _cumple_correlativas(insc: EstudianteProfesorado, esp: EspacioCurricular, ti
     return (len(faltan) == 0), faltan
 
 def _tiene_regularidad_vigente(insc: EstudianteProfesorado, esp: EspacioCurricular, a_fecha) -> bool:
-    """Regularidad vigente por 2 años desde la REG."""
     limite = a_fecha - timedelta(days=730)
     return insc.movimientos.filter(
-        espacio=esp, tipo="REG", condicion="Regular", fecha__gte=limite
+        espacio=esp, tipo="REG", condicion__codigo="REGULAR", fecha__gte=limite
     ).exists()
 
 
 # ===================== Movimientos académicos =====================
 
 TIPO_MOV = [("REG", "Regularidad"), ("FIN", "Final")]
-
-COND_REG = [
-    ("Promoción", "Promoción"),
-    ("Aprobado", "Aprobado"),
-    ("Regular", "Regular"),
-    ("Libre", "Libre"),
-    ("Libre-I", "Libre-I"),
-    ("Libre-AT", "Libre-AT"),
-    ("Desaprobado", "Desaprobado"),
-    ("Desaprobado_TP", "Desaprobado_TP"),
-    ("Desaprobado_PA", "Desaprobado_PA"),
-]
-
-COND_FIN = [
-    ("Regular", "Regular"),
-    ("Libre", "Libre"),
-    ("Equivalencia", "Equivalencia"),
-]
 
 class Movimiento(models.Model):
     NOTA_MINIMA = 6
@@ -439,35 +441,22 @@ class Movimiento(models.Model):
     espacio = models.ForeignKey(EspacioCurricular, on_delete=models.CASCADE, related_name="movimientos")
     tipo = models.CharField(max_length=3, choices=TIPO_MOV)
     fecha = models.DateField(null=True, blank=True)
-
-    # Opciones "base". El formulario las ajusta dinámicamente según el espacio elegido.
-    CONDICION_CHOICES = [
-        ("Regular", "Regular"),
-        ("Libre", "Libre"),
-        ("Promoción", "Promoción"),
-        ("Aprobado", "Aprobado"),
-        ("No aprobado", "No aprobado"),
-        ("Equivalencia", "Equivalencia"),
-    ]
-
-    condicion = models.CharField(
-        max_length=20,
-        choices=CONDICION_CHOICES,
-        blank=True,  # permitimos vacío para que el form pueda renderizar "---------"
-        default="",
+    
+    condicion = models.ForeignKey(
+        Condicion,
+        on_delete=models.PROTECT,
+        related_name="movimientos",
         verbose_name="Condición",
+        null=True, blank=True,
     )
     
-    # Si querés forzar enteros aquí también, podemos migrar a PositiveSmallIntegerField.
     nota_num = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     nota_texto = models.CharField(max_length=40, blank=True)
 
-    # Solo para FIN (cuando rinde en mesa)
     folio = models.CharField(max_length=20, blank=True)
     libro = models.CharField(max_length=20, blank=True)
-    disposicion_interna = models.CharField(max_length=120, blank=True)  # para equivalencias
+    disposicion_interna = models.CharField(max_length=120, blank=True)
 
-    # Control de mesas e intentos
     ausente = models.BooleanField(default=False)
     ausencia_justificada = models.BooleanField(default=False)
 
@@ -479,14 +468,6 @@ class Movimiento(models.Model):
             models.CheckConstraint(
                 name="nota_num_rango_valido",
                 check=Q(nota_num__isnull=True) | (Q(nota_num__gte=0) & Q(nota_num__lte=10)),
-            ),
-            models.CheckConstraint(
-                name="fin_regular_nota_minima",
-                check=~(Q(tipo="FIN") & Q(condicion="Regular") & Q(nota_num__lt=6)),
-            ),
-            models.CheckConstraint(
-                name="equivalencia_campos_oblig",
-                check=~Q(condicion="Equivalencia") | (Q(disposicion_interna__gt="") & Q(nota_texto__iexact="Equivalencia")),
             ),
         ]
 
@@ -502,90 +483,70 @@ class Movimiento(models.Model):
         return qs.order_by("fecha", "id")
 
     def clean(self):
+        cond_codigo = self.condicion.codigo if self.condicion else None
+        cond_tipo = self.condicion.tipo if self.condicion else None
+
+        if self.condicion and self.tipo != cond_tipo:
+            raise ValidationError(f"La condición '{self.condicion.nombre}' no es válida para un movimiento de tipo '{self.get_tipo_display()}'.")
+
         if self.tipo == "REG":
-            if self.condicion not in dict(COND_REG):
-                raise ValidationError("Condición inválida para Regularidad.")
             if self.nota_num is not None and not (0 <= self.nota_num <= 10):
                 raise ValidationError("La nota de Regularidad debe estar entre 0 y 10.")
-            if self.condicion in {"Libre", "Libre-I", "Libre-AT"} and \
-               self.inscripcion.movimientos.filter(espacio=self.espacio, tipo="REG", condicion="Regular").exists():
+            
+            if cond_codigo in {"LIBRE", "LIBRE-I", "LIBRE-AT"} and \
+               self.inscripcion.movimientos.filter(espacio=self.espacio, tipo="REG", condicion__codigo="REGULAR").exists():
                 raise ValidationError("No corresponde 'Libre' si el estudiante ya obtuvo Regular en este espacio.")
 
             if hasattr(self.inscripcion, "es_condicional") and self.inscripcion.es_condicional:
-                if self.condicion in {"Promoción", "Aprobado"}:
+                if cond_codigo in {"PROMOCION", "APROBADO"}:
                     raise ValidationError("Estudiante condicional: no puede quedar Aprobado/Promoción por cursada.")
 
         elif self.tipo == "FIN":
-            if self.condicion not in dict(COND_FIN):
-                raise ValidationError("Condición inválida para Final.")
-
             if hasattr(self.inscripcion, "legajo_completo") and not self.inscripcion.legajo_completo():
                 raise ValidationError("No puede inscribirse a mesa: documentación/legajo incompleto.")
 
-            if self.condicion == "Regular":
-                if self.ausente:
-                    pass
-                else:
+            if cond_codigo == "REGULAR":
+                if not self.ausente:
                     if self.nota_num is None:
                         raise ValidationError("Debe cargar la nota o marcar Ausente.")
                     if self.nota_num < self.NOTA_MINIMA:
                         raise ValidationError("Nota de Final por regularidad debe ser >= 6.")
                     if self.fecha and not _tiene_regularidad_vigente(self.inscripcion, self.espacio, self.fecha):
                         raise ValidationError("La regularidad no está vigente (2 años).")
-
-            if self.condicion == "Libre":
+            
+            if cond_codigo == "LIBRE":
                 if hasattr(self.espacio, "libre_habilitado") and not self.espacio.libre_habilitado:
                     raise ValidationError("Este espacio no habilita condición Libre.")
                 if _tiene_aprobada(self.inscripcion, self.espacio):
                     raise ValidationError("El espacio ya está aprobado; no corresponde rendir Libre.")
                 if _tiene_regularizada(self.inscripcion, self.espacio):
                     raise ValidationError("El estudiante está regular: no corresponde rendir Libre.")
-                if not self.ausente:
-                    if self.nota_num is None:
-                        raise ValidationError("Debe cargar la nota o marcar Ausente.")
-                    if not (0 <= self.nota_num <= 10):
-                        raise ValidationError("La nota debe estar entre 0 y 10.")
+                if not self.ausente and self.nota_num is None:
+                    raise ValidationError("Debe cargar la nota o marcar Ausente.")
 
-            if self.condicion != "Equivalencia":
+            if cond_codigo == "EQUIVALENCIA":
+                if not self.disposicion_interna or self.nota_texto.lower() != "equivalencia":
+                     raise ValidationError("Para Equivalencia, complete la Disposición y la nota de texto debe ser 'Equivalencia'.")
+            
+            if cond_codigo != "EQUIVALENCIA":
                 ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "RENDIR", fecha=self.fecha)
                 if not ok:
-                    msgs = []
-                    for regla, req in faltan:
-                        if getattr(regla, "requiere_espacio_id", None):
-                            msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
-                        else:
-                            msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
+                    msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
                     raise ValidationError(f"No cumple correlatividades para RENDIR: faltan {', '.join(msgs)}.")
-
+            
             prev = list(self._intentos_final_previos())
             if any((m.nota_num or 0) >= 6 and not m.ausente for m in prev):
                 raise ValidationError("El espacio ya fue aprobado por final anteriormente.")
             if len(prev) >= 3:
                 raise ValidationError("Alcanzó las tres posibilidades de final: debe recursar el espacio.")
 
-            if self.ausente:
-                pass
-            else:
-                if self.nota_num is not None and not (0 <= self.nota_num <= 10):
-                    raise ValidationError("La nota debe estar entre 0 y 10.")
-
-        else:
-            raise ValidationError("Tipo de movimiento inválido.")
-
-        # Coherencia profesorado
         if self.inscripcion.profesorado_id != self.espacio.profesorado_id:
             raise ValidationError("El espacio no pertenece al mismo profesorado de la inscripción del estudiante.")
 
-        # Correlatividades para CURSAR al cargar REG
         if self.tipo == "REG":
             ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
             if not ok:
-                msgs = []
-                for regla, req in faltan:
-                    if getattr(regla, "requiere_espacio_id", None):
-                        msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
-                    else:
-                        msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
+                msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
                 raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
 
     def __str__(self):
@@ -594,9 +555,11 @@ class Movimiento(models.Model):
 
 # ===================== Inscripción a espacios (cursada por año) =====================
 
-class InscripcionEspacio(models.Model):
-    ESTADOS = [("EN_CURSO", "EN_CURSO"), ("BAJA", "BAJA")]
+class EstadoInscripcion(models.TextChoices):
+    EN_CURSO = "EN_CURSO", "En curso"
+    BAJA = "BAJA", "Baja"
 
+class InscripcionEspacio(models.Model):
     inscripcion = models.ForeignKey(
         EstudianteProfesorado, on_delete=models.CASCADE, related_name="cursadas"
     )
@@ -605,7 +568,12 @@ class InscripcionEspacio(models.Model):
     )
     anio_academico = models.PositiveIntegerField()
     fecha = models.DateField(default=date.today)
-    estado = models.CharField(max_length=10, choices=ESTADOS, default="EN_CURSO")
+    
+    estado = models.CharField(
+        max_length=10, 
+        choices=EstadoInscripcion.choices, 
+        default=EstadoInscripcion.EN_CURSO
+    )
 
     class Meta:
         ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
@@ -623,12 +591,7 @@ class InscripcionEspacio(models.Model):
         except Exception:
             ok, faltan = True, []
         if not ok:
-            msgs = []
-            for regla, req in faltan:
-                if getattr(regla, "requiere_espacio_id", None):
-                    msgs.append(f"{regla.requisito.lower()} de '{req.nombre}'")
-                else:
-                    msgs.append(f"{regla.requisito.lower()} de TODOS los espacios hasta {regla.requiere_todos_hasta_anio}°")
+            msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
             raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
 
     def __str__(self):
@@ -646,7 +609,6 @@ def _recalc_promedio_on_mov(sender, instance, **kwargs):
 
 @receiver(post_save, sender=EstudianteProfesorado)
 def _update_legajo_estado(sender, instance, **kwargs):
-    """Recalcula y persiste el estado de legajo al guardar la inscripción."""
     try:
         estado = instance.calcular_legajo_estado()
         if estado != instance.legajo_estado:
@@ -681,7 +643,6 @@ class DocenteEspacio(models.Model):
     def __str__(self):
         return f"{self.docente} → {self.espacio}"
 
-# acceso M2M via 'espacios'
 Docente.add_to_class(
     "espacios",
     models.ManyToManyField(EspacioCurricular, through=DocenteEspacio, related_name="docentes", blank=True)
@@ -698,7 +659,6 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="perfil")
     rol = models.CharField(max_length=20, choices=ROLES, default="ESTUDIANTE")
 
-    # vínculos opcionales según rol
     estudiante = models.ForeignKey(Estudiante, null=True, blank=True, on_delete=models.SET_NULL, related_name="usuarios")
     docente = models.ForeignKey(Docente, null=True, blank=True, on_delete=models.SET_NULL, related_name="usuarios")
     profesorados_permitidos = models.ManyToManyField(Profesorado, blank=True, related_name="usuarios_habilitados")
@@ -714,7 +674,6 @@ def _crear_perfil_usuario(sender, instance, created, **kwargs):
 
 # ===================== Inscripción a Mesa de Examen Final =====================
 
-# --- Actividad / Novedades -----------------------------------------------
 class Actividad(models.Model):
     ACCIONES = [
         ("MOV_ALTA", "Carga de movimiento"),
@@ -724,7 +683,7 @@ class Actividad(models.Model):
         ("LOGOUT", "Salida"),
     ]
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="actividades")
-    rol_cache = models.CharField(max_length=20, blank=True)   # guardo el rol del momento
+    rol_cache = models.CharField(max_length=20, blank=True)
     accion = models.CharField(max_length=20, choices=ACCIONES)
     detalle = models.TextField(blank=True)
     creado = models.DateTimeField(auto_now_add=True)
@@ -738,9 +697,6 @@ class Actividad(models.Model):
 
 
 class InscripcionFinal(models.Model):
-    """
-    Representa que un estudiante se inscribió a rendir el final de un espacio curricular.
-    """
     inscripcion_cursada = models.ForeignKey(
         InscripcionEspacio,
         on_delete=models.CASCADE,
@@ -757,7 +713,6 @@ class InscripcionFinal(models.Model):
     )
 
     estado = models.CharField(max_length=12, choices=ESTADOS, default='INSCRIPTO')
-    # Notas siempre enteras 0..10
     nota_final = models.PositiveSmallIntegerField(
         null=True, blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(10)]

@@ -74,6 +74,19 @@
     #add-est-grid .check label{display:inline-block;margin:0;font-weight:600}
     .err{color:#b00020;margin-top:4px;font-size:.9rem}
     @media (max-width:900px){#add-est-grid{grid-template-columns:1fr}}
+
+    /* fila compacta con dos campos lado a lado */
+    #add-est-grid .inline-two{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px 24px;
+      align-items:end;
+    }
+    #add-est-grid .inline-two .field label{
+      display:block;
+      margin:0 0 6px;
+      font-weight:600;
+    }
   </style>
   {% endif %}
 
@@ -213,12 +226,33 @@
               <div id="add-est-grid">
                 <div class="item">{{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item">{{ form.apellido.label_tag }}{{ form.apellido }}{% for e in form.apellido.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+
                 <div class="item">{{ form.nombre.label_tag }}{{ form.nombre }}{% for e in form.nombre.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item">{{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{% for e in form.fecha_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+
                 <div class="item">{{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{% for e in form.lugar_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item">{{ form.email.label_tag }}{{ form.email }}{% for e in form.email.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+
                 <div class="item">{{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item">{{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+
+                {# === NUEVA LÍNEA: contacto de emergencia (dos campos en una fila) === #}
+                <div class="item full">
+                  <label>En caso de accidente</label>
+                  <div class="inline-two">
+                    <div class="field">
+                      <label for="{{ form.contacto_emergencia_tel.id_for_label }}">Teléfono</label>
+                      {{ form.contacto_emergencia_tel }}
+                      {% for e in form.contacto_emergencia_tel.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ form.contacto_emergencia_parentesco.id_for_label }}">Parentesco (opcional)</label>
+                      {{ form.contacto_emergencia_parentesco }}
+                      {% for e in form.contacto_emergencia_parentesco.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                    </div>
+                  </div>
+                </div>
+
                 <div class="item full check">{{ form.activo }} {{ form.activo.label_tag }}{% for e in form.activo.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item full">{{ form.foto.label_tag }}{{ form.foto }}{% for e in form.foto.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
               </div>
@@ -509,7 +543,7 @@
       setOptions(selEstado, [
         ['EN_CURSO', 'En curso'],
         ['BAJA',     'Baja'],
-      ], 'EN_CURSO'); // quitá 'EN_CURSO' si querés dejar vacío
+      ], 'EN_CURSO');
       return;
     }
 

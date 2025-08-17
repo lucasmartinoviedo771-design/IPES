@@ -1,4 +1,3 @@
-# academia_core/views_panel.py
 from __future__ import annotations
 
 import re
@@ -10,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import FieldError
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_GET
@@ -38,6 +37,7 @@ from .forms_carga import (
     CargarNotaFinalForm,
     CargarResultadoFinalForm,
 )
+from .kpis import build_kpis
 
 # ========================= Helpers =========================
 
@@ -545,3 +545,11 @@ def get_correlatividades(request: HttpRequest, espacio_id: int):
     reqs = obtener_requisitos_para(espacio)
     data = [{"espacio_id": r.espacio_id, "etiqueta": r.etiqueta, "minimo": r.minimo} for r in reqs]
     return JsonResponse({"ok": True, "detalles": data})
+
+# --- KPIs: Situación Académica ---
+def get_situacion_academica(request: HttpRequest, insc_id: int):
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
+    insc = get_object_or_404(EstudianteProfesorado, pk=insc_id)
+    data = build_kpis(insc)
+    return JsonResponse({"ok": True, "kpis": data})
