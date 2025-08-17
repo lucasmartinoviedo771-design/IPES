@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Panel unificado</title>
-  <link rel="icon" href="{% static 'academia_core/escudo-ipes.png' %}">
+  <link rel="icon" href="{% static 'academia_core/escudo-ipes11.png' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -50,7 +50,6 @@
    .menu-link.active{ background:var(--green-050); outline:2px solid #d9ebe3 }
 
    .section-links{ list-style:none; padding:0; margin:8px 0 0 }
-   .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
 
    input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d9e0e4; border-radius:12px }
    input:focus,select:focus{ outline:2px solid var(--green) }
@@ -60,70 +59,37 @@
    .submit button{ background:var(--orange); border:0; color:#2b1b09; padding:12px 16px; border-radius:12px }
    .submit button:hover{ background:var(--orange-600) }
    .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
-  </style>
 
-  {% if action == "add_est" %}
-  <style>
-    #add-est-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
-    #add-est-grid .item{margin:0}
-    #add-est-grid label{display:block;font-weight:600;margin-bottom:6px}
-    #add-est-grid input[type="text"],#add-est-grid input[type="email"],#add-est-grid input[type="tel"],#add-est-grid input[type="date"],#add-est-grid input[type="number"],#add-est-grid input[type="file"],#add-est-grid select,#add-est-grid textarea{width:100%;box-sizing:border-box}
-    #add-est-grid .full{grid-column:1/-1}
-    #add-est-grid .check{display:flex;align-items:center;gap:8px}
-    #add-est-grid .check input[type="checkbox"]{width:auto!important;height:auto;margin:0;flex:0 0 auto}
-    #add-est-grid .check label{display:inline-block;margin:0;font-weight:600}
-    .err{color:#b00020;margin-top:4px;font-size:.9rem}
-    @media (max-width:900px){#add-est-grid{grid-template-columns:1fr}}
+   /* === Grids por acción === */
+   #add-est-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+   #add-est-grid .item{margin:0}
+   #add-est-grid label{display:block;font-weight:600;margin-bottom:6px}
+   #add-est-grid .full{grid-column:1/-1}
+   #add-est-grid .check{display:flex;align-items:center;gap:8px}
+   #add-est-grid .inline-two{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:end}
+   @media (max-width:900px){#add-est-grid{grid-template-columns:1fr}}
 
-    /* fila compacta con dos campos lado a lado */
-    #add-est-grid .inline-two{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px 24px;
-      align-items:end;
-    }
-    #add-est-grid .inline-two .field label{
-      display:block;
-      margin:0 0 6px;
-      font-weight:600;
-    }
-  </style>
-  {% endif %}
+   #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+   #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
+   #insc-prof-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
+   #insc-prof-checks .chk{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:76px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;line-height:1.25}
+   #insc-prof-checks .chk input[type="checkbox"]{width:auto;height:auto;margin:0 0 6px 0;flex:0 0 auto}
+   #insc-prof-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start;margin-top:12px}
+   #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
+   @media (max-width:900px){
+     #insc-prof-grid-top{grid-template-columns:1fr}
+     #insc-prof-checks{grid-template-columns:1fr 1fr}
+     #insc-prof-extra{grid-template-columns:1fr}
+   }
 
-  {% if action == "insc_prof" %}
-  <style>
-    #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
-    #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
-    #insc-prof-grid-top input,#insc-prof-grid-top select,#insc-prof-grid-top textarea{width:100%}
-    #insc-prof-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
-    #insc-prof-checks .chk{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:72px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25}
-    #insc-prof-checks .chk input[type="checkbox"]{width:auto;height:auto;margin:0 0 6px 0;flex:0 0 auto}
-    #insc-prof-checks .chk label{margin:0;font-weight:600}
-    #insc-prof-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start;margin-top:12px}
-    #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
-    #insc-prof-extra input,#insc-prof-extra select,#insc-prof-extra textarea{width:100%}
-    .err{color:#b00020;margin-top:4px;font-size:.9rem}
-    @media (max-width:900px){
-      #insc-prof-grid-top{grid-template-columns:1fr}
-      #insc-prof-checks{grid-template-columns:1fr 1fr}
-      #insc-prof-extra{grid-template-columns:1fr}
-    }
-  </style>
-  {% endif %}
+   #insc-esp-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+   #correl-box{margin-top:12px;border:1px solid #e6e3dd;border-radius:12px;padding:12px;background:#fafafa}
+   #correl-box h5{margin:0 0 8px;font-size:14px}
 
-  {% if action == "insc_esp" %}
-  <style>
-    #insc-esp-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
-    #insc-esp-grid-top label{display:block;font-weight:600;margin-bottom:6px}
-    #insc-esp-grid-top input,#insc-esp-grid-top select{width:100%}
-    #correl-box{margin-top:12px;border:1px solid #e6e3dd;border-radius:12px;padding:12px;background:#fafafa}
-    #correl-box h5{margin:0 0 8px;font-size:14px}
-    #correl-box ul{margin:0;padding-left:18px}
-    #correl-box li{margin:4px 0}
-    .muted{color:#6f7a83}
-    @media (max-width:900px){#insc-esp-grid-top{grid-template-columns:1fr}}
+   /* ocultos iniciales */
+   #insc-prof-extra .js-adeuda-field{display:none}
+   .cd-only{display:none}   /* solo CD (se muestra por JS si corresponde) */
   </style>
-  {% endif %}
 </head>
 <body>
 <div class="wrap">
@@ -236,7 +202,6 @@
                 <div class="item">{{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
                 <div class="item">{{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
 
-                {# === NUEVA LÍNEA: contacto de emergencia (dos campos en una fila) === #}
                 <div class="item full">
                   <label>En caso de accidente</label>
                   <div class="inline-two">
@@ -258,6 +223,7 @@
               </div>
 
             {% elif action == "insc_prof" %}
+              <!-- Datos principales -->
               <div id="insc-prof-grid-top">
                 {% for f in form %}
                   {% if f.name == 'estudiante' or f.name == 'profesorado' or f.name == 'cohorte' or f.name == 'anio_academico' or f.name == 'ubicacion' or f.name == 'sede' or f.name == 'ubica' or f.name == 'curso_introductorio' %}
@@ -266,31 +232,47 @@
                 {% endfor %}
               </div>
 
+              <!-- Checks de documentación -->
               <div id="insc-prof-checks">
-                {% for f in form %}
-                  {% if f.field.widget.input_type == 'checkbox' and f.name != 'activo' %}
-                    <label class="chk">{{ f }} {{ f.label }}</label>
-                  {% endif %}
-                {% endfor %}
+                {% if form.doc_dni_legalizado %}<label class="chk">{{ form.doc_dni_legalizado }} {{ form.doc_dni_legalizado.label }}</label>{% endif %}
+                {% if form.doc_cert_medico %}<label class="chk">{{ form.doc_cert_medico }} {{ form.doc_cert_medico.label }}</label>{% endif %}
+                {% if form.doc_fotos_carnet %}<label class="chk">{{ form.doc_fotos_carnet }} {{ form.doc_fotos_carnet.label }}</label>{% endif %}
+                {% if form.doc_folios_oficio %}<label class="chk">{{ form.doc_folios_oficio }} {{ form.doc_folios_oficio.label }}</label>{% endif %}
+
+                {# Normal: título secundario (visible por defecto) #}
+                {% if form.doc_titulo_sec_legalizado %}<label class="chk sec-only">{{ form.doc_titulo_sec_legalizado }} {{ form.doc_titulo_sec_legalizado.label }}</label>{% endif %}
+
+                {# CD: terciario + incumbencias (ocultos iniciales, .cd-only) #}
+                {% if form.doc_titulo_terciario_legalizado %}<label class="chk cd-only">{{ form.doc_titulo_terciario_legalizado }} {{ form.doc_titulo_terciario_legalizado.label }}</label>{% endif %}
+                {% if form.doc_incumbencias %}<label class="chk cd-only">{{ form.doc_incumbencias }} {{ form.doc_incumbencias.label }}</label>{% endif %}
+
+                {% if form.titulo_en_tramite %}<label class="chk">{{ form.titulo_en_tramite }} {{ form.titulo_en_tramite.label }}</label>{% endif %}
+                {% if form.adeuda_materias %}<label class="chk" id="chk-adeuda">{{ form.adeuda_materias }} {{ form.adeuda_materias.label }}</label>{% endif %}
+
+                {# Nota compromiso: se muestra solo si queda Condicional #}
+                {% if form.nota_compromiso %}<label class="chk" id="chk-nota" style="display:none">{{ form.nota_compromiso }} {{ form.nota_compromiso.label }}</label>{% endif %}
               </div>
 
+              <!-- Extra (oculto hasta tildar "Adeuda materias") -->
               <div id="insc-prof-extra">
-                {% if form.adeuda_detalle %}
+                {% if form.materias_adeudadas %}
                   <div class="js-adeuda-field">
-                    {{ form.adeuda_detalle.label_tag }}{{ form.adeuda_detalle }}
-                    {% for e in form.adeuda_detalle.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                    {{ form.materias_adeudadas.label_tag }}{{ form.materias_adeudadas }}
+                    {% for e in form.materias_adeudadas.errors %}<div class="err">{{ e }}</div>{% endfor %}
                   </div>
                 {% endif %}
-                {% if form.colegio %}
+                {% if form.institucion_origen %}
                   <div class="js-adeuda-field">
-                    {{ form.colegio.label_tag }}{{ form.colegio }}
-                    {% for e in form.colegio.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                    {{ form.institucion_origen.label_tag }}{{ form.institucion_origen }}
+                    {% for e in form.institucion_origen.errors %}<div class="err">{{ e }}</div>{% endfor %}
                   </div>
                 {% endif %}
               </div>
 
+              {# Render de cualquier campo no ubicado arriba, por si existe alguno extra #}
               {% for f in form %}
-                {% if f.field.widget.input_type != 'checkbox' and f.name != 'estudiante' and f.name != 'profesorado' and f.name != 'cohorte' and f.name != 'anio_academico' and f.name != 'ubicacion' and f.name != 'sede' and f.name != 'ubica' and f.name != 'curso_introductorio' and f.name != 'adeuda_detalle' and f.name != 'colegio' %}
+                {% if f.field.widget.input_type != 'checkbox'
+                      and f.name not in ' estudiante profesorado cohorte anio_academico ubicacion sede ubica curso_introductorio materias_adeudadas institucion_origen ' %}
                   <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
                 {% endif %}
               {% endfor %}
@@ -358,19 +340,99 @@
 <script>
 (function () {
   // Helpers
-  function byId(id){return document.getElementById(id);}
-  function qs(sel){return document.querySelector(sel);}
-  function show(el, on){ if(!el) return; (el.closest('div')||el).style.display = on ? '' : 'none'; }
-  function disable(el, on){ if(!el) return; el.disabled = !!on; }
-  function norm(s){ return String(s||'').trim().toLowerCase(); }
+  function bySel(sel){return document.querySelector(sel);}
+  function bySelAll(sel){return Array.from(document.querySelectorAll(sel));}
+  function show(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 
-  // ===== Lógica de finales existente =====
-  const nota = qs('[name="nota_final"]') || qs('[name="nota_num"]') || qs('[name="nota"]');
-  const ausente = qs('[name="ausente"]');
-  const justif  = qs('[name="ausencia_justificada"]');
-  const condicion = qs('[name="condicion"]') || byId('id_condicion');
-  const notaTexto = qs('[name="nota_texto"]');
-  const dispoInt  = qs('[name="disposicion_interna"]');
+  // ====== Detectar si es "Certificación Docente" en el select de profesorado ======
+  function esCD(){
+    const sel = bySel('select[name="profesorado"]');
+    const txt = sel && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex].text||'') : '';
+    return /certificaci[oó]n docente/i.test(txt);
+  }
+
+  // ====== Títulos según trayecto ======
+  function toggleDocSets(){
+    const cd = esCD();
+    // Normal: título secundario
+    bySelAll('#insc-prof-checks .sec-only').forEach(el => show(el, !cd));
+    // CD: terciario + incumbencias
+    bySelAll('#insc-prof-checks .cd-only').forEach(el => show(el, cd));
+  }
+
+  // ====== Adeuda materias: mostrar/ocultar extras ======
+  function toggleAdeuda(){
+    const chk = bySel('input[name="adeuda_materias"]');
+    const on  = !!(chk && chk.checked);
+    bySelAll('#insc-prof-extra .js-adeuda-field').forEach(el => show(el, on));
+  }
+
+  // ====== Nota compromiso según condición admin ======
+  function toggleNotaCompromiso(){
+    // Condición administrativa = Condicional si:
+    // - legajo incompleto (verificado con base docs + títulos requeridos)
+    // - o título en trámite
+    // - o adeuda materias
+    const dni   = bySel('input[name="doc_dni_legalizado"]');
+    const cert  = bySel('input[name="doc_cert_medico"]');
+    const fotos = bySel('input[name="doc_fotos_carnet"]');
+    const folios= bySel('input[name="doc_folios_oficio"]');
+
+    const sec   = bySel('input[name="doc_titulo_sec_legalizado"]');
+    const ter   = bySel('input[name="doc_titulo_terciario_legalizado"]');
+    const inc   = bySel('input[name="doc_incumbencias"]');
+
+    const tram  = bySel('input[name="titulo_en_tramite"]');
+    const ade   = bySel('input[name="adeuda_materias"]');
+
+    const cd = esCD();
+
+    const baseOK = !!(dni?.checked && cert?.checked && fotos?.checked && folios?.checked);
+    const titOK  = cd ? !!(ter?.checked && inc?.checked) : !!(sec?.checked);
+    const legajoCompleto = baseOK && titOK && !(tram && tram.checked);
+
+    const condicional = !legajoCompleto || (ade && ade.checked);
+
+    const notaWrap = bySel('#chk-nota');
+    const nota     = bySel('input[name="nota_compromiso"]');
+    show(notaWrap, condicional);
+    if(!condicional && nota){ nota.checked = false; }
+  }
+
+  // ====== Wire events (sólo en insc_prof) ======
+  const isInscProf = (document.querySelector('input[name="action"]')||{}).value === 'insc_prof';
+  if (isInscProf){
+    const profSel = bySel('select[name="profesorado"]');
+    const docChks = [
+      'doc_dni_legalizado','doc_cert_medico','doc_fotos_carnet','doc_folios_oficio',
+      'doc_titulo_sec_legalizado','doc_titulo_terciario_legalizado','doc_incumbencias',
+      'titulo_en_tramite','adeuda_materias'
+    ].map(n => bySel(`input[name="${n}"]`)).filter(Boolean);
+
+    profSel && profSel.addEventListener('change', function(){
+      toggleDocSets(); toggleNotaCompromiso();
+    });
+
+    docChks.forEach(el => el.addEventListener('change', function(){
+      if (el.name === 'adeuda_materias') toggleAdeuda();
+      toggleNotaCompromiso();
+    }));
+
+    // Init
+    toggleDocSets();
+    toggleAdeuda();
+    toggleNotaCompromiso();
+  }
+
+  // ====== Lógica de finales/cursadas y correlatividades ya existentes ======
+  // (mantengo lo esencial para no romper otros flujos)
+
+  const nota = bySel('[name="nota_final"]') || bySel('[name="nota_num"]') || bySel('[name="nota"]');
+  const ausente = bySel('[name="ausente"]');
+  const justif  = bySel('[name="ausencia_justificada"]');
+  const condicion = bySel('[name="condicion"]') || document.getElementById('id_condicion');
+  const notaTexto = bySel('[name="nota_texto"]');
+  const dispoInt  = bySel('[name="disposicion_interna"]');
 
   function syncUI(){
     const isAus = !!(ausente && ausente.checked);
@@ -379,9 +441,10 @@
     if (condicion) {
       show(notaTexto, isEq); show(dispoInt, isEq);
       show(ausente, !isEq); show(justif, !isEq && isAus);
-      show(nota,    !isEq && !isAus); disable(nota, isEq || isAus);
+      show(nota,    !isEq && !isAus); if(nota) nota.disabled = (isEq || isAus);
     } else {
-      disable(nota, isAus); show(nota, !isAus); show(justif, isAus);
+      if(nota) nota.disabled = isAus;
+      show(nota, !isAus); show(justif, isAus);
     }
     if (nota && !nota._hasRangeListener) {
       nota.setAttribute('min','0'); nota.setAttribute('max','10');
@@ -399,9 +462,9 @@
   condicion && condicion.addEventListener('change',syncUI);
   document.addEventListener('DOMContentLoaded', syncUI); syncUI();
 
-  // ===== Correlatividades (insc_esp) =====
-  const espacioSelCorr = byId('espacio-select') || qs('[name="espacio"]');
-  const correlList = byId('correl-list');
+  // Correlatividades (insc_esp)
+  const espacioSelCorr = document.getElementById('espacio-select') || bySel('[name="espacio"]');
+  const correlList = document.getElementById('correl-list');
   if (typeof window.CORREL_MAP === 'undefined') window.CORREL_MAP = {};
   function renderCorrels(){
     if(!espacioSelCorr || !correlList) return;
@@ -421,159 +484,6 @@
   espacioSelCorr && espacioSelCorr.addEventListener('change', renderCorrels);
   renderCorrels();
 
-  // ===== AJAX de espacios (cargar_cursada / finales) =====
-  const actionInput = qs('[name="action"]');
-  const actionVal = actionInput ? actionInput.value : '';
-
-  const inscSel    = byId('id_inscripcion') || qs('select[name="inscripcion"]');
-  const espacioSel = byId('id_espacio')      || qs('select[name="espacio"]');
-  const condSel    = byId('id_condicion')    || qs('select[name="condicion"]');
-
-  const isRegularidad = (actionVal === 'cargar_cursada');
-  const isFinalNota   = (actionVal === 'cargar_nota_final' || actionVal === 'cargar_final_resultado');
-  const shouldWireAjax = (isRegularidad || isFinalNota);
-
-  function restrictCondOptions(allowed){
-    if (!condSel) return;
-    const allow = (allowed || []).map(norm);
-    let keepSelected = false;
-
-    for (const opt of Array.from(condSel.options)) {
-      if (opt.value === '') { opt.hidden = false; opt.disabled = false; continue; }
-      const ok = (!allow.length) ||
-                 allow.includes(norm(opt.value)) ||
-                 allow.includes(norm(opt.text));
-      opt.hidden = !ok;
-      opt.disabled = !ok;
-      if (ok && opt.selected) keepSelected = true;
-    }
-    if (!keepSelected) condSel.value = '';
-  }
-
-  function getAllowedFromSelected(){
-    const opt = espacioSel && espacioSel.options[espacioSel.selectedIndex];
-    if (!opt) return [];
-    try{
-      if (opt.dataset && opt.dataset.conds) return JSON.parse(opt.dataset.conds || '[]');
-    }catch(_){}
-    return [];
-  }
-
-  function fillEspacios(inscId, mode){
-    if (!espacioSel) return;
-
-    espacioSel.innerHTML = '';
-    espacioSel.add(new Option('Cargando...', ''));
-    disable(espacioSel, true);
-    restrictCondOptions([]);
-
-    if (!inscId) {
-      espacioSel.innerHTML = '';
-      espacioSel.add(new Option('---------', ''));
-      disable(espacioSel, false);
-      return;
-    }
-
-    const url = `/api/espacios-por-inscripcion/${inscId}/?mode=${encodeURIComponent(mode||'')}`;
-    fetch(url, {credentials: 'same-origin'})
-      .then(r => r.json())
-      .then(data => {
-        espacioSel.innerHTML = '';
-        const items = (data && data.items) ? data.items : [];
-        const defaultConds = (data && data.cond_opts) ? data.cond_opts : [];
-
-        if (!items.length) {
-          espacioSel.add(new Option('Sin espacios disponibles', ''));
-          restrictCondOptions(defaultConds);
-        } else {
-          espacioSel.add(new Option('---------', ''));
-          for (const it of items) {
-            const opt = new Option(it.nombre, it.id);
-            if (it.cond_opts) opt.dataset.conds = JSON.stringify(it.cond_opts);
-            espacioSel.add(opt);
-          }
-          restrictCondOptions(defaultConds);
-        }
-        disable(espacioSel, false);
-      })
-      .catch(err => {
-        console.error('Error cargando espacios:', err);
-        espacioSel.innerHTML = '';
-        espacioSel.add(new Option('Error al cargar', ''));
-        disable(espacioSel, false);
-        restrictCondOptions([]);
-      });
-  }
-
-  if (shouldWireAjax && inscSel && espacioSel) {
-    const mode = isRegularidad ? 'regularidad' : 'final';
-    if (inscSel.value) fillEspacios(inscSel.value, mode);
-    inscSel.addEventListener('change', function(){ fillEspacios(this.value, mode); });
-    espacioSel.addEventListener('change', function(){ restrictCondOptions(getAllowedFromSelected()); });
-  }
-
-  // ===== ESTADO/CONDICIÓN (insc_esp / cargar_cursada) =====
-  const action = (document.querySelector('input[name="action"]')||{}).value || '';
-
-  function findSelect(preferred, regex){
-    let el = document.querySelector(preferred);
-    if (el) return el;
-    const list = Array.from(document.querySelectorAll('select'));
-    return list.find(s => regex.test(s.name||'') || regex.test(s.id||'')) || null;
-  }
-
-  const selEstado   = findSelect('#id_estado,  select[name="estado"]',  /estado/i);
-  const selEspacio2 = findSelect('#id_espacio, select[name="espacio"]', /espacio/i);
-
-  function setOptions(el, options, selectedValue){
-    if (!el) return;
-    el.innerHTML = '';
-    el.add(new Option('---------',''));
-    for (const [val,label] of options){
-      el.add(new Option(label, val));
-    }
-    if (selectedValue) el.value = selectedValue;
-  }
-
-  async function cargarEstadoOCondicion() {
-    if (!selEstado) return;
-
-    // INSCRIBIR A MATERIA: solo EN_CURSO o BAJA
-    if (action === 'insc_esp') {
-      setOptions(selEstado, [
-        ['EN_CURSO', 'En curso'],
-        ['BAJA',     'Baja'],
-      ], 'EN_CURSO');
-      return;
-    }
-
-    // CARGAR CURSADA: condiciones desde backend por espacio
-    if (action === 'cargar_cursada') {
-      const id = selEspacio2 ? selEspacio2.value : '';
-      setOptions(selEstado, []); // reset
-      if (!id) return;
-
-      try {
-        const resp = await fetch(`/api/condiciones-por-espacio/${id}/`, {credentials:'same-origin'});
-        const data = await resp.json(); // [{value,label}] o [["REGULAR","Regular"], ...]
-        const opts = Array.isArray(data)
-          ? data.map(it => [
-              (it?.value ?? it?.[0] ?? ''),
-              (it?.label ?? it?.[1] ?? (it?.value ?? ''))
-            ])
-          : [];
-        setOptions(selEstado, opts);
-      } catch (e) {
-        console.error('Error cargando condiciones:', e);
-        setOptions(selEstado, []);
-      }
-    }
-  }
-
-  if (['insc_esp','cargar_cursada'].includes(action)) {
-    selEspacio2 && selEspacio2.addEventListener('change', cargarEstadoOCondicion);
-    cargarEstadoOCondicion(); // al entrar
-  }
 })();
 </script>
 

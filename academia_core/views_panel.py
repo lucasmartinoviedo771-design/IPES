@@ -27,6 +27,8 @@ from .models import (
     EstudianteProfesorado,
     InscripcionEspacio,
     InscripcionFinal,
+    # === IMPORTE AGREGADO ===
+    CondicionAdmin,
 )
 from .forms_carga import (
     EstudianteForm,
@@ -376,10 +378,10 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
                 reg_qs = InscripcionEspacio.objects.filter(inscripcion=inscripcion, espacio=e)
                 reg_qs = (
                     reg_qs.exclude(estado__isnull=True)
-                          .exclude(estado__iexact="EN_CURSO")
-                          .exclude(estado__iexact="EN CURSO")
-                          .exclude(estado__iexact="CURSANDO")
-                          .exclude(estado__iexact="INSCRIPTO")
+                        .exclude(estado__iexact="EN_CURSO")
+                        .exclude(estado__iexact="EN CURSO")
+                        .exclude(estado__iexact="CURSANDO")
+                        .exclude(estado__iexact="INSCRIPTO")
                 )
                 reg_list = list(_safe_order(reg_qs, ("fecha", "id"), ("id",)))
 
@@ -476,6 +478,19 @@ def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
         insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
     except EstudianteProfesorado.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
+
+    # === INICIO: LÓGICA AGREGADA ===
+    mode = (request.GET.get("mode") or "").strip().lower()
+
+    # Si es para inscribirse a FINAL y el alumno es condicional => no ofrecer opciones
+    if mode in {"final", "finales"} and getattr(insc, "condicion_admin", "") == CondicionAdmin.CONDICIONAL:
+        return JsonResponse({
+            "ok": True,
+            "items": [],
+            "cond_opts": [],
+            "reason": "Estudiante condicional: no puede inscribirse a finales.",
+        })
+    # === FIN: LÓGICA AGREGADA ===
 
     qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado).order_by("anio", "cuatrimestre", "nombre")
 
