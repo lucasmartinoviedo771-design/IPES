@@ -35,7 +35,7 @@
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
    .hero .center{ justify-self:center }
-   .hero .center img{ max-height:100px; transform:scale(1.35); filter:drop-shadow(0 2px 6px rgba(0,0,0,.12)) }
+   .hero .center img{ max-height:100px; transform:scale(1.1); filter:drop-shadow(0 2px 6px rgba(0,0,0,.12)) }
    .hero-user{ text-align:right; display:flex; flex-direction:column; gap:6px; align-items:flex-end }
    .pill{ display:inline-block; background:var(--green-050); color:var(--green-600); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid #d4e5dd }
 
@@ -50,9 +50,10 @@
    .menu-link.active{ background:var(--green-050); outline:2px solid #d9ebe3 }
 
    .section-links{ list-style:none; padding:0; margin:8px 0 0 }
+   .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
 
    input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d9e0e4; border-radius:12px }
-   input:focus,select:focus{ outline:2px solid var(--green) }
+   input:focus,select:focus,textarea:focus{ outline:2px solid var(--green) }
    label{ display:block; margin-top:10px }
    .muted{ color: var(--muted); }
    .submit{ margin-top:16px }
@@ -60,43 +61,62 @@
    .submit button:hover{ background:var(--orange-600) }
    .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
 
-   /* === Grids por acción === */
-   #add-est-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+   /* ======= ADD EST ======= */
+   {% if action == "add_est" %}
+   #add-est-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
    #add-est-grid .item{margin:0}
    #add-est-grid label{display:block;font-weight:600;margin-bottom:6px}
+   #add-est-grid input[type="text"],#add-est-grid input[type="email"],#add-est-grid input[type="tel"],#add-est-grid input[type="date"],#add-est-grid input[type="number"],#add-est-grid input[type="file"],#add-est-grid select,#add-est-grid textarea{width:100%;box-sizing:border-box}
    #add-est-grid .full{grid-column:1/-1}
    #add-est-grid .check{display:flex;align-items:center;gap:8px}
-   #add-est-grid .inline-two{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:end}
+   #add-est-grid .check input[type="checkbox"]{width:auto!important;height:auto;margin:0;flex:0 0 auto}
+   #add-est-grid .check label{display:inline-block;margin:0;font-weight:600}
+   .err{color:#b00020;margin-top:4px;font-size:.9rem}
    @media (max-width:900px){#add-est-grid{grid-template-columns:1fr}}
+   #add-est-grid .inline-two{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:end}
+   #add-est-grid .inline-two .field label{display:block;margin:0 0 6px;font-weight:600}
+   {% endif %}
 
+   /* ======= INSC PROF ======= */
+   {% if action == "insc_prof" %}
    #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
    #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
-   #insc-prof-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
-   #insc-prof-checks .chk{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;height:76px;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;line-height:1.25}
-   #insc-prof-checks .chk input[type="checkbox"]{width:auto;height:auto;margin:0 0 6px 0;flex:0 0 auto}
-   #insc-prof-extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start;margin-top:12px}
+   #insc-prof-grid-top input,#insc-prof-grid-top select,#insc-prof-grid-top textarea{width:100%}
+   #doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
+   .chk{display:flex;flex-direction:row;gap:8px;align-items:center;justify-content:flex-start;text-align:left;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25}
+   .chk input[type="checkbox"]{width:auto;height:auto;margin:0}
+   #insc-prof-extra{display:none;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:start;margin-top:12px}
    #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
+   #estado-admin{margin-top:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+   .chip{display:inline-block;background:var(--green-050);border:1px solid #d4e5dd;color:var(--green-600);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
+   .err{color:#b00020;margin-top:4px;font-size:.9rem}
    @media (max-width:900px){
      #insc-prof-grid-top{grid-template-columns:1fr}
-     #insc-prof-checks{grid-template-columns:1fr 1fr}
+     #doc-grid{grid-template-columns:1fr 1fr}
      #insc-prof-extra{grid-template-columns:1fr}
    }
+   {% endif %}
 
+   /* ======= INSC ESP ======= */
+   {% if action == "insc_esp" %}
    #insc-esp-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
+   #insc-esp-grid-top label{display:block;font-weight:600;margin-bottom:6px}
+   #insc-esp-grid-top input,#insc-esp-grid-top select{width:100%}
    #correl-box{margin-top:12px;border:1px solid #e6e3dd;border-radius:12px;padding:12px;background:#fafafa}
    #correl-box h5{margin:0 0 8px;font-size:14px}
-
-   /* ocultos iniciales */
-   #insc-prof-extra .js-adeuda-field{display:none}
-   .cd-only{display:none}   /* solo CD (se muestra por JS si corresponde) */
+   #correl-box ul{margin:0;padding-left:18px}
+   #correl-box li{margin:4px 0}
+   .muted{color:#6f7a83}
+   @media (max-width:900px){#insc-esp-grid-top{grid-template-columns:1fr}}
+   {% endif %}
   </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="topbar">
-    <a class="btn" href="{{ logout_url }}">Cerrar sesión</a>
-    <a class="btn" href="{{ login_url }}">Cambiar usuario</a>
+    <a class="btn" href="{{ logout_url|default:'#' }}">Cerrar sesión</a>
+    <a class="btn" href="{{ login_url|default:'#' }}">Cambiar usuario</a>
   </div>
 
   <div class="hero card">
@@ -125,10 +145,10 @@
       <h3>Acciones</h3>
       <ul class="menu-list">
         <li class="menu-item"><a href="?action=section_est" class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">Estudiantes</a></li>
-        <li class="menu-item"><a href="?action=section_insc" class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">Inscripciones</a></li>
-        <li class="menu-item"><a href="?action=section_calif" class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">Calificaciones</a></li>
+        <li class="menu-item"><a href="?action=section_insc" class="menu-link {% if action in 'section_insc insc_prof insc_esp insc_final' %}active{% endif %}">Inscripciones</a></li>
+        <li class="menu-item"><a href="?action=section_calif" class="menu-link {% if action in 'section_calif cargar_cursada cargar_nota_final cargar_final_resultado' %}active{% endif %}">Calificaciones</a></li>
         {% if can_admin %}
-        <li class="menu-item"><a href="?action=section_admin" class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">Administración</a></li>
+        <li class="menu-item"><a href="?action=section_admin" class="menu-link {% if action in 'section_admin espacios_admin correlativas prof_new plan_new admin_rename admin_delete' %}active{% endif %}">Administración</a></li>
         {% endif %}
         <li class="menu-item"><a href="?action=section_help" class="menu-link {% if action == 'section_help' %}active{% endif %}">Ayuda</a></li>
       </ul>
@@ -190,103 +210,106 @@
 
             {% if action == "add_est" %}
               <div id="add-est-grid">
-                <div class="item">{{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                <div class="item">{{ form.apellido.label_tag }}{{ form.apellido }}{% for e in form.apellido.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-
-                <div class="item">{{ form.nombre.label_tag }}{{ form.nombre }}{% for e in form.nombre.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                <div class="item">{{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{% for e in form.fecha_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-
-                <div class="item">{{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{% for e in form.lugar_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                <div class="item">{{ form.email.label_tag }}{{ form.email }}{% for e in form.email.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-
-                <div class="item">{{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                <div class="item">{{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                {% if form.dni %}<div class="item">{{ form.dni.label_tag }}{{ form.dni }}{% for e in form.dni.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.apellido %}<div class="item">{{ form.apellido.label_tag }}{{ form.apellido }}{% for e in form.apellido.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.nombre %}<div class="item">{{ form.nombre.label_tag }}{{ form.nombre }}{% for e in form.nombre.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.fecha_nacimiento %}<div class="item">{{ form.fecha_nacimiento.label_tag }}{{ form.fecha_nacimiento }}{% for e in form.fecha_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.lugar_nacimiento %}<div class="item">{{ form.lugar_nacimiento.label_tag }}{{ form.lugar_nacimiento }}{% for e in form.lugar_nacimiento.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.email %}<div class="item">{{ form.email.label_tag }}{{ form.email }}{% for e in form.email.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.telefono %}<div class="item">{{ form.telefono.label_tag }}{{ form.telefono }}{% for e in form.telefono.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.localidad %}<div class="item">{{ form.localidad.label_tag }}{{ form.localidad }}{% for e in form.localidad.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
 
                 <div class="item full">
                   <label>En caso de accidente</label>
                   <div class="inline-two">
+                    {% if form.contacto_emergencia_tel %}
                     <div class="field">
                       <label for="{{ form.contacto_emergencia_tel.id_for_label }}">Teléfono</label>
                       {{ form.contacto_emergencia_tel }}
                       {% for e in form.contacto_emergencia_tel.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                    </div>
+                    </div>{% endif %}
+                    {% if form.contacto_emergencia_parentesco %}
                     <div class="field">
                       <label for="{{ form.contacto_emergencia_parentesco.id_for_label }}">Parentesco (opcional)</label>
                       {{ form.contacto_emergencia_parentesco }}
                       {% for e in form.contacto_emergencia_parentesco.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                    </div>
+                    </div>{% endif %}
                   </div>
                 </div>
 
-                <div class="item full check">{{ form.activo }} {{ form.activo.label_tag }}{% for e in form.activo.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                <div class="item full">{{ form.foto.label_tag }}{{ form.foto }}{% for e in form.foto.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
+                {% if form.activo %}<div class="item full check">{{ form.activo }} {{ form.activo.label_tag }}{% for e in form.activo.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.foto %}<div class="item full">{{ form.foto.label_tag }}{{ form.foto }}{% for e in form.foto.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
               </div>
 
             {% elif action == "insc_prof" %}
-              <!-- Datos principales -->
+
+              <!-- Top: selección básica -->
               <div id="insc-prof-grid-top">
-                {% for f in form %}
-                  {% if f.name == 'estudiante' or f.name == 'profesorado' or f.name == 'cohorte' or f.name == 'anio_academico' or f.name == 'ubicacion' or f.name == 'sede' or f.name == 'ubica' or f.name == 'curso_introductorio' %}
-                    <div>{{ f.label_tag }}{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>
-                  {% endif %}
-                {% endfor %}
+                {% if form.estudiante %}<div>{{ form.estudiante.label_tag }}{{ form.estudiante }}{% for e in form.estudiante.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.profesorado %}<div>{{ form.profesorado.label_tag }}{{ form.profesorado }}{% for e in form.profesorado.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.cohorte %}<div>{{ form.cohorte.label_tag }}{{ form.cohorte }}{% for e in form.cohorte.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.curso_introductorio %}<div>{{ form.curso_introductorio.label_tag }}{{ form.curso_introductorio }}{% for e in form.curso_introductorio.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
               </div>
 
-              <!-- Checks de documentación -->
-              <div id="insc-prof-checks">
-                {% if form.doc_dni_legalizado %}<label class="chk">{{ form.doc_dni_legalizado }} {{ form.doc_dni_legalizado.label }}</label>{% endif %}
-                {% if form.doc_cert_medico %}<label class="chk">{{ form.doc_cert_medico }} {{ form.doc_cert_medico.label }}</label>{% endif %}
-                {% if form.doc_fotos_carnet %}<label class="chk">{{ form.doc_fotos_carnet }} {{ form.doc_fotos_carnet.label }}</label>{% endif %}
-                {% if form.doc_folios_oficio %}<label class="chk">{{ form.doc_folios_oficio }} {{ form.doc_folios_oficio.label }}</label>{% endif %}
+              <!-- Documentación -->
+              <h4 style="margin-top:14px">Documentación presentada</h4>
+              <div id="doc-grid">
+                {% if form.doc_dni_legalizado %}<label class="chk">{{ form.doc_dni_legalizado }} Doc. DNI legalizado</label>{% endif %}
+                {% if form.doc_cert_medico %}<label class="chk">{{ form.doc_cert_medico }} Certificado médico</label>{% endif %}
+                {% if form.doc_fotos_carnet %}<label class="chk">{{ form.doc_fotos_carnet }} Foto carnet</label>{% endif %}
+                {% if form.doc_folios_oficio %}<label class="chk">{{ form.doc_folios_oficio }} Folio oficio</label>{% endif %}
 
-                {# Normal: título secundario (visible por defecto) #}
-                {% if form.doc_titulo_sec_legalizado %}<label class="chk sec-only">{{ form.doc_titulo_sec_legalizado }} {{ form.doc_titulo_sec_legalizado.label }}</label>{% endif %}
+                <!-- Solo Profesorado (no CD) -->
+                {% if form.doc_titulo_sec_legalizado %}
+                <label class="chk sec-only">{{ form.doc_titulo_sec_legalizado }} Título secundario legalizado</label>
+                {% endif %}
 
-                {# CD: terciario + incumbencias (ocultos iniciales, .cd-only) #}
-                {% if form.doc_titulo_terciario_legalizado %}<label class="chk cd-only">{{ form.doc_titulo_terciario_legalizado }} {{ form.doc_titulo_terciario_legalizado.label }}</label>{% endif %}
-                {% if form.doc_incumbencias %}<label class="chk cd-only">{{ form.doc_incumbencias }} {{ form.doc_incumbencias.label }}</label>{% endif %}
+                <!-- Solo Certificación Docente -->
+                {% if form.doc_titulo_terciario_legalizado %}
+                <label class="chk cd-only" style="display:none">{{ form.doc_titulo_terciario_legalizado }} Título terciario/universitario legalizado</label>
+                {% endif %}
+                {% if form.doc_incumbencias %}
+                <label class="chk cd-only" style="display:none">{{ form.doc_incumbencias }} Incumbencias presentadas</label>
+                {% endif %}
 
-                {% if form.titulo_en_tramite %}<label class="chk">{{ form.titulo_en_tramite }} {{ form.titulo_en_tramite.label }}</label>{% endif %}
-                {% if form.adeuda_materias %}<label class="chk" id="chk-adeuda">{{ form.adeuda_materias }} {{ form.adeuda_materias.label }}</label>{% endif %}
+                {% if form.titulo_en_tramite %}<label class="chk">{{ form.titulo_en_tramite }} Título en trámite</label>{% endif %}
+                {% if form.adeuda_materias %}<label class="chk" id="chk-adeuda">{{ form.adeuda_materias }} Adeuda materias</label>{% endif %}
 
-                {# Nota compromiso: se muestra solo si queda Condicional #}
-                {% if form.nota_compromiso %}<label class="chk" id="chk-nota" style="display:none">{{ form.nota_compromiso }} {{ form.nota_compromiso.label }}</label>{% endif %}
+                <!-- Nota compromiso (se muestra si queda CONDICIONAL) -->
+                {% if form.nota_compromiso %}
+                <div id="chk-nota" style="display:none">
+                  <label class="chk">{{ form.nota_compromiso }} DDJJ / Nota compromiso</label>
+                </div>
+                {% endif %}
               </div>
 
-              <!-- Extra (oculto hasta tildar "Adeuda materias") -->
-              <div id="insc-prof-extra">
+              <!-- Extra si adeuda -->
+              <div id="insc-prof-extra" style="display:none">
                 {% if form.materias_adeudadas %}
-                  <div class="js-adeuda-field">
-                    {{ form.materias_adeudadas.label_tag }}{{ form.materias_adeudadas }}
-                    {% for e in form.materias_adeudadas.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                  </div>
+                <div>
+                  {{ form.materias_adeudadas.label_tag }}{{ form.materias_adeudadas }}
+                  {% for e in form.materias_adeudadas.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                </div>
                 {% endif %}
                 {% if form.institucion_origen %}
-                  <div class="js-adeuda-field">
-                    {{ form.institucion_origen.label_tag }}{{ form.institucion_origen }}
-                    {% for e in form.institucion_origen.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                  </div>
+                <div>
+                  {{ form.institucion_origen.label_tag }}{{ form.institucion_origen }}
+                  {% for e in form.institucion_origen.errors %}<div class="err">{{ e }}</div>{% endfor %}
+                </div>
                 {% endif %}
               </div>
 
-              {# Render de cualquier campo no ubicado arriba, por si existe alguno extra #}
-              {% for f in form %}
-                {% if f.field.widget.input_type != 'checkbox'
-                      and f.name not in ' estudiante profesorado cohorte anio_academico ubicacion sede ubica curso_introductorio materias_adeudadas institucion_origen ' %}
-                  <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                {% endif %}
-              {% endfor %}
+              <!-- Estado “en vivo” -->
+              <div id="estado-admin">
+                <span>Estado del Legajo:</span> <span class="chip" id="chip-legajo">INCOMPLETO</span>
+                <span>Condición administrativa:</span> <span class="chip" id="chip-condicion">CONDICIONAL</span>
+              </div>
 
             {% elif action == "insc_esp" %}
               <div id="insc-esp-grid-top">
-                {% for f in form %}
-                  {% if f.name == 'inscripcion' or f.name == 'anio_academico' or f.name == 'espacio' %}
-                    <div>
-                      {{ f.label_tag }}{{ f }}
-                      {% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
-                    </div>
-                  {% endif %}
-                {% endfor %}
+                {% if form.inscripcion %}<div>{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% for e in form.inscripcion.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.anio_academico %}<div>{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% for e in form.anio_academico.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
+                {% if form.espacio %}<div>{{ form.espacio.label_tag }}{{ form.espacio }}{% for e in form.espacio.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
               </div>
 
               <div id="correl-box">
@@ -296,6 +319,7 @@
                 </ul>
               </div>
 
+              <!-- Resto de campos no-checkbox -->
               {% for f in form %}
                 {% if f.name != 'inscripcion' and f.name != 'anio_academico' and f.name != 'espacio' and f.field.widget.input_type != 'checkbox' %}
                   <label>{{ f.label }}</label>{{ f }}
@@ -304,13 +328,9 @@
               {% endfor %}
 
             {% else %}
-              {% if form.inscripcion %}{{ form.inscripcion.label_tag }}{{ form.inscripcion }}{% endif %}
-              {% if form.espacio %}{{ form.espacio.label_tag }}{{ form.espacio }}{% endif %}
-              {% if form.anio_academico %}{{ form.anio_academico.label_tag }}{{ form.anio_academico }}{% endif %}
+              {# fallback genérico #}
               {% for f in form %}
-                {% if f.name != 'inscripcion' and f.name != 'espacio' and f.name != 'anio_academico' %}
-                  {{ f.label_tag }}{{ f }}
-                {% endif %}
+                <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
               {% endfor %}
             {% endif %}
 
@@ -325,7 +345,7 @@
       {% if profesorados %}
         <ul>
           {% for p in profesorados %}
-            <li><strong>{{ p.nombre }}</strong><br><span class="muted">Plan: {{ p.plan_vigente }}</span></li>
+            <li><strong>{{ p.nombre }}</strong>{% if p.plan_vigente %}<br><span class="muted">Plan: {{ p.plan_vigente }}</span>{% endif %}</li>
           {% endfor %}
         </ul>
       {% else %}
@@ -339,154 +359,136 @@
 
 <script>
 (function () {
-  // Helpers
-  function bySel(sel){return document.querySelector(sel);}
-  function bySelAll(sel){return Array.from(document.querySelectorAll(sel));}
-  function show(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
+  // ===== Helpers =====
+  const qs  = (sel,root=document)=>root.querySelector(sel);
+  const qsa = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+  const show = (el,on)=>{ if(!el) return; el.style.display = on ? '' : 'none'; };
+  const isChecked = el => !!(el && el.checked);
+  const val = el => el ? String(el.value||'') : '';
 
-  // ====== Detectar si es "Certificación Docente" en el select de profesorado ======
-  function esCD(){
-    const sel = bySel('select[name="profesorado"]');
-    const txt = sel && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex].text||'') : '';
-    return /certificaci[oó]n docente/i.test(txt);
-  }
+  // ===== Sección INSC_PROF (inscribir a carrera) =====
+  const action = (qs('input[name="action"]')||{}).value || '';
+  if (action === 'insc_prof') {
+    const form = qs('form');
 
-  // ====== Títulos según trayecto ======
-  function toggleDocSets(){
-    const cd = esCD();
-    // Normal: título secundario
-    bySelAll('#insc-prof-checks .sec-only').forEach(el => show(el, !cd));
-    // CD: terciario + incumbencias
-    bySelAll('#insc-prof-checks .cd-only').forEach(el => show(el, cd));
-  }
+    // Select profesorado (para detectar CD)
+    const selProf = qs('[name="profesorado"]', form);
 
-  // ====== Adeuda materias: mostrar/ocultar extras ======
-  function toggleAdeuda(){
-    const chk = bySel('input[name="adeuda_materias"]');
-    const on  = !!(chk && chk.checked);
-    bySelAll('#insc-prof-extra .js-adeuda-field').forEach(el => show(el, on));
-  }
+    // Checkboxes de documentación
+    const ch = {
+      dni: qs('[name="doc_dni_legalizado"]', form),
+      med: qs('[name="doc_cert_medico"]', form),
+      fot: qs('[name="doc_fotos_carnet"]', form),
+      fol: qs('[name="doc_folios_oficio"]', form),
 
-  // ====== Nota compromiso según condición admin ======
-  function toggleNotaCompromiso(){
-    // Condición administrativa = Condicional si:
-    // - legajo incompleto (verificado con base docs + títulos requeridos)
-    // - o título en trámite
-    // - o adeuda materias
-    const dni   = bySel('input[name="doc_dni_legalizado"]');
-    const cert  = bySel('input[name="doc_cert_medico"]');
-    const fotos = bySel('input[name="doc_fotos_carnet"]');
-    const folios= bySel('input[name="doc_folios_oficio"]');
+      // Título
+      sec: qs('[name="doc_titulo_sec_legalizado"]', form),
+      ter: qs('[name="doc_titulo_terciario_legalizado"]', form),
+      inc: qs('[name="doc_incumbencias"]', form),
 
-    const sec   = bySel('input[name="doc_titulo_sec_legalizado"]');
-    const ter   = bySel('input[name="doc_titulo_terciario_legalizado"]');
-    const inc   = bySel('input[name="doc_incumbencias"]');
+      tram: qs('[name="titulo_en_tramite"]', form),
+      adeu: qs('[name="adeuda_materias"]', form),
+      nota: qs('[name="nota_compromiso"]', form),
+    };
 
-    const tram  = bySel('input[name="titulo_en_tramite"]');
-    const ade   = bySel('input[name="adeuda_materias"]');
+    // Contenedores
+    const secOnly = qsa('.sec-only', form);
+    const cdOnly  = qsa('.cd-only',  form);
+    const extra   = qs('#insc-prof-extra', form);
+    const notaDiv = qs('#chk-nota', form);
 
-    const cd = esCD();
+    // Chips
+    const chipLeg = qs('#chip-legajo', form) || qs('#chip-legajo');
+    const chipCon = qs('#chip-condicion', form) || qs('#chip-condicion');
 
-    const baseOK = !!(dni?.checked && cert?.checked && fotos?.checked && folios?.checked);
-    const titOK  = cd ? !!(ter?.checked && inc?.checked) : !!(sec?.checked);
-    const legajoCompleto = baseOK && titOK && !(tram && tram.checked);
+    // Campos extra
+    const matAde = qs('[name="materias_adeudadas"]', form);
+    const instOrg= qs('[name="institucion_origen"]', form);
 
-    const condicional = !legajoCompleto || (ade && ade.checked);
+    function esCertificacionDocente() {
+      if (!selProf || !selProf.value) return false;
+      const t = (selProf.options[selProf.selectedIndex]?.text || '').toLowerCase();
+      return t.includes('certificación docente') || t.includes('certificacion docente');
+    }
 
-    const notaWrap = bySel('#chk-nota');
-    const nota     = bySel('input[name="nota_compromiso"]');
-    show(notaWrap, condicional);
-    if(!condicional && nota){ nota.checked = false; }
-  }
+    function toggleDocSets(){
+      const esCD = esCertificacionDocente();
+      secOnly.forEach(el => show(el, !esCD));
+      cdOnly.forEach(el => show(el, esCD));
+      // Desmarcar los ocultos para evitar estados incoherentes
+      if (esCD && ch.sec) ch.sec.checked = false;
+      if (!esCD) { if (ch.ter) ch.ter.checked = false; if (ch.inc) ch.inc.checked = false; }
+    }
 
-  // ====== Wire events (sólo en insc_prof) ======
-  const isInscProf = (document.querySelector('input[name="action"]')||{}).value === 'insc_prof';
-  if (isInscProf){
-    const profSel = bySel('select[name="profesorado"]');
-    const docChks = [
-      'doc_dni_legalizado','doc_cert_medico','doc_fotos_carnet','doc_folios_oficio',
-      'doc_titulo_sec_legalizado','doc_titulo_terciario_legalizado','doc_incumbencias',
-      'titulo_en_tramite','adeuda_materias'
-    ].map(n => bySel(`input[name="${n}"]`)).filter(Boolean);
+    function toggleAdeuda(){
+      const on = isChecked(ch.adeu);
+      show(extra, on);
+      if (!on) {
+        if (matAde) matAde.value = '';
+        if (instOrg) instOrg.value = '';
+      }
+    }
 
-    profSel && profSel.addEventListener('change', function(){
-      toggleDocSets(); toggleNotaCompromiso();
-    });
+    function calcularEstado(){
+      // base OK
+      const baseOK = isChecked(ch.dni) && isChecked(ch.med) && isChecked(ch.fot) && isChecked(ch.fol);
+      // titulo OK
+      const esCD = esCertificacionDocente();
+      const tituloOK = esCD ? (isChecked(ch.ter) && isChecked(ch.inc)) : isChecked(ch.sec);
+      // legajo
+      const legajoCompleto = (!isChecked(ch.tram)) && baseOK && tituloOK;
+      // condición
+      const condCond = (!legajoCompleto) || isChecked(ch.adeu);
 
-    docChks.forEach(el => el.addEventListener('change', function(){
-      if (el.name === 'adeuda_materias') toggleAdeuda();
-      toggleNotaCompromiso();
-    }));
+      if (chipLeg) chipLeg.textContent = legajoCompleto ? 'COMPLETO' : 'INCOMPLETO';
+      if (chipCon) chipCon.textContent = condCond ? 'CONDICIONAL' : 'REGULAR';
+
+      // Nota compromiso visible solo si condicional
+      show(notaDiv, condCond);
+      if (!condCond && ch.nota) ch.nota.checked = false;
+    }
+
+    function updateAll(){
+      toggleDocSets();
+      toggleAdeuda();
+      calcularEstado();
+    }
+
+    // Listeners
+    const inputs = [selProf, ...Object.values(ch)];
+    inputs.forEach(el => { if (el) el.addEventListener('change', updateAll); });
 
     // Init
-    toggleDocSets();
-    toggleAdeuda();
-    toggleNotaCompromiso();
+    updateAll();
   }
 
-  // ====== Lógica de finales/cursadas y correlatividades ya existentes ======
-  // (mantengo lo esencial para no romper otros flujos)
-
-  const nota = bySel('[name="nota_final"]') || bySel('[name="nota_num"]') || bySel('[name="nota"]');
-  const ausente = bySel('[name="ausente"]');
-  const justif  = bySel('[name="ausencia_justificada"]');
-  const condicion = bySel('[name="condicion"]') || document.getElementById('id_condicion');
-  const notaTexto = bySel('[name="nota_texto"]');
-  const dispoInt  = bySel('[name="disposicion_interna"]');
-
-  function syncUI(){
-    const isAus = !!(ausente && ausente.checked);
-    const cond  = condicion ? condicion.value : null;
-    const isEq  = (cond === 'Equivalencia');
-    if (condicion) {
-      show(notaTexto, isEq); show(dispoInt, isEq);
-      show(ausente, !isEq); show(justif, !isEq && isAus);
-      show(nota,    !isEq && !isAus); if(nota) nota.disabled = (isEq || isAus);
-    } else {
-      if(nota) nota.disabled = isAus;
-      show(nota, !isAus); show(justif, isAus);
+  // ===== Sección INSC_ESP (correlatividades) =====
+  if (action === 'insc_esp') {
+    const espacioSelCorr = document.getElementById('espacio-select') || qs('[name="espacio"]');
+    const correlList = document.getElementById('correl-list');
+    if (typeof window.CORREL_MAP === 'undefined') window.CORREL_MAP = {};
+    function renderCorrels(){
+      if(!espacioSelCorr || !correlList) return;
+      const id = String(espacioSelCorr.value || '');
+      const items = window.CORREL_MAP[id] || [];
+      correlList.innerHTML = '';
+      if(!items.length){
+        correlList.innerHTML = '<li class="muted">(Sin correlatividades definidas)</li>';
+        return;
+      }
+      for(const it of items){
+        const li = document.createElement('li');
+        li.textContent = `${it.tipo}: ${it.nombre}`;
+        correlList.appendChild(li);
+      }
     }
-    if (nota && !nota._hasRangeListener) {
-      nota.setAttribute('min','0'); nota.setAttribute('max','10');
-      nota.addEventListener('input',function(){
-        if(this.value===''){this.setCustomValidity('');return;}
-        let v=parseFloat(String(this.value).replace(',','.'));
-        if(isNaN(v)||v<0||v>10){this.setCustomValidity('La nota debe estar entre 0 y 10.');}
-        else{this.setCustomValidity('');}
-      });
-      nota._hasRangeListener = true;
-    }
+    espacioSelCorr && espacioSelCorr.addEventListener('change', renderCorrels);
+    renderCorrels();
   }
-  ausente && ausente.addEventListener('change',syncUI);
-  justif  && justif.addEventListener('change',syncUI);
-  condicion && condicion.addEventListener('change',syncUI);
-  document.addEventListener('DOMContentLoaded', syncUI); syncUI();
-
-  // Correlatividades (insc_esp)
-  const espacioSelCorr = document.getElementById('espacio-select') || bySel('[name="espacio"]');
-  const correlList = document.getElementById('correl-list');
-  if (typeof window.CORREL_MAP === 'undefined') window.CORREL_MAP = {};
-  function renderCorrels(){
-    if(!espacioSelCorr || !correlList) return;
-    const id = String(espacioSelCorr.value || '');
-    const items = window.CORREL_MAP[id] || [];
-    correlList.innerHTML = '';
-    if(!items.length){
-      correlList.innerHTML = '<li class="muted">(Sin correlatividades definidas)</li>';
-      return;
-    }
-    for(const it of items){
-      const li = document.createElement('li');
-      li.textContent = `${it.tipo}: ${it.nombre}`;
-      correlList.appendChild(li);
-    }
-  }
-  espacioSelCorr && espacioSelCorr.addEventListener('change', renderCorrels);
-  renderCorrels();
-
 })();
 </script>
 
+<!-- (Opcional) si tenés hooks adicionales -->
 <script src="{% static 'academia/panel_hooks.js' %}"></script>
 </body>
 </html>
