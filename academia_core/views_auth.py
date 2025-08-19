@@ -1,41 +1,73 @@
+# academia_core/views_auth.py
+from django import forms
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.views import LoginView
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
+
 
 def _redirect_por_rol(user) -> str:
     """
-    Redirección post-login sin ?next= según tu handoff:
-    - Estudiante -> /panel/estudiante/
-    - Admin/Secretaría -> /panel/
+    Redirección post-login:
+      - Staff/Superuser o grupos SECRETARIA/ADMIN -> /panel/
+      - Resto (estudiante/docente) -> /panel/estudiante/
     """
-    # Admin/Secretaría por staff/superuser o por grupo explícito
-    if user.is_staff or user.is_superuser or user.groups.filter(name__in=["SECRETARIA","ADMIN"]).exists():
+    if user.is_staff or user.is_superuser or user.groups.filter(
+        name__in=["SECRETARIA", "ADMIN"]
+    ).exists():
         return str(reverse_lazy("panel"))
-    # Resto (alumno/docente) → Panel estudiante
     return str(reverse_lazy("panel_estudiante"))
 
 
-class RoleAwareLoginView(LoginView):
+class RememberAuthenticationForm(AuthenticationForm):
+    remember_me = forms.BooleanField(
+        required=False,
+        label="Recordarme",
+        help_text="Mantener la sesión abierta en este navegador."
+    )
+
+
+class RoleAwareRememberLoginView(LoginView):
     """
-    Login con:
-      - expiración de sesión en 3 horas,
-      - respeto de ?next= si viene en la request,
-      - redirección automática según rol si no hay ?next=.
+    - Respeta ?next=
+    - Si no hay ?next=, redirige según rol
+    - “Recordarme”: controla el vencimiento de la sesión
+      * Marcado  -> expira por inactividad según SESSION_COOKIE_AGE (2h en settings)
+      * Desmarcado -> expira al cerrar el navegador
     """
-    # Usa tu template actual (el que pegaste): templates/login.html
-    template_name = "login.html"
+    template_name = "registration/login.html"   # Ajustá si tu template está en otro path
     redirect_authenticated_user = True
+    authentication_form = RememberAuthenticationForm
 
     def form_valid(self, form):
         # Autentica y crea la sesión
         response = super().form_valid(form)
-        # ⏲️ expira a las 3 horas de inactividad
-        self.request.session.set_expiry(10800)  # 3 * 60 * 60
+
+        if form.cleaned_data.get("remember_me"):
+            # 2 horas de INACTIVIDAD (sliding window con SESSION_SAVE_EVERY_REQUEST=True)
+            self.request.session.set_expiry(getattr(settings, "SESSION_COOKIE_AGE", 7200))
+        else:
+            # Expira al cerrar el navegador
+            self.request.session.set_expiry(0)
+
         return response
 
     def get_success_url(self):
-        # 1) si hay ?next=, priorizarlo
+        # 1) Prioriza ?next=
         next_url = self.get_redirect_url()
         if next_url:
             return next_url
-        # 2) si no, redirigir por rol
+        # 2) Si no hay, redirige por rol
         return _redirect_por_rol(self.request.user)
+
+
+@login_required
+def root_redirect(request):
+    """
+    Raíz protegida:
+      - Si NO está logueado -> Django redirige a LOGIN_URL con ?next=/
+      - Si está logueado -> redirige por rol (panel / panel_estudiante)
+    """
+    return redirect(_redirect_por_rol(request.user))

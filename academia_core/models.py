@@ -145,8 +145,12 @@ class Estudiante(models.Model):
 
 # --- EstudianteProfesorado --------------------------------------------------
 class EstudianteProfesorado(models.Model):
-    estudiante = models.ForeignKey(Estudiante, on_delete=models.CASCADE, related_name="inscripciones")
-    profesorado = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="inscripciones")
+    estudiante = models.ForeignKey(
+        "Estudiante", on_delete=models.CASCADE, related_name="inscripciones"
+    )
+    profesorado = models.ForeignKey(
+        "Profesorado", on_delete=models.CASCADE, related_name="inscripciones"
+    )
 
     # Datos del trayecto
     cohorte = models.CharField(max_length=20, blank=True)
@@ -161,37 +165,40 @@ class EstudianteProfesorado(models.Model):
     ]
     curso_introductorio = models.CharField(max_length=20, choices=CI_CHOICES, blank=True)
 
-    # Check simple para “Legajo: Sí/No” en el cartón
+    # Checks simples para cartón
     legajo_entregado = models.BooleanField(default=False)
     libreta_entregada = models.BooleanField("Libreta entregada", default=False)
 
-    # Documentación del legajo (para calcular Completo/Incompleto)
+    # Documentación base
     doc_dni_legalizado = models.BooleanField(default=False)
     doc_titulo_sec_legalizado = models.BooleanField(default=False)
     doc_cert_medico = models.BooleanField(default=False)
-
     doc_fotos_carnet = models.BooleanField(default=False, verbose_name="Fotos carnet")
     doc_folios_oficio = models.BooleanField(default=False, verbose_name="Folios oficio")
 
-    # DDJJ / Nota de compromiso
-    nota_compromiso = models.BooleanField(default=False)
-
-    # Adicionales para Certificación Docente (campos existentes renombrados/reemplazados)
-    doc_titulo_terciario_legalizado = models.BooleanField("Doc título terciario/universitario legalizado", default=False)
+    # Certificación Docente (adicionales)
+    doc_titulo_terciario_legalizado = models.BooleanField(
+        "Doc título terciario/universitario legalizado", default=False
+    )
     doc_incumbencias = models.BooleanField("Incumbencias presentadas", default=False)
+
+    # DDJJ / Nota de compromiso (solo exigible cuando CONDICIONAL)
+    nota_compromiso = models.BooleanField(default=False)
 
     # Situación académica declarada
     adeuda_materias = models.BooleanField(default=False)
-    adeuda_detalle = models.TextField(blank=True) # Campo anterior, mantener por compatibilidad
-    colegio = models.CharField(max_length=120, blank=True) # Campo anterior, mantener por compatibilidad
+    adeuda_detalle = models.TextField(blank=True)            # compatibilidad
+    colegio = models.CharField(max_length=120, blank=True)   # compatibilidad
 
-    # === INICIO: CAMPOS NUEVOS ===
+    # === NUEVOS ===
     titulo_en_tramite = models.BooleanField("Título en trámite", default=False)
     materias_adeudadas = models.TextField("Materias adeudadas", blank=True, default="")
-    institucion_origen = models.CharField("Escuela / Institución", max_length=200, blank=True, default="")
-    # === FIN: CAMPOS NUEVOS ===
+    institucion_origen = models.CharField(
+        "Escuela / Institución", max_length=200, blank=True, default=""
+    )
+    # ==============
 
-    # Estado del legajo (cacheado) y condición administrativa
+    # Estado cacheado
     legajo_estado = models.CharField(
         "Legajo estado",
         max_length=20,
@@ -205,39 +212,54 @@ class EstudianteProfesorado(models.Model):
         default=CondicionAdmin.CONDICIONAL,
     )
 
-    # Promedio general (cacheado, por signal al guardar Movimiento)
-    promedio_general = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    # Promedio general (cacheado, por signal o llamado manual)
+    promedio_general = models.DecimalField(
+        max_digits=4, decimal_places=2, null=True, blank=True
+    )
 
     # Observaciones opcionales
     legajo = models.CharField(max_length=50, blank=True)
 
     class Meta:
-        unique_together = [("estudiante", "profesorado")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["estudiante", "profesorado"],
+                name="uniq_estudiante_profesorado",
+            )
+        ]
+        ordering = ["estudiante__apellido", "estudiante__nombre", "profesorado__nombre"]
 
     def __str__(self):
         return f"{self.estudiante} → {self.profesorado}"
 
-    # --- Helpers administrativos ---
+    # ----------------- Helpers de negocio -----------------
     def profesorado_es_certificacion_docente(self) -> bool:
-        nombre = (getattr(self.profesorado, "nombre", "") or "").lower()
-        return "certificación docente" in nombre or "certificacion docente" in nombre
+        """
+        Usa un booleano del modelo Profesoroado si existe (es_certificacion),
+        si no, detecta por el nombre.
+        """
+        prof = getattr(self, "profesorado", None)
+        if prof is None:
+            return False
+        if hasattr(prof, "es_certificacion"):
+            return bool(getattr(prof, "es_certificacion"))
+        nombre = (getattr(prof, "nombre", "") or "").lower()
+        return ("certificación docente" in nombre) or ("certificacion docente" in nombre)
 
     def curso_intro_aprobado(self) -> bool:
-        # Adapta a tu modelo (booleano, choices, etc.)
         val = getattr(self, "curso_introductorio", None)
         s = (str(val) if val is not None else "").strip().upper()
         return s in {"APROBADO", "APROBADA", "SI", "SÍ", "OK", "TRUE", "1"}
 
-    # --------- Lógica de legajo y promedio ---------
     def requisitos_obligatorios(self):
-        es_cert = self.profesorado_es_certificacion_docente()
+        """Lista [(campo, requerido_bool)] según sea CD o no."""
         base = [
             ("doc_dni_legalizado", True),
             ("doc_cert_medico", True),
             ("doc_fotos_carnet", True),
             ("doc_folios_oficio", True),
         ]
-        if es_cert:
+        if self.profesorado_es_certificacion_docente():
             base += [
                 ("doc_titulo_terciario_legalizado", True),
                 ("doc_incumbencias", True),
@@ -246,31 +268,45 @@ class EstudianteProfesorado(models.Model):
             base += [("doc_titulo_sec_legalizado", True)]
         return base
 
-    def calcular_legajo_estado(self):
+    # --------- Cálculos cacheados ---------
+    def calcular_legajo_estado(self) -> str:
+        """COMPLETO = base + (sec o ter+inc) y NO título en trámite."""
         ok = True
         for campo, requerido in self.requisitos_obligatorios():
-            val = getattr(self, campo)
-            if requerido is True:
-                ok = ok and bool(val)
-            else:
-                ok = ok and (val >= requerido)
+            val = bool(getattr(self, campo))
+            ok = ok and (val if requerido is True else val >= requerido)
+        # Nunca puede ser completo si el título está en trámite
+        if self.titulo_en_tramite:
+            ok = False
         return LegajoEstado.COMPLETO if ok else LegajoEstado.INCOMPLETO
 
     def legajo_completo(self) -> bool:
         return self.calcular_legajo_estado() == LegajoEstado.COMPLETO
 
+    def calcular_condicion_admin(self) -> str:
+        """
+        REGULAR solo si legajo COMPLETO y NO adeuda materias.
+        En cualquier otro caso -> CONDICIONAL.
+        """
+        return (
+            CondicionAdmin.REGULAR
+            if (self.legajo_completo() and not self.adeuda_materias)
+            else CondicionAdmin.CONDICIONAL
+        )
+
     @property
     def es_condicional(self) -> bool:
-        return not self.legajo_completo()
+        return self.calcular_condicion_admin() == CondicionAdmin.CONDICIONAL
 
+    # --------- Promedio (igual que tenías) ---------
     def _mov_aprueba(self, m) -> bool:
         if m.condicion is None:
             return False
 
-        # FIN Regular >=6
+        # FIN Regular >= 6
         if m.tipo == "FIN" and m.condicion.codigo == "REGULAR" and m.nota_num is not None and m.nota_num >= 6:
             return True
-        # REG Promoción/Aprobado con nota >=6
+        # REG Promoción / Aprobado
         if m.tipo == "REG" and m.condicion.codigo in {"PROMOCION", "APROBADO"}:
             if m.nota_num is not None and m.nota_num >= 6:
                 return True
@@ -302,6 +338,21 @@ class EstudianteProfesorado(models.Model):
             self.promedio_general = None
         self.save(update_fields=["promedio_general"])
 
+    # Recalcula estados por seguridad (tu Form igual los setea)
+    def save(self, *args, **kwargs):
+        # No llamar a super() aquí si recalcular_promedio ya lo hace
+        if 'update_fields' not in kwargs:
+            self.legajo_estado = self.calcular_legajo_estado()
+            self.condicion_admin = self.calcular_condicion_admin()
+        super().save(*args, **kwargs)
+
+
+try:
+    EstudianteProfesorado.LegajoEstado
+except AttributeError:
+    EstudianteProfesorado.LegajoEstado = LegajoEstado
+    EstudianteProfesorado.CondicionAdmin = CondicionAdmin
+
 
 class EspacioCurricular(models.Model):
     CUATRIS = [
@@ -328,11 +379,8 @@ class EspacioCurricular(models.Model):
             ),
             models.CheckConstraint(
                 name="anio_valido_1a4",
-                check=Q(anio__in=["1°", "2°", "3°", "4°"]),
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["profesorado", "plan", "nombre"]),
+                condition=models.Q(anio__in=["1°", "2°", "3°", "4°"]),
+            )
         ]
 
     def __str__(self):
@@ -367,24 +415,12 @@ class Correlatividad(models.Model):
         on_delete=models.CASCADE, related_name="correlativas_requeridas"
     )
     requiere_todos_hasta_anio = models.PositiveSmallIntegerField(null=True, blank=True)
-
     observaciones = models.CharField(max_length=200, blank=True)
 
     class Meta:
-        constraints = [
-            models.CheckConstraint(
-                check=(
-                    (Q(requiere_espacio__isnull=False) & Q(requiere_todos_hasta_anio__isnull=True)) |
-                    (Q(requiere_espacio__isnull=True) & Q(requiere_todos_hasta_anio__isnull=False))
-                ),
-                name="correlatividad_requiere_algo",
-            ),
-            models.UniqueConstraint(
-                fields=["plan", "espacio", "tipo", "requisito", "requiere_espacio", "requiere_todos_hasta_anio"],
-                name="uniq_correlatividad_regla",
-            ),
-        ]
-
+        ordering = ["espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
+        # constraints y indexes pueden ir aquí si son necesarios
+    
     def __str__(self):
         if self.requiere_espacio:
             req = f"{self.requiere_espacio.anio} {self.requiere_espacio.get_cuatrimestre_display()} - {self.requiere_espacio.nombre}"
@@ -399,6 +435,7 @@ class TipoCondicion(models.TextChoices):
     CURSADA = "REG", "Cursada"
     FINAL = "FIN", "Final"
 
+
 class Condicion(models.Model):
     codigo = models.CharField(max_length=50, primary_key=True, help_text="Código único, ej: 'REGULAR', 'PROMOCION'")
     nombre = models.CharField(max_length=100, help_text="Nombre para mostrar, ej: 'Regular', 'Promoción'")
@@ -410,6 +447,7 @@ class Condicion(models.Model):
     class Meta:
         verbose_name = "Condición Académica"
         verbose_name_plural = "Condiciones Académicas"
+
 
 class EspacioCondicion(models.Model):
     espacio = models.ForeignKey(EspacioCurricular, on_delete=models.CASCADE)
@@ -601,6 +639,7 @@ class EstadoInscripcion(models.TextChoices):
     EN_CURSO = "EN_CURSO", "En curso"
     BAJA = "BAJA", "Baja"
 
+
 class InscripcionEspacio(models.Model):
     inscripcion = models.ForeignKey(
         EstudianteProfesorado, on_delete=models.CASCADE, related_name="cursadas"
@@ -672,6 +711,7 @@ class Docente(models.Model):
 
     def __str__(self):
         return f"{self.apellido}, {self.nombre} ({self.dni})"
+
 
 class DocenteEspacio(models.Model):
     docente = models.ForeignKey(Docente, on_delete=models.CASCADE, related_name="asignaciones")

@@ -10,27 +10,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-   :root{
-    --ink:#2e2f33; --bg:#ebd4c5; --card:#fff; --card-b:#e9e4da;
-    --orange:#e8892a; --orange-600:#d37517;
-    --green:#3e7d59; --green-600:#2e6446; --green-050:#eaf3ef;
-    --muted:#6f7a83; --radius:16px; --gap:16px; --shadow:0 8px 26px rgba(23,36,44,.08);
-   }
+   :root{ --ink:#2e2f33; --bg:#ebd4c5; --card:#fff; --card-b:#e9e4da; --orange:#e8892a; --orange-600:#d37517; --green:#3e7d59; --green-600:#2e6446; --green-050:#eaf3ef; --muted:#6f7a83; --radius:16px; --gap:16px; --shadow:0 8px 26px rgba(23,36,44,.08) }
    *{ box-sizing:border-box }
-   body{ margin:0; background:var(--bg); color:var(--ink);
-        font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
-        -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale }
+   body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale }
    a{ color:var(--green-600); text-decoration:none }
    a:hover{ text-decoration:underline }
-   .wrap{ max-width:1400px; margin:0 auto; padding:20px }
+   /* FULL WIDTH */
+   .wrap{ width:100%; max-width:none; margin:0 auto; padding:20px 24px }
    .topbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:var(--gap) }
-   .btn{ background:#fff; border:1px solid var(--card-b); color:var(--green-600);
-         padding:10px 14px; border-radius:12px; box-shadow:var(--shadow)}
+   .btn{ background:#fff; border:1px solid var(--card-b); color:var(--green-600); padding:10px 14px; border-radius:12px; box-shadow:var(--shadow); cursor:pointer }
    .btn:hover{ background:var(--green-050) }
-   .card{ background:var(--card); border:1px solid var(--card-b);
-         border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
-
-   /* ======= HERO ======= */
+   .card{ background:var(--card); border:1px solid var(--card-b); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
    .hero{ display:grid; grid-template-columns:1fr 128px 1fr; align-items:center; gap:16px; margin-bottom:var(--gap) }
    .brand-big{ font-size:64px; line-height:.9; letter-spacing:3px; font-weight:700 }
    .brand-sub{ font-weight:600; color:var(--muted); letter-spacing:6px }
@@ -39,7 +29,8 @@
    .hero-user{ text-align:right; display:flex; flex-direction:column; gap:6px; align-items:flex-end }
    .pill{ display:inline-block; background:var(--green-050); color:var(--green-600); padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid #d4e5dd }
 
-   .grid{ display:grid; grid-template-columns:260px 1fr 320px; gap:var(--gap) }
+   /* NUEVO: 33% - 34% - 33% */
+   .grid{ display:grid; grid-template-columns:15% 70% 15%; gap:var(--gap) }
    @media (max-width:1100px){ .grid{ grid-template-columns:1fr } .right{ order:3 } .left{ order:2 } .center{ order:1 } }
 
    .sidenav h3{ margin:0 0 10px }
@@ -48,20 +39,18 @@
    .menu-link{ display:block; padding:10px 12px; border-radius:10px; font-weight:600; color:var(--ink) }
    .menu-link:hover{ background:#f3f6f4 }
    .menu-link.active{ background:var(--green-050); outline:2px solid #d9ebe3 }
-
    .section-links{ list-style:none; padding:0; margin:8px 0 0 }
-   .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
 
+   .divider{ border:none; border-top:1px solid var(--card-b); margin:14px 0 }
    input,select,textarea{ width:100%; padding:10px 12px; border:1px solid #d9e0e4; border-radius:12px }
    input:focus,select:focus,textarea:focus{ outline:2px solid var(--green) }
    label{ display:block; margin-top:10px }
-   .muted{ color: var(--muted); }
+   .muted{ color: var(--muted) }
    .submit{ margin-top:16px }
    .submit button{ background:var(--orange); border:0; color:#2b1b09; padding:12px 16px; border-radius:12px }
    .submit button:hover{ background:var(--orange-600) }
    .msg{ margin:8px 0; background:#f1f5f2; border:1px solid var(--card-b); padding:12px; border-radius:12px }
 
-   /* ======= ADD EST ======= */
    {% if action == "add_est" %}
    #add-est-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
    #add-est-grid .item{margin:0}
@@ -77,7 +66,6 @@
    #add-est-grid .inline-two .field label{display:block;margin:0 0 6px;font-weight:600}
    {% endif %}
 
-   /* ======= INSC PROF ======= */
    {% if action == "insc_prof" %}
    #insc-prof-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
    #insc-prof-grid-top label{display:block;font-weight:600;margin-bottom:6px}
@@ -85,7 +73,7 @@
    #doc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;align-items:start;margin-top:12px}
    .chk{display:flex;flex-direction:row;gap:8px;align-items:center;justify-content:flex-start;text-align:left;padding:10px 12px;border:1px solid #e6e3dd;border-radius:10px;background:#fafafa;overflow:hidden;line-height:1.25}
    .chk input[type="checkbox"]{width:auto;height:auto;margin:0}
-   #insc-prof-extra{display:none;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:start;margin-top:12px}
+   #insc-prof-extra{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;align-items:start;margin-top:12px}
    #insc-prof-extra label{display:block;font-weight:600;margin-bottom:6px}
    #estado-admin{margin-top:10px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
    .chip{display:inline-block;background:var(--green-050);border:1px solid #d4e5dd;color:var(--green-600);padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
@@ -97,7 +85,6 @@
    }
    {% endif %}
 
-   /* ======= INSC ESP ======= */
    {% if action == "insc_esp" %}
    #insc-esp-grid-top{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;align-items:start}
    #insc-esp-grid-top label{display:block;font-weight:600;margin-bottom:6px}
@@ -109,14 +96,19 @@
    .muted{color:#6f7a83}
    @media (max-width:900px){#insc-esp-grid-top{grid-template-columns:1fr}}
    {% endif %}
+
+   .msg{ transition: opacity .3s ease, transform .3s ease; }
+   .msg--hide{ opacity:0; transform: translateY(-4px); }
   </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="topbar">
-    <a class="btn" href="{{ logout_url|default:'#' }}">Cerrar sesión</a>
-    <a class="btn" href="{{ login_url|default:'#' }}">Cambiar usuario</a>
+    <form method="post" action="{% url 'logout' %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn">Cerrar sesión</button>
+    </form>
   </div>
 
   <div class="hero card">
@@ -133,22 +125,35 @@
 
   {% if messages %}
     {% for message in messages %}
-      <div class="msg {{ message.tags }}">{{ message }}</div>
+      {% if 'success' in message.tags or 'info' in message.tags or 'warning' in message.tags %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+      {% elif 'error' in message.tags and not form %}
+        <div class="msg {{ message.tags }}">{{ message }}</div>
+      {% endif %}
     {% endfor %}
   {% endif %}
-  {% if request.GET.ok == '1' %}
-    <div class="msg success">Guardado correctamente.</div>
-  {% endif %}
+
+  <script>
+    (function () {
+      const AUTO_HIDE_MS = 2000;
+      setTimeout(() => {
+        document.querySelectorAll('.msg').forEach(el => {
+          el.classList.add('msg--hide');
+          setTimeout(() => el.remove(), 350);
+        });
+      }, AUTO_HIDE_MS);
+    })();
+  </script>
 
   <div class="grid">
     <aside class="left card sidenav">
       <h3>Acciones</h3>
       <ul class="menu-list">
         <li class="menu-item"><a href="?action=section_est" class="menu-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">Estudiantes</a></li>
-        <li class="menu-item"><a href="?action=section_insc" class="menu-link {% if action in 'section_insc insc_prof insc_esp insc_final' %}active{% endif %}">Inscripciones</a></li>
-        <li class="menu-item"><a href="?action=section_calif" class="menu-link {% if action in 'section_calif cargar_cursada cargar_nota_final cargar_final_resultado' %}active{% endif %}">Calificaciones</a></li>
+        <li class="menu-item"><a href="?action=section_insc" class="menu-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">Inscripciones</a></li>
+        <li class="menu-item"><a href="?action=section_calif" class="menu-link {% if action == 'section_calif' or action == 'cargar_cursada' or action == 'cargar_nota_final' or action == 'cargar_final_resultado' %}active{% endif %}">Calificaciones</a></li>
         {% if can_admin %}
-        <li class="menu-item"><a href="?action=section_admin" class="menu-link {% if action in 'section_admin espacios_admin correlativas prof_new plan_new admin_rename admin_delete' %}active{% endif %}">Administración</a></li>
+        <li class="menu-item"><a href="?action=section_admin" class="menu-link {% if action == 'section_admin' or action == 'espacios_admin' or action == 'correlativas' or action == 'prof_new' or action == 'plan_new' or action == 'admin_rename' or action == 'admin_delete' %}active{% endif %}">Administración</a></li>
         {% endif %}
         <li class="menu-item"><a href="?action=section_help" class="menu-link {% if action == 'section_help' %}active{% endif %}">Ayuda</a></li>
       </ul>
@@ -200,12 +205,28 @@
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
-          <form method="post" enctype="multipart/form-data">
+          <form method="post" enctype="multipart/form-data" action="?action={{ action }}">
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
 
             {% if form.non_field_errors %}
               <div class="msg" role="alert">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {% if form.errors %}
+              <div class="msg" role="alert">
+                <strong>Revisá los campos:</strong>
+                <ul>
+                  {% for bf in form %}
+                    {% if bf.errors %}
+                      <li>{{ bf.label }}: {{ bf.errors|striptags }}</li>
+                    {% endif %}
+                  {% endfor %}
+                  {% if form.non_field_errors %}
+                    <li>{{ form.non_field_errors|striptags }}</li>
+                  {% endif %}
+                </ul>
+              </div>
             {% endif %}
 
             {% if action == "add_est" %}
@@ -242,8 +263,6 @@
               </div>
 
             {% elif action == "insc_prof" %}
-
-              <!-- Top: selección básica -->
               <div id="insc-prof-grid-top">
                 {% if form.estudiante %}<div>{{ form.estudiante.label_tag }}{{ form.estudiante }}{% for e in form.estudiante.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
                 {% if form.profesorado %}<div>{{ form.profesorado.label_tag }}{{ form.profesorado }}{% for e in form.profesorado.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
@@ -251,7 +270,6 @@
                 {% if form.curso_introductorio %}<div>{{ form.curso_introductorio.label_tag }}{{ form.curso_introductorio }}{% for e in form.curso_introductorio.errors %}<div class="err">{{ e }}</div>{% endfor %}</div>{% endif %}
               </div>
 
-              <!-- Documentación -->
               <h4 style="margin-top:14px">Documentación presentada</h4>
               <div id="doc-grid">
                 {% if form.doc_dni_legalizado %}<label class="chk">{{ form.doc_dni_legalizado }} Doc. DNI legalizado</label>{% endif %}
@@ -259,23 +277,20 @@
                 {% if form.doc_fotos_carnet %}<label class="chk">{{ form.doc_fotos_carnet }} Foto carnet</label>{% endif %}
                 {% if form.doc_folios_oficio %}<label class="chk">{{ form.doc_folios_oficio }} Folio oficio</label>{% endif %}
 
-                <!-- Solo Profesorado (no CD) -->
                 {% if form.doc_titulo_sec_legalizado %}
-                <label class="chk sec-only">{{ form.doc_titulo_sec_legalizado }} Título secundario legalizado</label>
+                  <label class="chk sec-only">{{ form.doc_titulo_sec_legalizado }} Título secundario legalizado</label>
                 {% endif %}
 
-                <!-- Solo Certificación Docente -->
                 {% if form.doc_titulo_terciario_legalizado %}
-                <label class="chk cd-only" style="display:none">{{ form.doc_titulo_terciario_legalizado }} Título terciario/universitario legalizado</label>
+                  <label class="chk cd-only" style="display:none">{{ form.doc_titulo_terciario_legalizado }} Título terciario/universitario legalizado</label>
                 {% endif %}
                 {% if form.doc_incumbencias %}
-                <label class="chk cd-only" style="display:none">{{ form.doc_incumbencias }} Incumbencias presentadas</label>
+                  <label class="chk cd-only" style="display:none">{{ form.doc_incumbencias }} Incumbencias presentadas</label>
                 {% endif %}
 
                 {% if form.titulo_en_tramite %}<label class="chk">{{ form.titulo_en_tramite }} Título en trámite</label>{% endif %}
                 {% if form.adeuda_materias %}<label class="chk" id="chk-adeuda">{{ form.adeuda_materias }} Adeuda materias</label>{% endif %}
 
-                <!-- Nota compromiso (se muestra si queda CONDICIONAL) -->
                 {% if form.nota_compromiso %}
                 <div id="chk-nota" style="display:none">
                   <label class="chk">{{ form.nota_compromiso }} DDJJ / Nota compromiso</label>
@@ -283,7 +298,6 @@
                 {% endif %}
               </div>
 
-              <!-- Extra si adeuda -->
               <div id="insc-prof-extra" style="display:none">
                 {% if form.materias_adeudadas %}
                 <div>
@@ -299,7 +313,6 @@
                 {% endif %}
               </div>
 
-              <!-- Estado “en vivo” -->
               <div id="estado-admin">
                 <span>Estado del Legajo:</span> <span class="chip" id="chip-legajo">INCOMPLETO</span>
                 <span>Condición administrativa:</span> <span class="chip" id="chip-condicion">CONDICIONAL</span>
@@ -319,19 +332,12 @@
                 </ul>
               </div>
 
-              <!-- Resto de campos no-checkbox -->
               {% for f in form %}
-                {% if f.name != 'inscripcion' and f.name != 'anio_academico' and f.name != 'espacio' and f.field.widget.input_type != 'checkbox' %}
+                {% if f.field.widget.input_type != 'checkbox' and f.name != 'inscripcion' and f.name != 'anio_academico' and f.name != 'espacio' %}
                   <label>{{ f.label }}</label>{{ f }}
-                  {% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
                 {% endif %}
               {% endfor %}
 
-            {% else %}
-              {# fallback genérico #}
-              {% for f in form %}
-                <label>{{ f.label }}</label>{{ f }}{% for e in f.errors %}<div class="err">{{ e }}</div>{% endfor %}
-              {% endfor %}
             {% endif %}
 
             <div class="submit"><button type="submit" name="save" value="1">Guardar</button></div>
@@ -359,112 +365,143 @@
 
 <script>
 (function () {
-  // ===== Helpers =====
   const qs  = (sel,root=document)=>root.querySelector(sel);
   const qsa = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
   const show = (el,on)=>{ if(!el) return; el.style.display = on ? '' : 'none'; };
   const isChecked = el => !!(el && el.checked);
-  const val = el => el ? String(el.value||'') : '';
 
-  // ===== Sección INSC_PROF (inscribir a carrera) =====
   const action = (qs('input[name="action"]')||{}).value || '';
+
   if (action === 'insc_prof') {
-    const form = qs('form');
-
-    // Select profesorado (para detectar CD)
+    // toma el form que tiene <input name="action" value="insc_prof">
+    const form = document.querySelector('form input[name="action"][value="insc_prof"]')?.closest('form');
     const selProf = qs('[name="profesorado"]', form);
-
-    // Checkboxes de documentación
     const ch = {
-      dni: qs('[name="doc_dni_legalizado"]', form),
-      med: qs('[name="doc_cert_medico"]', form),
-      fot: qs('[name="doc_fotos_carnet"]', form),
-      fol: qs('[name="doc_folios_oficio"]', form),
-
-      // Título
-      sec: qs('[name="doc_titulo_sec_legalizado"]', form),
-      ter: qs('[name="doc_titulo_terciario_legalizado"]', form),
-      inc: qs('[name="doc_incumbencias"]', form),
-
+      dni:  qs('[name="doc_dni_legalizado"]', form),
+      med:  qs('[name="doc_cert_medico"]', form),
+      fot:  qs('[name="doc_fotos_carnet"]', form),
+      fol:  qs('[name="doc_folios_oficio"]', form),
+      sec:  qs('[name="doc_titulo_sec_legalizado"]', form),
+      ter:  qs('[name="doc_titulo_terciario_legalizado"]', form),
+      inc:  qs('[name="doc_incumbencias"]', form),
       tram: qs('[name="titulo_en_tramite"]', form),
       adeu: qs('[name="adeuda_materias"]', form),
       nota: qs('[name="nota_compromiso"]', form),
     };
-
-    // Contenedores
     const secOnly = qsa('.sec-only', form);
     const cdOnly  = qsa('.cd-only',  form);
     const extra   = qs('#insc-prof-extra', form);
     const notaDiv = qs('#chk-nota', form);
+    const chipLeg = qs('#chip-legajo', form);
+    const chipCon = qs('#chip-condicion', form);
+    const lblAdeu = qs('#chk-adeuda', form); // contenedor del checkbox "Adeuda materias"
 
-    // Chips
-    const chipLeg = qs('#chip-legajo', form) || qs('#chip-legajo');
-    const chipCon = qs('#chip-condicion', form) || qs('#chip-condicion');
+    function clearExtra() {
+      const m = qs('[name="materias_adeudadas"]', form);
+      const i = qs('[name="institucion_origen"]', form);
+      if (m) m.value = '';
+      if (i) i.value = '';
+    }
 
-    // Campos extra
-    const matAde = qs('[name="materias_adeudadas"]', form);
-    const instOrg= qs('[name="institucion_origen"]', form);
-
-    function esCertificacionDocente() {
+    function esCD() {
       if (!selProf || !selProf.value) return false;
       const t = (selProf.options[selProf.selectedIndex]?.text || '').toLowerCase();
       return t.includes('certificación docente') || t.includes('certificacion docente');
     }
 
-    function toggleDocSets(){
-      const esCD = esCertificacionDocente();
-      secOnly.forEach(el => show(el, !esCD));
-      cdOnly.forEach(el => show(el, esCD));
-      // Desmarcar los ocultos para evitar estados incoherentes
-      if (esCD && ch.sec) ch.sec.checked = false;
-      if (!esCD) { if (ch.ter) ch.ter.checked = false; if (ch.inc) ch.inc.checked = false; }
-    }
+    // Alterna sets de documentación y visibilidad de "Adeuda" según CD / común
+    function toggleDoc(){
+      const cd = esCD();
 
-    function toggleAdeuda(){
-      const on = isChecked(ch.adeu);
-      show(extra, on);
-      if (!on) {
-        if (matAde) matAde.value = '';
-        if (instOrg) instOrg.value = '';
+      // Mostrar/ocultar sets exclusivos
+      secOnly.forEach(el => show(el, !cd));
+      cdOnly.forEach(el => show(el, cd));
+
+      if (cd) {
+        // En CD NO se contempla "adeuda materias"
+        if (lblAdeu) show(lblAdeu, false);
+        if (ch.adeu) ch.adeu.checked = false;
+        if (extra) extra.style.display = 'none';
+        clearExtra();
+
+        // En CD no aplica "título secundario"
+        if (ch.sec) ch.sec.checked = false;
+      } else {
+        // En carreras comunes sí mostramos Adeuda
+        if (lblAdeu) show(lblAdeu, true);
       }
     }
 
-    function calcularEstado(){
-      // base OK
-      const baseOK = isChecked(ch.dni) && isChecked(ch.med) && isChecked(ch.fot) && isChecked(ch.fol);
-      // titulo OK
-      const esCD = esCertificacionDocente();
-      const tituloOK = esCD ? (isChecked(ch.ter) && isChecked(ch.inc)) : isChecked(ch.sec);
-      // legajo
-      const legajoCompleto = (!isChecked(ch.tram)) && baseOK && tituloOK;
-      // condición
-      const condCond = (!legajoCompleto) || isChecked(ch.adeu);
-
-      if (chipLeg) chipLeg.textContent = legajoCompleto ? 'COMPLETO' : 'INCOMPLETO';
-      if (chipCon) chipCon.textContent = condCond ? 'CONDICIONAL' : 'REGULAR';
-
-      // Nota compromiso visible solo si condicional
-      show(notaDiv, condCond);
-      if (!condCond && ch.nota) ch.nota.checked = false;
+    // Si tildo ADEUDA:
+    //  - en común: muestra extra (grid) y destilda "Título secundario"
+    //  - en CD: no aplica (forzar oculto + limpiar)
+    function toggleAdeuda(){
+      if (!ch.adeu) return;
+      const cd = esCD();
+      if (cd) {
+        ch.adeu.checked = false;
+        if (extra) extra.style.display = 'none';
+        clearExtra();
+        return;
+      }
+      const on = isChecked(ch.adeu);
+      if (extra) extra.style.display = on ? 'grid' : 'none';
+      if (on && ch.sec) ch.sec.checked = false;
+      if (!on) clearExtra();
     }
 
-    function updateAll(){
-      toggleDocSets();
+    // Si tildo SECUNDARIO:
+    //  - destilda Adeuda y Título en trámite
+    //  - oculta y limpia extra
+    function toggleTituloSec(){
+      if (ch.sec && isChecked(ch.sec)) {
+        if (ch.adeu) ch.adeu.checked = false;
+        if (ch.tram) ch.tram.checked = false;
+        if (extra) extra.style.display = 'none';
+        clearExtra();
+      }
+    }
+
+    // Si tildo TRÁMITE:
+    //  - en común: destilda Secundario
+    //  - en CD: solo impacta estado/condición (se calcula aparte)
+    function toggleTramite(){
+      if (!ch.tram) return;
+      if (!esCD() && isChecked(ch.tram) && ch.sec) {
+        ch.sec.checked = false;
+      }
+    }
+
+    function calc(){
+      const baseOK   = isChecked(ch.dni) && isChecked(ch.med) && isChecked(ch.fot) && isChecked(ch.fol);
+      const tituloOK = esCD() ? (isChecked(ch.ter) && isChecked(ch.inc)) : isChecked(ch.sec);
+      const completo = (!isChecked(ch.tram)) && baseOK && tituloOK;
+
+      // Para CD: la condición NO depende de Adeuda
+      const condEsCond = (!completo) || (!esCD() && isChecked(ch.adeu));
+
+      if (chipLeg) chipLeg.textContent = completo ? 'COMPLETO' : 'INCOMPLETO';
+      if (chipCon) chipCon.textContent = condEsCond ? 'CONDICIONAL' : 'REGULAR';
+
+      show(notaDiv, condEsCond);
+      if (!condEsCond && ch.nota) ch.nota.checked = false;
+    }
+
+    function upd(){
+      toggleDoc();
       toggleAdeuda();
-      calcularEstado();
+      toggleTituloSec();
+      toggleTramite();
+      calc();
     }
 
-    // Listeners
-    const inputs = [selProf, ...Object.values(ch)];
-    inputs.forEach(el => { if (el) el.addEventListener('change', updateAll); });
-
-    // Init
-    updateAll();
+    [selProf, ...Object.values(ch)].forEach(el => { if (el) el.addEventListener('change', upd); });
+    upd();
   }
 
-  // ===== Sección INSC_ESP (correlatividades) =====
+  // ---- Correlatividades (insc_esp) ----
   if (action === 'insc_esp') {
-    const espacioSelCorr = document.getElementById('espacio-select') || qs('[name="espacio"]');
+    const espacioSelCorr = document.getElementById('espacio-select') || document.querySelector('[name="espacio"]');
     const correlList = document.getElementById('correl-list');
     if (typeof window.CORREL_MAP === 'undefined') window.CORREL_MAP = {};
     function renderCorrels(){
@@ -488,7 +525,6 @@
 })();
 </script>
 
-<!-- (Opcional) si tenés hooks adicionales -->
 <script src="{% static 'academia/panel_hooks.js' %}"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
+from academia_core.auth_mixins import StaffOrGroupsRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -21,6 +22,7 @@ from .models import (
 from .forms_espacios import EspacioForm   # ← Form para Materias/Espacios
 
 # ---------------- helpers de contexto para usar panel.html ----------------
+
 def _rol(user):
     perfil = getattr(user, "perfil", None)
     return getattr(perfil, "rol", None)
@@ -88,13 +90,11 @@ class SearchQueryMixin:
 
 # ============================== ESTUDIANTES ===============================
 
-class EstudianteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
+class EstudianteListView(LoginRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
     model = Estudiante
     template_name = "panel.html"
     context_object_name = "alumnos"
     paginate_by = 25
-    permission_required = "academia_core.view_estudiante"
-    raise_exception = True
     panel_action = "alumnos_list"
     panel_title = "Listado de Alumnos"
     search_fields = ("apellido", "nombre", "dni", "email")
@@ -103,35 +103,38 @@ class EstudianteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelConte
         return self.apply_search(super().get_queryset().order_by("apellido", "nombre"))
 
 
-class EstudianteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+class EstudianteCreateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Estudiante
-    fields = ["dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento","email","telefono","localidad","activo","foto"]
+    fields = [
+        "dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento",
+        "email","telefono","localidad","activo","foto"
+    ]
     template_name = "academia_core/alumno_form.html"  # ← Asegurate de esta línea
     success_url = reverse_lazy("listado_alumnos")
     success_message = "Estudiante «%(apellido)s, %(nombre)s» creado."
-    permission_required = "academia_core.add_estudiante"
-    raise_exception = True
 
 
-class EstudianteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+class EstudianteUpdateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Estudiante
-    fields = ["dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento","email","telefono","localidad","activo","foto"]
+    fields = [
+        "dni","apellido","nombre","fecha_nacimiento","lugar_nacimiento",
+        "email","telefono","localidad","activo","foto"
+    ]
     template_name = "panel.html"
     success_url = reverse_lazy("listado_alumnos")
     success_message = "Estudiante «%(apellido)s, %(nombre)s» actualizado."
-    permission_required = "academia_core.change_estudiante"
-    raise_exception = True
     panel_action = "add_est"
     panel_title = "Editar estudiante"
     panel_subtitle = "Actualizá los datos y guardá"
 
 
-class EstudianteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class EstudianteDeleteView(StaffOrGroupsRequiredMixin, DeleteView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Estudiante
     template_name = "confirmar_eliminacion.html"
     success_url = reverse_lazy("listado_alumnos")
-    permission_required = "academia_core.delete_estudiante"
-    raise_exception = True
 
     def get_context_data(self, **kw):
         ctx = super().get_context_data(**kw)
@@ -160,14 +163,12 @@ class EstudianteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteVi
 
 # ================================ DOCENTES ================================
 
-class DocenteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
+class DocenteListView(LoginRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
     """Reemplaza listado_docentes."""
     model = Docente
     template_name = "panel.html"  # Podés cambiar a un template dedicado si querés tabla
     context_object_name = "docentes"
     paginate_by = 25
-    permission_required = "academia_core.view_docente"
-    raise_exception = True
     panel_action = "doc_list"
     panel_title = "Listado de Docentes"
     panel_subtitle = "Búsqueda por nombre, apellido, DNI o email"
@@ -177,38 +178,35 @@ class DocenteListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextM
         return self.apply_search(super().get_queryset().order_by("apellido", "nombre"))
 
 
-class DocenteCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+class DocenteCreateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Docente
     fields = "__all__"                 # si tenés DocenteForm: form_class = DocenteForm
     template_name = "panel.html"
     success_url = reverse_lazy("listado_docentes")
     success_message = "Docente «%(apellido)s, %(nombre)s» creado."
-    permission_required = "academia_core.add_docente"
-    raise_exception = True
     panel_action = "doc_add"
     panel_title = "Alta de docente"
     panel_subtitle = "Completá los datos y guardá"
 
 
-class DocenteUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+class DocenteUpdateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Docente
     fields = "__all__"
     template_name = "panel.html"
     success_url = reverse_lazy("listado_docentes")
     success_message = "Docente «%(apellido)s, %(nombre)s» actualizado."
-    permission_required = "academia_core.change_docente"
-    raise_exception = True
     panel_action = "doc_edit"
     panel_title = "Editar docente"
     panel_subtitle = "Actualizá los datos y guardá"
 
 
-class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class DocenteDeleteView(StaffOrGroupsRequiredMixin, DeleteView):
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = Docente
     template_name = "confirmar_eliminacion.html"
     success_url = reverse_lazy("listado_docentes")
-    permission_required = "academia_core.delete_docente"
-    raise_exception = True
 
     def get_context_data(self, **kw):
         ctx = super().get_context_data(**kw)
@@ -235,14 +233,12 @@ class DocenteDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
 
 # ================================ MATERIAS ================================
 
-class MateriaListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
+class MateriaListView(LoginRequiredMixin, PanelContextMixin, SearchQueryMixin, ListView):
     """Listado de Materias (Espacios curriculares)."""
     model = EspacioCurricular
     template_name = "materias_list.html"     # Template con tabla
     context_object_name = "materias"
     paginate_by = 25
-    permission_required = "academia_core.view_espaciocurricular"
-    raise_exception = True
     panel_action = "mat_list"
     panel_title = "Materias / Espacios"
     panel_subtitle = "Listado y búsqueda"
@@ -253,41 +249,38 @@ class MateriaListView(LoginRequiredMixin, PermissionRequiredMixin, PanelContextM
         return self.apply_search(qs).order_by("profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
 
 
-class MateriaCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
+class MateriaCreateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, CreateView):
     """Alta de Materia (Espacio curricular)."""
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = EspacioCurricular
     form_class = EspacioForm
     template_name = "panel.html"             # Reutilizamos panel.html para el form
     success_url = reverse_lazy("listado_materias")
     success_message = "Materia «%(nombre)s» creada."
-    permission_required = "academia_core.add_espaciocurricular"
-    raise_exception = True
     panel_action = "mat_add"
     panel_title = "Nueva materia"
     panel_subtitle = "Completá los datos y guardá"
 
 
-class MateriaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
+class MateriaUpdateView(StaffOrGroupsRequiredMixin, SuccessMessageMixin, PanelContextMixin, UpdateView):
     """Edición de Materia."""
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = EspacioCurricular
     form_class = EspacioForm
     template_name = "panel.html"
     success_url = reverse_lazy("listado_materias")
     success_message = "Materia «%(nombre)s» actualizada."
-    permission_required = "academia_core.change_espaciocurricular"
-    raise_exception = True
     panel_action = "mat_edit"
     panel_title = "Editar materia"
     panel_subtitle = "Actualizá los datos y guardá"
 
 
-class MateriaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class MateriaDeleteView(StaffOrGroupsRequiredMixin, DeleteView):
     """Eliminación/archivado de Materia (soft-delete si está protegida)."""
+    allowed_groups = ("SECRETARIA", "ADMIN")
     model = EspacioCurricular
     template_name = "confirmar_eliminacion.html"
     success_url = reverse_lazy("listado_materias")
-    permission_required = "academia_core.delete_espaciocurricular"
-    raise_exception = True
 
     def get_context_data(self, **kw):
         ctx = super().get_context_data(**kw)

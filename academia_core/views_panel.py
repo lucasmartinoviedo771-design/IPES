@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from datetime import date, datetime
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import FieldError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
@@ -14,7 +14,6 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_GET
 
-# Etiquetas (opcional)
 try:
     from .label_utils import espacio_etiqueta as _espacio_label_from_utils
 except Exception:
@@ -27,7 +26,6 @@ from .models import (
     EstudianteProfesorado,
     InscripcionEspacio,
     InscripcionFinal,
-    # === IMPORTE AGREGADO ===
     CondicionAdmin,
 )
 from .forms_carga import (
@@ -41,7 +39,8 @@ from .forms_carga import (
 )
 from .kpis import build_kpis
 
-# ========================= Helpers =========================
+
+# ============================ Helpers comunes ============================
 
 def _make_form(FormClass, request: HttpRequest, data=None, files=None, initial=None):
     try:
@@ -98,7 +97,7 @@ def _ord(n):
 
 def _cuatri_label(val):
     if val in (None, "", 0, "0"):
-        return "A"  # Anual (corto). Cambiá por "Anual" si querés.
+        return "A"
     s = str(val).strip()
     if s.lower() in ("anual", "a"):
         return "A"
@@ -118,9 +117,6 @@ def _espacio_label(e: EspacioCurricular) -> str:
     return f"{left} — {nombre}" if left and nombre else (nombre or str(e))
 
 def _safe_order(qs, *candidates):
-    """
-    Intenta qs.order_by(*candidato) usando el primer candidato que exista.
-    """
     for cand in candidates:
         try:
             return qs.order_by(*cand)
@@ -128,7 +124,16 @@ def _safe_order(qs, *candidates):
             continue
     return qs.order_by("id")
 
-# =============== Map formularios (panel general) ===============
+# ======= Helper de acceso para endpoints que requieren Secretaría/Admin ====
+
+def is_sec_or_admin(u):
+    return (
+        getattr(u, "is_authenticated", False)
+        and (u.is_staff or u.is_superuser or u.groups.filter(name__in=["SECRETARIA", "ADMIN"]).exists())
+    )
+
+
+# =================== Mapas y acciones del panel principal ==================
 
 FORMS_MAP: Dict[str, Any] = {
     "add_est": EstudianteForm,
@@ -148,11 +153,13 @@ ACTION_COPY: Dict[str, List[str]] = {
     "insc_final": [],
 }
 
-# ========================= Panel general =========================
+
+# =============================== Vistas HTML ===============================
 
 @login_required
 def panel(request: HttpRequest) -> HttpResponse:
-    action = request.GET.get("action") or "section_est"
+    # >>> CAMBIO CLAVE: también lee 'action' del POST
+    action = (request.GET.get("action") or request.POST.get("action") or "section_est")
     FormClass = FORMS_MAP.get(action)
     context: Dict[str, Any] = {"action": action, "FormClass": FormClass}
     context.update(_base_context(request))
@@ -169,18 +176,18 @@ def panel(request: HttpRequest) -> HttpResponse:
     if action in TITLES:
         context["action_title"], context["action_subtitle"] = TITLES[action]
 
-    if request.method == "GET" and not request.POST and not request.FILES:
+    if request.method == "GET":
         if FormClass:
             initial = {k: request.GET.get(k) for k in ACTION_COPY.get(action, []) if request.GET.get(k)}
             context["form"] = _make_form(FormClass, request, initial=initial or None)
         return render(request, "panel.html", context)
 
     if FormClass and request.method == "POST":
-        form = _make_form(FormClass, request, request.POST or None, request.FILES or None)
-        if hasattr(form, "is_valid") and form.is_valid():
-            _ = form.save() if hasattr(form, "save") else None
+        form = _make_form(FormClass, request, request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
             messages.success(request, "Guardado correctamente.")
-            params = {"action": action, "ok": 1}
+            params = {"action": action}
             for key in ACTION_COPY.get(action, []):
                 val = form.cleaned_data.get(key)
                 if hasattr(val, "pk"):
@@ -195,16 +202,10 @@ def panel(request: HttpRequest) -> HttpResponse:
         context["form"] = _make_form(FormClass, request)
     return render(request, "panel.html", context)
 
-# =================== Panel de estudiante ===================
+
+# =================== Panel estudiante / cartón ===================
 
 def _build_trayectoria_blocks(inscripcion) -> List[dict]:
-    """
-    Bloques por espacio con:
-    - año / cuatr / nombre
-    - REG: fecha/cond/nota
-    - FIN: fecha/cond/nota/folio/libro
-    Sin usar campos 'creado/created'.
-    """
     out: List[dict] = []
     if not inscripcion:
         return out
@@ -219,7 +220,6 @@ def _build_trayectoria_blocks(inscripcion) -> List[dict]:
     fin_fieldnames = {f.name for f in InscripcionFinal._meta.get_fields()}
 
     for e in espacios:
-        # REG
         base_reg = InscripcionEspacio.objects.filter(inscripcion=inscripcion, espacio=e)
         reg_qs = _safe_order(base_reg, ("fecha", "id"), ("id",))
         regs = [{
@@ -228,7 +228,6 @@ def _build_trayectoria_blocks(inscripcion) -> List[dict]:
             "reg_nota": (getattr(r, "nota", None) or getattr(r, "nota_num", None) or getattr(r, "nota_final", None) or "—"),
         } for r in reg_qs]
 
-        # FIN
         if "inscripcion" in fin_fieldnames:
             base_fin = InscripcionFinal.objects.filter(
                 inscripcion__inscripcion=inscripcion,
@@ -337,8 +336,6 @@ def panel_estudiante(request: HttpRequest) -> HttpResponse:
 
     return render(request, "panel_estudiante.html", context)
 
-# =============== Cartón (ventana aparte) ===============
-
 @login_required
 def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
     est_id  = request.GET.get("est")  or request.GET.get("estudiante") or request.GET.get("est_id")
@@ -372,20 +369,18 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
         fin_fieldnames = {f.name for f in InscripcionFinal._meta.get_fields()}
 
         for e in esp_qs:
-            # REG: solo regularidades/promos/libres (no EN_CURSO/INSCRIPTO)
             reg_list = []
             if inscripcion:
                 reg_qs = InscripcionEspacio.objects.filter(inscripcion=inscripcion, espacio=e)
                 reg_qs = (
                     reg_qs.exclude(estado__isnull=True)
-                        .exclude(estado__iexact="EN_CURSO")
-                        .exclude(estado__iexact="EN CURSO")
-                        .exclude(estado__iexact="CURSANDO")
-                        .exclude(estado__iexact="INSCRIPTO")
+                          .exclude(estado__iexact="EN_CURSO")
+                          .exclude(estado__iexact="EN CURSO")
+                          .exclude(estado__iexact="CURSANDO")
+                          .exclude(estado__iexact="INSCRIPTO")
                 )
                 reg_list = list(_safe_order(reg_qs, ("fecha", "id"), ("id",)))
 
-            # FIN
             if "inscripcion" in fin_fieldnames:
                 qs = InscripcionFinal.objects.filter(inscripcion__espacio=e)
                 if estudiante:
@@ -417,7 +412,6 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
                 fin_estado = get(fin, "estado", "") or get(fin, "condicion", "")
                 fin_nota   = get(fin, "nota_final", "") or get(fin, "nota", "") or get(fin, "nota_num", "")
 
-                # promedio (finales)
                 def _as_num(x):
                     if x in (None, "", "Ausente", "Ausente In", "Ausente Ju"):
                         return None
@@ -469,7 +463,8 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
     }
     return render(request, "panel_estudiante_carton.html", ctx)
 
-# ============================ APIs ============================
+
+# =============================== Endpoints JSON ===========================
 
 @login_required
 @require_GET
@@ -479,10 +474,7 @@ def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
     except EstudianteProfesorado.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
 
-    # === INICIO: LÓGICA AGREGADA ===
     mode = (request.GET.get("mode") or "").strip().lower()
-
-    # Si es para inscribirse a FINAL y el alumno es condicional => no ofrecer opciones
     if mode in {"final", "finales"} and getattr(insc, "condicion_admin", "") == CondicionAdmin.CONDICIONAL:
         return JsonResponse({
             "ok": True,
@@ -490,7 +482,6 @@ def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
             "cond_opts": [],
             "reason": "Estudiante condicional: no puede inscribirse a finales.",
         })
-    # === FIN: LÓGICA AGREGADA ===
 
     qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado).order_by("anio", "cuatrimestre", "nombre")
 
@@ -530,7 +521,6 @@ def get_condiciones_por_espacio(request: HttpRequest, espacio_id: int):
 @require_GET
 def get_correlatividades(request: HttpRequest, espacio_id: int):
     insc_id = request.GET.get("insc_id")
-
     try:
         espacio = EspacioCurricular.objects.get(pk=espacio_id)
     except EspacioCurricular.DoesNotExist:
@@ -561,10 +551,12 @@ def get_correlatividades(request: HttpRequest, espacio_id: int):
     data = [{"espacio_id": r.espacio_id, "etiqueta": r.etiqueta, "minimo": r.minimo} for r in reqs]
     return JsonResponse({"ok": True, "detalles": data})
 
-# --- KPIs: Situación Académica ---
+
+# Solo Secretaría/Admin
+@login_required
+@user_passes_test(is_sec_or_admin)
+@require_GET
 def get_situacion_academica(request: HttpRequest, insc_id: int):
-    if request.method != "GET":
-        return JsonResponse({"ok": False, "error": "Método no permitido"}, status=405)
     insc = get_object_or_404(EstudianteProfesorado, pk=insc_id)
     data = build_kpis(insc)
     return JsonResponse({"ok": True, "kpis": data})

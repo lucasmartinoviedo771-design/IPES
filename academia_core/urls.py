@@ -1,5 +1,5 @@
+# academia_core/urls.py
 from django.urls import path
-from django.contrib.auth.views import LogoutView
 
 from .views import (
     carton_primaria_por_dni, carton_primaria_pdf, buscar_carton_primaria,
@@ -11,7 +11,7 @@ from .views_panel import (
     panel,
     panel_estudiante,
     panel_estudiante_carton,
-    # APIs (AJAX) — ahora importadas desde views_panel
+    # APIs (AJAX)
     get_espacios_por_inscripcion,
     get_condiciones_por_espacio,
     get_correlatividades,
@@ -33,13 +33,7 @@ from .views_cbv import (
     CalificacionUpdateView, CalificacionDeleteView,
 )
 
-from .views_auth import RoleAwareLoginView
-
 urlpatterns = [
-    # Auth
-    path("accounts/login/", RoleAwareLoginView.as_view(), name="login"),
-    path("accounts/logout/", LogoutView.as_view(next_page="/accounts/login/"), name="logout"),
-
     # Cartones
     path("carton/primaria/", buscar_carton_primaria, name="buscar_carton_primaria"),
     path("carton/primaria/<str:dni>/", carton_primaria_por_dni, name="carton_primaria"),
@@ -47,7 +41,7 @@ urlpatterns = [
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/", carton_por_prof_y_plan, name="carton_generico"),
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
-    # Panel unificado (general)
+    # Panel unificado
     path("panel/", panel, name="panel"),
     path("panel/home/", panel, name="panel_home"),
 
@@ -72,12 +66,6 @@ urlpatterns = [
     path("materias/agregar/", MateriaCreateView.as_view(), name="agregar_materia"),
     path("materias/modificar/<int:pk>/", MateriaUpdateView.as_view(), name="modificar_materia"),
     path("materias/eliminar/<int:pk>/", MateriaDeleteView.as_view(), name="eliminar_materia"),
-
-    # ---- CBVs (Calificaciones) ----
-    path("calificaciones/", CalificacionListView.as_view(), name="listado_calificaciones"),
-    path("calificaciones/agregar/", CalificacionCreateView.as_view(), name="agregar_calificacion"),
-    path("calificaciones/modificar/<int:pk>/", CalificacionUpdateView.as_view(), name="modificar_calificacion"),
-    path("calificaciones/eliminar/<int:pk>/", CalificacionDeleteView.as_view(), name="eliminar_calificacion"),
 
     # ---- APIs para el panel (AJAX) ----
     path("api/espacios-por-inscripcion/<int:insc_id>/", get_espacios_por_inscripcion, name="api_espacios_por_inscripcion"),
