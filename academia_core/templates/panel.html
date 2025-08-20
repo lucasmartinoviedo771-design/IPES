@@ -536,3 +536,27 @@
 <script src="{% static 'academia/panel_hooks.js' %}"></script>
 </body>
 </html>
+
+
+<script>
+(function(){
+  function ensureEstadoOptions(force){
+    const sel = document.querySelector('#form-inscribir [name="estado"], [name="estado"], #id_estado');
+    if(!sel) return;
+    if(!sel.options || sel.options.length === 0){
+      sel.innerHTML = '';
+      sel.add(new Option('En curso','EN_CURSO'));
+      sel.add(new Option('Baja','BAJA'));
+      if(force) sel.value = 'EN_CURSO';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', ()=>ensureEstadoOptions(true));
+  document.addEventListener('change', e=>{
+    if (['inscripcion','espacio','anio_academico'].includes(e.target?.name)){
+      setTimeout(()=>ensureEstadoOptions(false),0);
+    }
+  });
+  new MutationObserver(()=>setTimeout(()=>ensureEstadoOptions(false),50))
+    .observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>

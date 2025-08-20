@@ -13,6 +13,42 @@ function getCsrfFromForm() {
   return el ? el.value : null;
 }
 
+/* ----------------------------- DEFENSA ESTADO ----------------------------- */
+// Defensa: asegurar que el <select name="estado"> tenga opciones
+function ensureEstadoOptions(force) {
+  const form = document.querySelector('#form-inscribir') || document;
+  const sel = form.querySelector('[name="estado"]') || document.getElementById('id_estado');
+  if (!sel) return;
+  const needsFill = !sel.options || sel.options.length === 0;
+  if (needsFill) {
+    sel.innerHTML = '';
+    sel.appendChild(new Option('En curso', 'EN_CURSO'));
+    sel.appendChild(new Option('Baja', 'BAJA'));
+    if (force) sel.value = 'EN_CURSO';
+  }
+}
+
+// Asegurar opciones apenas carga el DOM
+document.addEventListener('DOMContentLoaded', function () {
+  ensureEstadoOptions(true);
+});
+
+// Cuando cambian campos que disparan re-render de secciones (via AJAX/DOM updates)
+document.addEventListener('change', function (e) {
+  const watched = ['inscripcion', 'espacio', 'anio_academico'];
+  if (watched.includes(e.target?.name)) {
+    // esperar un tick para que termine el update del DOM y luego reinyectar si hace falta
+    setTimeout(function () { ensureEstadoOptions(false); }, 0);
+  }
+});
+
+// 3) Si el DOM se actualiza por scripts (fetch/innerHTML/htmx/etc.)
+new MutationObserver(function () {
+  setTimeout(function () { ensureEstadoOptions(false); }, 50);
+}).observe(document.getElementById('form-inscribir') || document.body, { childList: true, subtree: true });
+// --- fin defensa ---
+/* ------------------------------------------------------------------------- */
+
 // Helpers para mostrar/ocultar campos de baja cuando cambia el "estado"
 function toggleBajaFields(stateValue) {
   // Los campos vienen del form Django, así que ocultamos input y su label
@@ -107,3 +143,51 @@ window.guardarInscripcion = async function(urlGuardar) {
     alert('Error al guardar: ' + (err && err.message ? err.message : 'desconocido'));
   }
 };
+
+
+(function(){
+  function ensureEstadoOptions(force){
+    const root = document.getElementById('form-inscribir') || document;
+    const sel = root.querySelector('[name="estado"]') || document.getElementById('id_estado');
+    if (!sel) return;
+    const needsFill = !sel.options || sel.options.length === 0;
+    if (needsFill) {
+      sel.innerHTML = '';
+      sel.add(new Option('En curso','EN_CURSO'));
+      sel.add(new Option('Baja','BAJA'));
+    }
+    if (force && sel.value !== 'EN_CURSO') sel.value = 'EN_CURSO';
+  }
+
+  // 1) al cargar
+  document.addEventListener('DOMContentLoaded', function(){ ensureEstadoOptions(true); });
+
+  // 2) ante CUALQUIER cambio/entrada en el form (captura), por si re-renderiza
+  ['change','input'].forEach(evt => {
+    document.addEventListener(evt, () => setTimeout(() => ensureEstadoOptions(false), 0), true);
+  });
+
+  // 3) si hay reemplazos de DOM (AJAX/innerHTML/templating)
+  const target = document.getElementById('form-inscribir') || document.body;
+  new MutationObserver(() => setTimeout(() => ensureEstadoOptions(false), 0))
+    .observe(target, { childList: true, subtree: true });
+
+  // 4) hooks para fetch/XMLHttpRequest/htmx (si las usás)
+  if (window.fetch) {
+    const _fetch = window.fetch;
+    window.fetch = (...args) => _fetch(...args).then(r => (setTimeout(() => ensureEstadoOptions(false), 0), r));
+  }
+  if (window.XMLHttpRequest) {
+    const _send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(...a){
+      this.addEventListener('loadend', () => setTimeout(() => ensureEstadoOptions(false), 0));
+      return _send.apply(this, a);
+    };
+  }
+  if (window.htmx) {
+    document.body.addEventListener('htmx:afterSwap', () => ensureEstadoOptions(false));
+  }
+
+  // 5) log opcional para depurar
+  // console.debug('ensureEstadoOptions listo');
+})();

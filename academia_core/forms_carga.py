@@ -27,6 +27,8 @@ except Exception:  # noqa: BLE001
     class _EstadoDummy:  # fallback para no romper imports
         EN_CURSO = "EN_CURSO"
         BAJA = "BAJA"
+        # importante: definir choices para que el form pueda mostrarlos (select nunca vacío)
+        choices = (("EN_CURSO", "En curso"), ("BAJA", "Baja"))
 
     EstadoInscripcion = _EstadoDummy  # type: ignore
 
@@ -248,16 +250,22 @@ if InscripcionEspacio and EspacioCurricular:
             # Hasta que elijan "inscripcion", el queryset queda vacío
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
 
-            # Choices e initial para estado (si el enum lo provee)
+            # --- ARREGLO CLAVE: asegurar <select> con opciones e initial SIEMPRE ---
             estado_field = self.fields.get("estado")
-            choices = getattr(EstadoInscripcion, "choices", None)
-            if estado_field and choices is not None:
-                estado_field.choices = choices
-            # Valor por defecto EN_CURSO si existe
-            en_curso = getattr(EstadoInscripcion, "EN_CURSO", None)
-            if estado_field and en_curso is not None and not estado_field.initial:
-                estado_field.initial = en_curso
+            if estado_field:
+                # Forzamos un <select> con id estable para que JS pueda encontrarlo
+                estado_field.widget = forms.Select(attrs={"id": "id_estado"})
+                default_choices = getattr(
+                    EstadoInscripcion,
+                    "choices",
+                    (("EN_CURSO", "En curso"), ("BAJA", "Baja")),
+                )
+                # Copia lista para evitar iterables perezosos raros
+                estado_field.choices = list(default_choices)
+                # initial por defecto (no pisa valores del instance/bound data)
+                estado_field.initial = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
 
+            # Setear queryset de espacio cuando ya conocemos la inscripción seleccionada
             insc_id = None
             if self.is_bound:
                 # admite name="inscripcion" o "inscripcion_id"
@@ -273,6 +281,7 @@ if InscripcionEspacio and EspacioCurricular:
                         .get(pk=insc_id)
                     )
                     if espacios_habilitados_para:
+                        # si tu helper acepta anio, podés pasarlo aquí
                         qs = espacios_habilitados_para(est_prof)
                     else:
                         # fallback: todos los espacios del mismo profesorado
@@ -283,14 +292,33 @@ if InscripcionEspacio and EspacioCurricular:
                 except EstudianteProfesorado.DoesNotExist:
                     pass
 
+        def clean(self):
+            cleaned = super().clean()
+            # Validación defensiva sin asumir que siempre existen campos
+            estado = cleaned.get("estado")
+            BAJA = getattr(EstadoInscripcion, "BAJA", "BAJA")
+            EN_CURSO = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
+
+            # Si el estado es BAJA ⇒ exigir fecha_baja
+            if estado == BAJA and "fecha_baja" in self.fields and not cleaned.get("fecha_baja"):
+                self.add_error("fecha_baja", "Requerido si el estado es Baja.")
+
+            # Si vuelve a EN_CURSO ⇒ limpiar fecha/motivo (si existen)
+            if estado == EN_CURSO:
+                if "fecha_baja" in self.fields:
+                    cleaned["fecha_baja"] = None
+                if "motivo_baja" in self.fields:
+                    cleaned["motivo_baja"] = ""
+            return cleaned
+
         def save(self, commit: bool = True):
             obj = super().save(commit=False)
 
-            # Si marcan BAJA y no hay fecha_baja → hoy
+            # Si marcan BAJA y no hay fecha_baja → hoy (además de la validación en clean)
             if obj.estado == getattr(EstadoInscripcion, "BAJA", "BAJA") and getattr(obj, "fecha_baja", None) is None:
                 obj.fecha_baja = timezone.now().date()
 
-            # Si vuelve a EN_CURSO y tenía fecha_baja → limpiar
+            # Si vuelve a EN_CURSO y tenía fecha_baja → limpiar también en instancia
             if obj.estado == getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO") and getattr(obj, "fecha_baja", None):
                 obj.fecha_baja = None
                 # opcional: limpiar motivo_baja al volver a EN_CURSO
