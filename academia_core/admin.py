@@ -1,3 +1,4 @@
+# academia_core/admin.py
 from datetime import date
 
 from django.contrib import admin
@@ -6,8 +7,8 @@ from django.db.models import Count, Q
 
 from .models import (
     Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
-    EspacioCurricular, Movimiento, InscripcionEspacio,   # ← agregado InscripcionEspacio
-    Docente, DocenteEspacio, UserProfile,
+    EspacioCurricular, Movimiento, InscripcionEspacio,
+    Docente, DocenteEspacio, UserProfile, EstadoInscripcion,
 )
 
 # ===================== Helpers de rol/alcance =====================
@@ -275,6 +276,11 @@ class EPAdmin(admin.ModelAdmin):
 
 # ===================== Cursadas (Inscripción a espacios) =====================
 
+@admin.action(description="Dar de baja cursadas seleccionadas (hoy)")
+def accion_marcar_baja(modeladmin, request, queryset):
+    updated = queryset.update(estado=EstadoInscripcion.BAJA, fecha_baja=date.today())
+    modeladmin.message_user(request, f"{updated} cursadas marcadas como BAJA")
+
 @admin.register(InscripcionEspacio)
 class InscripcionEspacioAdmin(admin.ModelAdmin):
     list_display = ("estudiante", "profesorado", "espacio", "anio_academico", "estado", "fecha")
@@ -285,6 +291,7 @@ class InscripcionEspacioAdmin(admin.ModelAdmin):
     ordering = ("-anio_academico", "-fecha", "-id")
     list_per_page = 50
     list_select_related = ("inscripcion__estudiante", "inscripcion__profesorado", "espacio")
+    actions = ["accion_marcar_baja"]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related(

@@ -653,8 +653,10 @@ class InscripcionEspacio(models.Model):
     estado = models.CharField(
         max_length=10,
         choices=EstadoInscripcion.choices,
-        default=EstadoInscripcion.EN_CURSO
+        default=EstadoInscripcion.EN_CURSO,
     )
+    fecha_baja = models.DateField(null=True, blank=True)
+    motivo_baja = models.TextField(blank=True, default="")  # ← NUEVO
 
     class Meta:
         ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
@@ -662,11 +664,28 @@ class InscripcionEspacio(models.Model):
         indexes = [
             models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
         ]
+        constraints = [
+            # NOTA: según comentaste, en migración 0002 ya existe 'cursada_fecha_baja_si_baja'.
+            # Aquí añadimos la complementaria: si está EN_CURSO, la fecha_baja debe ser NULL.
+            models.CheckConstraint(
+                name="cursada_fecha_null_si_en_curso",
+                check=(~Q(estado=EstadoInscripcion.EN_CURSO) | Q(fecha_baja__isnull=True)),
+            ),
+        ]
 
     def clean(self):
+        # mismo profesorado
         if self.inscripcion and self.espacio and \
            self.inscripcion.profesorado_id != self.espacio.profesorado_id:
             raise ValidationError("El espacio pertenece a otro profesorado.")
+
+        # coherencia estado/fecha_baja (además de la constraint de BD)
+        if self.estado == EstadoInscripcion.BAJA and not self.fecha_baja:
+            raise ValidationError("Debe indicar 'fecha_baja' cuando el estado es Baja.")
+        if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja:
+            raise ValidationError("No debe tener 'fecha_baja' si la cursada está En curso.")
+
+        # correlatividades
         try:
             ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
         except Exception:
@@ -677,7 +696,74 @@ class InscripcionEspacio(models.Model):
 
     def __str__(self):
         return f"{self.inscripcion.estudiante} · {self.espacio.nombre} · {self.anio_academico}"
+    inscripcion = models.ForeignKey(
+        EstudianteProfesorado, on_delete=models.CASCADE, related_name="cursadas"
+    )
+    espacio = models.ForeignKey(
+        EspacioCurricular, on_delete=models.CASCADE, related_name="cursadas"
+    )
+    anio_academico = models.PositiveIntegerField()
+    fecha = models.DateField(default=date.today)
 
+    # ya existente
+    estado = models.CharField(
+        max_length=10,
+        choices=EstadoInscripcion.choices,
+        default=EstadoInscripcion.EN_CURSO
+    )
+
+    # NUEVO 👇
+    fecha_baja = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
+        unique_together = [("inscripcion", "espacio", "anio_academico")]
+        indexes = [
+            models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
+        ]
+        # NUEVO: coherencia entre estado y fecha_baja
+        constraints = [
+            models.CheckConstraint(
+                name="cursada_fecha_baja_si_baja",
+                check=(
+                    (Q(estado=EstadoInscripcion.BAJA) & Q(fecha_baja__isnull=False))
+                    | ~Q(estado=EstadoInscripcion.BAJA)
+                ),
+            ),
+        ]
+
+    def clean(self):
+        # coherencia de profesorado (ya estaba)
+        if self.inscripcion and self.espacio and \
+           self.inscripcion.profesorado_id != self.espacio.profesorado_id:
+            raise ValidationError("El espacio pertenece a otro profesorado.")
+
+        # NUEVO: validaciones de baja
+        if self.estado == EstadoInscripcion.BAJA and not self.fecha_baja:
+            raise ValidationError("Debe indicar 'fecha_baja' cuando el estado es Baja.")
+        if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja:
+            raise ValidationError("No debe tener 'fecha_baja' si la cursada está En curso.")
+
+        # correlatividades (como ya tenías)
+        try:
+            ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
+        except Exception:
+            ok, faltan = True, []
+        if not ok:
+            msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
+            raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
+
+    # OPCIONAL: autocompletar fecha_baja al pasar a BAJA
+    def save(self, *args, **kwargs):
+        if self.estado == EstadoInscripcion.BAJA and self.fecha_baja is None:
+            self.fecha_baja = date.today()
+        if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja is not None:
+            # si vuelve a EN_CURSO, limpiamos la fecha de baja
+            self.fecha_baja = None
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.inscripcion.estudiante} · {self.espacio.nombre} · {self.anio_academico}"
 
 # ===================== Signals =====================
 

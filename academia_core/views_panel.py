@@ -469,6 +469,133 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
 @login_required
 @require_GET
 def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
+    # Buscar inscripción seleccionada
+    try:
+        insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
+    except EstudianteProfesorado.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
+
+    # Bloqueo para finales si el alumno es condicional (sigue igual)
+    mode = (request.GET.get("mode") or "").strip().lower()
+    if mode in {"final", "finales"} and getattr(insc, "condicion_admin", "") == CondicionAdmin.CONDICIONAL:
+        return JsonResponse({
+            "ok": True,
+            "items": [],
+            "cond_opts": [],
+            "reason": "Estudiante condicional: no puede inscribirse a finales.",
+        })
+
+    # Año académico opcional para el filtrado de "ya inscriptos"
+    anio = request.GET.get("anio")
+
+    # Base: todos los espacios del profesorado
+    qs = (
+        EspacioCurricular.objects
+        .filter(profesorado=insc.profesorado)
+        .order_by("anio", "cuatrimestre", "nombre")
+    )
+
+    # ----------------------------------------------------------------------
+    # Excluir ya inscriptos (solo del año pedido si viene ?anio=YYYY)
+    ya = InscripcionEspacio.objects.filter(inscripcion=insc)
+    if anio and str(anio).isdigit():
+        ya = ya.filter(anio_academico=int(anio))
+    ya_ids = list(ya.values_list("espacio_id", flat=True))
+    if ya_ids:
+        qs = qs.exclude(pk__in=ya_ids)
+
+    # ----------------------------------------------------------------------
+    # Excluir aprobados (según el esquema de InscripcionFinal disponible)
+    fin_fields = {f.name for f in InscripcionFinal._meta.get_fields()}
+    aprobados_ids = set()
+
+    if "inscripcion_cursada" in fin_fields:
+        base_fin = InscripcionFinal.objects.filter(
+            inscripcion_cursada__inscripcion__estudiante=insc.estudiante,
+            inscripcion_cursada__espacio__profesorado=insc.profesorado,
+        )
+        aprobados_ids.update(
+            base_fin.filter(estado="APROBADO")
+            .values_list("inscripcion_cursada__espacio_id", flat=True)
+        )
+        aprobados_ids.update(
+            base_fin.filter(nota_final__gte=6)
+            .values_list("inscripcion_cursada__espacio_id", flat=True)
+        )
+    elif "inscripcion" in fin_fields and "espacio" in fin_fields:
+        base_fin = InscripcionFinal.objects.filter(
+            inscripcion__estudiante=insc.estudiante,
+            espacio__profesorado=insc.profesorado,
+        )
+        aprobados_ids.update(
+            base_fin.filter(estado="APROBADO").values_list("espacio_id", flat=True)
+        )
+        aprobados_ids.update(
+            base_fin.filter(nota_final__gte=6).values_list("espacio_id", flat=True)
+        )
+    elif "inscripcion_espacio" in fin_fields:
+        base_fin = InscripcionFinal.objects.filter(
+            inscripcion_espacio__inscripcion__estudiante=insc.estudiante,
+            inscripcion_espacio__espacio__profesorado=insc.profesorado,
+        )
+        aprobados_ids.update(
+            base_fin.filter(estado="APROBADO")
+            .values_list("inscripcion_espacio__espacio_id", flat=True)
+        )
+        aprobados_ids.update(
+            base_fin.filter(nota_final__gte=6)
+            .values_list("inscripcion_espacio__espacio_id", flat=True)
+        )
+    elif "insc_espacio" in fin_fields:
+        base_fin = InscripcionFinal.objects.filter(
+            insc_espacio__inscripcion__estudiante=insc.estudiante,
+            insc_espacio__espacio__profesorado=insc.profesorado,
+        )
+        aprobados_ids.update(
+            base_fin.filter(estado="APROBADO")
+            .values_list("insc_espacio__espacio_id", flat=True)
+        )
+        aprobados_ids.update(
+            base_fin.filter(nota_final__gte=6)
+            .values_list("insc_espacio__espacio_id", flat=True)
+        )
+
+    if aprobados_ids:
+        qs = qs.exclude(pk__in=aprobados_ids)
+
+    # ----------------------------------------------------------------------
+    # Correlatividades (si corresponde hacer cumplir)
+    try:
+        from .correlativas import evaluar_correlatividades, should_enforce
+        enforce = bool(should_enforce())
+    except Exception:
+        evaluar_correlatividades = None  # type: ignore
+        enforce = False
+
+    if enforce and evaluar_correlatividades:
+        permitidos_ids = []
+        for e in qs:
+            try:
+                ok, _detalles = evaluar_correlatividades(insc, e)
+            except Exception:
+                ok = True
+            if ok:
+                permitidos_ids.append(e.id)
+        qs = qs.filter(id__in=permitidos_ids)
+
+    # ----------------------------------------------------------------------
+    # Opciones de condición por espacio (si el helper está disponible)
+    try:
+        from .condiciones import _choices_condicion_para_espacio
+        def _cond_opts_para(e):
+            return [v for (v, _l) in _choices_condicion_para_espacio(e)]
+    except Exception:
+        def _cond_opts_para(e):  # noqa: E306
+            return []
+
+    items = [{"id": e.id, "nombre": _espacio_label(e), "cond_opts": _cond_opts_para(e)} for e in qs]
+    default = _cond_opts_para(qs.first()) if qs.exists() else []
+    return JsonResponse({"ok": True, "items": items, "cond_opts": default})
     try:
         insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
     except EstudianteProfesorado.DoesNotExist:

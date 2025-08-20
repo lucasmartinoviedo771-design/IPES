@@ -1,6 +1,8 @@
+# academia_core/forms_carga.py
 from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from .models import EstudianteProfesorado
 
@@ -11,10 +13,29 @@ except Exception:  # noqa: BLE001
     Estudiante = None  # type: ignore
 
 try:  # pragma: no cover
-    from .models import InscripcionEspacio, Movimiento  # modelos del resto del flujo
+    from .models import (
+        InscripcionEspacio,
+        Movimiento,               # modelos del resto del flujo
+        EspacioCurricular,
+        EstadoInscripcion,        # choices del estado de cursada
+    )
 except Exception:  # noqa: BLE001
     InscripcionEspacio = None  # type: ignore
     Movimiento = None  # type: ignore
+    EspacioCurricular = None  # type: ignore
+
+    class _EstadoDummy:  # fallback para no romper imports
+        EN_CURSO = "EN_CURSO"
+        BAJA = "BAJA"
+
+    EstadoInscripcion = _EstadoDummy  # type: ignore
+
+
+# Helper opcional para filtrar espacios; si no existe, hacemos fallback
+try:  # pragma: no cover
+    from academia_core.utils_inscripciones import espacios_habilitados_para
+except Exception:  # noqa: BLE001
+    espacios_habilitados_para = None  # type: ignore
 
 
 # -----------------------------------------------------------------------------
@@ -41,7 +62,6 @@ if Estudiante:
                 "activo",
                 "foto",
             ]
-
             widgets = {
                 "fecha_nacimiento": forms.DateInput(attrs={"type": "date"}),
                 "contacto_emergencia_parentesco": forms.TextInput(
@@ -57,6 +77,9 @@ else:
         nombre = forms.CharField()
 
 
+# -----------------------------------------------------------------------------
+# Inscripción a Profesorado (calcula legajo_estado y condicion_admin)
+# -----------------------------------------------------------------------------
 class InscripcionProfesoradoForm(forms.ModelForm):
     """
     Calcula y guarda:
@@ -78,9 +101,9 @@ class InscripcionProfesoradoForm(forms.ModelForm):
             "doc_fotos_carnet",
             "doc_folios_oficio",
             # Títulos
-            "doc_titulo_sec_legalizado",  # carreras comunes
+            "doc_titulo_sec_legalizado",        # carreras comunes
             "doc_titulo_terciario_legalizado",  # Certificación Docente
-            "doc_incumbencias",  # Certificación Docente
+            "doc_incumbencias",                 # Certificación Docente
             # Estados extra
             "titulo_en_tramite",
             "adeuda_materias",
@@ -203,18 +226,80 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
 
 # -----------------------------------------------------------------------------
+# Inscripción a Espacio (cursada por año): ModelForm con filtro de Espacio + Estado
+# -----------------------------------------------------------------------------
+if InscripcionEspacio and EspacioCurricular:
+
+    class InscripcionEspacioForm(forms.ModelForm):
+        class Meta:
+            model = InscripcionEspacio
+            fields = ["inscripcion", "anio_academico", "espacio", "estado"]
+            widgets = {
+                "anio_academico": forms.TextInput(attrs={"placeholder": "2025"}),
+            }
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            # Hasta que elijan "inscripcion", el queryset queda vacío
+            self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+
+            insc_id = None
+            if self.is_bound:
+                # admite name="inscripcion" o "inscripcion_id"
+                insc_id = self.data.get("inscripcion") or self.data.get("inscripcion_id")
+            elif self.instance and getattr(self.instance, "pk", None):
+                insc_id = self.instance.inscripcion_id
+
+            if insc_id:
+                try:
+                    est_prof = (
+                        EstudianteProfesorado.objects
+                        .select_related("profesorado")
+                        .get(pk=insc_id)
+                    )
+                    if espacios_habilitados_para:
+                        qs = espacios_habilitados_para(est_prof)
+                    else:
+                        # fallback: todos los espacios del mismo profesorado
+                        qs = EspacioCurricular.objects.filter(
+                            profesorado=est_prof.profesorado
+                        )
+                    self.fields["espacio"].queryset = qs
+                except EstudianteProfesorado.DoesNotExist:
+                    pass
+
+        def save(self, commit: bool = True):
+            obj = super().save(commit=False)
+
+            # Si marcan BAJA y no hay fecha_baja → hoy
+            if obj.estado == EstadoInscripcion.BAJA and getattr(obj, "fecha_baja", None) is None:
+                obj.fecha_baja = timezone.now().date()
+
+            # Si vuelve a EN_CURSO y tenía fecha_baja → limpiar
+            if obj.estado == EstadoInscripcion.EN_CURSO and getattr(obj, "fecha_baja", None):
+                obj.fecha_baja = None
+
+            if commit:
+                obj.save()
+            return obj
+
+else:
+    # (solo si los modelos no existieran, para no romper imports)
+    class InscripcionEspacioForm(forms.Form):  # type: ignore[misc]
+        inscripcion = forms.IntegerField(required=False)
+        anio_academico = forms.CharField(required=False)
+        espacio = forms.CharField(required=False)
+        estado = forms.CharField(required=False)
+
+        def save(self, commit: bool = True):
+            return None
+
+
+# -----------------------------------------------------------------------------
 # Placeholders (para que las importaciones de las vistas no rompan)
 # Se reemplazarán por ModelForms reales cuando abordemos cada flujo.
 # -----------------------------------------------------------------------------
-class InscripcionEspacioForm(forms.Form):
-    inscripcion = forms.IntegerField(required=False)
-    anio_academico = forms.CharField(required=False)
-    espacio = forms.CharField(required=False)
-
-    def save(self, commit: bool = True):
-        return None
-
-
 class CargarCursadaForm(forms.Form):
     inscripcion = forms.IntegerField(required=False)
     espacio = forms.CharField(required=False)
