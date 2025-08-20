@@ -16,6 +16,8 @@ from .views_panel import (
     get_condiciones_por_espacio,
     get_correlatividades,
     get_situacion_academica,
+    # NUEVO
+    guardar_inscripcion_espacio,
 )
 
 from .views_cbv import (
@@ -72,4 +74,7 @@ urlpatterns = [
     path("api/condiciones-por-espacio/<int:espacio_id>/", get_condiciones_por_espacio, name="get_condiciones_por_espacio"),
     path("api/correlatividades/<int:espacio_id>/", get_correlatividades, name="api_correlatividades"),
     path("api/situacion-academica/<int:insc_id>/", get_situacion_academica, name="api_situacion_academica"),
+
+    # ---- Guardar inscripcion a espacio (POST) ----
+    path("panel/guardar-inscripcion-espacio/", guardar_inscripcion_espacio, name="guardar_inscripcion_espacio"),
 ]

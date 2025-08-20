@@ -205,7 +205,7 @@
         {% if bloquear_guardar %}
           <p class="muted">No tenés permisos de edición para esta acción.</p>
         {% else %}
-          <form method="post" enctype="multipart/form-data" action="?action={{ action }}">
+          <form method="post" enctype="multipart/form-data" action="?action={{ action }}" id="form-inscribir">
             {% csrf_token %}
             <input type="hidden" name="action" value="{{ action }}">
 
@@ -340,7 +340,13 @@
 
             {% endif %}
 
-            <div class="submit"><button type="submit" name="save" value="1">Guardar</button></div>
+            <div class="submit">
+  {% if action == "insc_esp" %}
+    <button type="button" onclick="guardarInscripcion('{% url 'guardar_inscripcion_espacio' %}')">Guardar</button>
+  {% else %}
+    <button type="submit" name="save" value="1">Guardar</button>
+  {% endif %}
+</div>
           </form>
         {% endif %}
       {% endif %}
@@ -525,6 +531,8 @@
 })();
 </script>
 
+{% load static %}
+<script src="{% static 'js/panel.js' %}"></script>
 <script src="{% static 'academia/panel_hooks.js' %}"></script>
 </body>
 </html>

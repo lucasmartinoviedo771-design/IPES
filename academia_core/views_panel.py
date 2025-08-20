@@ -12,7 +12,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.utils.http import urlencode
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 try:
     from .label_utils import espacio_etiqueta as _espacio_label_from_utils
@@ -27,6 +27,7 @@ from .models import (
     InscripcionEspacio,
     InscripcionFinal,
     CondicionAdmin,
+    EstadoInscripcion,   # <- agregado para el endpoint de guardado
 )
 from .forms_carga import (
     EstudianteForm,
@@ -628,6 +629,7 @@ def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
     default = _cond_opts_para(qs.first()) if qs.exists() else []
     return JsonResponse({"ok": True, "items": items, "cond_opts": default})
 
+
 @login_required
 @require_GET
 def get_condiciones_por_espacio(request: HttpRequest, espacio_id: int):
@@ -677,6 +679,59 @@ def get_correlatividades(request: HttpRequest, espacio_id: int):
     reqs = obtener_requisitos_para(espacio)
     data = [{"espacio_id": r.espacio_id, "etiqueta": r.etiqueta, "minimo": r.minimo} for r in reqs]
     return JsonResponse({"ok": True, "detalles": data})
+
+
+# ---------------------- Guardar Inscripción a Espacio (POST) ----------------------
+
+@login_required
+@require_POST
+def guardar_inscripcion_espacio(request: HttpRequest):
+    """
+    Endpoint de guardado único desde el panel para alta/actualización de InscripcionEspacio.
+    Respeta las reglas de baja/alta:
+      - Si estado = BAJA y no viene fecha_baja, setea hoy.
+      - Si estado != BAJA, limpia fecha_baja y motivo_baja.
+    """
+    try:
+        insc_id = int(request.POST.get("inscripcion"))
+        espacio_id = int(request.POST.get("espacio"))
+        anio = int(request.POST.get("anio_academico"))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "errors": {"__all__": ["Parámetros inválidos"]}}, status=400)
+
+    insc = get_object_or_404(EstudianteProfesorado, pk=insc_id)
+    espacio = get_object_or_404(EspacioCurricular, pk=espacio_id, profesorado=insc.profesorado)
+
+    obj, created = InscripcionEspacio.objects.get_or_create(
+        inscripcion=insc,
+        espacio=espacio,
+        anio_academico=anio,
+        defaults={"fecha": date.today()},
+    )
+
+    form = InscripcionEspacioForm(request.POST, instance=obj)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+    inst = form.save(commit=False)
+
+    # Reglas de baja / alta
+    if inst.estado == EstadoInscripcion.BAJA:
+        if not getattr(inst, "fecha_baja", None):
+            inst.fecha_baja = date.today()
+    else:
+        inst.fecha_baja = None
+        if hasattr(inst, "motivo_baja"):
+            inst.motivo_baja = ""
+
+    inst.save()
+
+    # (Opcional P1) Log de estado
+    # InscripcionEspacioEstadoLog.objects.create(
+    #     insc_espacio=inst, estado=inst.estado, usuario=request.user
+    # )
+
+    return JsonResponse({"ok": True, "created": created, "estado": inst.estado})
 
 
 # Solo Secretaría/Admin

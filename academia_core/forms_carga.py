@@ -233,16 +233,30 @@ if InscripcionEspacio and EspacioCurricular:
     class InscripcionEspacioForm(forms.ModelForm):
         class Meta:
             model = InscripcionEspacio
-            fields = ["inscripcion", "anio_academico", "espacio", "estado"]
-            widgets = {
-                "anio_academico": forms.TextInput(attrs={"placeholder": "2025"}),
-            }
+            fields = (
+                "inscripcion",
+                "anio_academico",
+                "espacio",
+                "estado",
+                "fecha_baja",
+                "motivo_baja",
+            )
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
             # Hasta que elijan "inscripcion", el queryset queda vacío
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
+
+            # Choices e initial para estado (si el enum lo provee)
+            estado_field = self.fields.get("estado")
+            choices = getattr(EstadoInscripcion, "choices", None)
+            if estado_field and choices is not None:
+                estado_field.choices = choices
+            # Valor por defecto EN_CURSO si existe
+            en_curso = getattr(EstadoInscripcion, "EN_CURSO", None)
+            if estado_field and en_curso is not None and not estado_field.initial:
+                estado_field.initial = en_curso
 
             insc_id = None
             if self.is_bound:
@@ -273,27 +287,22 @@ if InscripcionEspacio and EspacioCurricular:
             obj = super().save(commit=False)
 
             # Si marcan BAJA y no hay fecha_baja → hoy
-            if obj.estado == EstadoInscripcion.BAJA and getattr(obj, "fecha_baja", None) is None:
+            if obj.estado == getattr(EstadoInscripcion, "BAJA", "BAJA") and getattr(obj, "fecha_baja", None) is None:
                 obj.fecha_baja = timezone.now().date()
 
             # Si vuelve a EN_CURSO y tenía fecha_baja → limpiar
-            if obj.estado == EstadoInscripcion.EN_CURSO and getattr(obj, "fecha_baja", None):
+            if obj.estado == getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO") and getattr(obj, "fecha_baja", None):
                 obj.fecha_baja = None
+                # opcional: limpiar motivo_baja al volver a EN_CURSO
+                if hasattr(obj, "motivo_baja"):
+                    try:
+                        obj.motivo_baja = ""
+                    except Exception:
+                        pass
 
             if commit:
                 obj.save()
             return obj
-
-else:
-    # (solo si los modelos no existieran, para no romper imports)
-    class InscripcionEspacioForm(forms.Form):  # type: ignore[misc]
-        inscripcion = forms.IntegerField(required=False)
-        anio_academico = forms.CharField(required=False)
-        espacio = forms.CharField(required=False)
-        estado = forms.CharField(required=False)
-
-        def save(self, commit: bool = True):
-            return None
 
 
 # -----------------------------------------------------------------------------
@@ -372,3 +381,20 @@ class InscripcionFinalForm(forms.Form):
     def save(self, commit: bool = True):
         # No hace nada aún; se implementará cuando armemos el flujo real.
         return None
+
+
+# -----------------------------------------------------------------------------
+# Fallback “blindado” para InscripcionEspacioForm:
+# solo define el placeholder si NO existe la ModelForm anterior.
+# -----------------------------------------------------------------------------
+if "InscripcionEspacioForm" not in globals():
+    class InscripcionEspacioForm(forms.Form):  # type: ignore[misc]
+        inscripcion = forms.IntegerField(required=False)
+        anio_academico = forms.CharField(required=False)
+        espacio = forms.CharField(required=False)
+        estado = forms.CharField(required=False)
+        fecha_baja = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+        motivo_baja = forms.CharField(required=False)
+
+        def save(self, commit: bool = True):
+            return None
