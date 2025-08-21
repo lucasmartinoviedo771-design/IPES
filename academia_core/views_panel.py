@@ -3,17 +3,26 @@ from __future__ import annotations
 import re
 from statistics import mean
 from typing import Any, Dict, List, Optional
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import FieldError
+
+try:
+    from .correlativas import evaluar_correlatividades
+except Exception:
+    evaluar_correlatividades = None
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone  # <<< agregado para initial de anio_academico
+from django.db.models import Q
+from django.core.exceptions import FieldError
+
 
 try:
     from .label_utils import espacio_etiqueta as _espacio_label_from_utils
@@ -29,59 +38,17 @@ from .models import (
     InscripcionFinal,
     CondicionAdmin,
     EstadoInscripcion,   # <- agregado para el endpoint de guardado
+    Movimiento,  # <-- usado para aprobadas/regularidad
 )
 from .forms_carga import (
     EstudianteForm,
     InscripcionProfesoradoForm,
     InscripcionEspacioForm,
-    InscripcionFinalForm,
-    CargarCursadaForm,
-    CargarNotaFinalForm,
-    CargarResultadoFinalForm,
+    MovimientoForm,
 )
-from .kpis import build_kpis
+from .utils import get, coalesce, year_now
 
-
-# ============================ Helpers comunes ============================
-
-def _make_form(FormClass, request: HttpRequest, data=None, files=None, initial=None):
-    try:
-        return FormClass(data, files, request=request, user=getattr(request, "user", None), initial=initial)
-    except TypeError:
-        try:
-            return FormClass(data, files, initial=initial)
-        except TypeError:
-            try:
-                return FormClass(data, files)
-            except TypeError:
-                return FormClass()
-
-def _role_for(user) -> str:
-    if not getattr(user, "is_authenticated", False):
-        return "Invitado"
-    if hasattr(user, "rol") and user.rol:
-        return str(user.rol)
-    if getattr(user, "is_superuser", False):
-        return "Administrador"
-    if getattr(user, "is_staff", False):
-        return "Staff"
-    try:
-        if user.groups.filter(name__iexact="Docente").exists():
-            return "Docente"
-        if user.groups.filter(name__iexact="Estudiante").exists():
-            return "Estudiante"
-    except Exception:
-        pass
-    return "Usuario"
-
-def _base_context(request: HttpRequest) -> Dict[str, Any]:
-    user = getattr(request, "user", None)
-    can_admin = bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
-    try:
-        profesorados = list(Profesorado.objects.all().order_by("nombre"))
-    except Exception:
-        profesorados = []
-    return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
+# ============================ Helpers de formato ============================
 
 def _fmt_date(d):
     try:
@@ -89,22 +56,29 @@ def _fmt_date(d):
             return d.strftime("%d/%m/%Y")
     except Exception:
         pass
-    return "—" if not d else str(d)
+    return str(d)
 
 def _ord(n):
+    if not n:
+        return ""
     try:
-        return f"{int(n)}º"
+        n = int(n)
     except Exception:
         return ""
+    return f"{n}º Año"
 
-def _cuatri_label(val):
-    if val in (None, "", 0, "0"):
-        return "A"
-    s = str(val).strip()
-    if s.lower() in ("anual", "a"):
-        return "A"
-    m = re.search(r"\d+", s)
-    return f"{m.group(0)}º C" if m else s
+def _cuatri_label(x):
+    if x in (None, "", 0):
+        return ""
+    try:
+        x = int(x)
+    except Exception:
+        s = str(x).upper().strip()
+        if s in ("ANUAL", "A"):
+            return "Anual"
+        m = re.search(r"\d+", s)
+        return f"{m.group(0)}º C" if m else s
+    return "Anual" if x == 0 else f"{x}º C"
 
 def _espacio_label(e: EspacioCurricular) -> str:
     if _espacio_label_from_utils:
@@ -131,336 +105,120 @@ def _safe_order(qs, *candidates):
 def is_sec_or_admin(u):
     return (
         getattr(u, "is_authenticated", False)
-        and (u.is_staff or u.is_superuser or u.groups.filter(name__in=["SECRETARIA", "ADMIN"]).exists())
+        and (getattr(u, "is_staff", False) or getattr(u, "is_superuser", False))
     )
 
+def _role_for(user) -> str:
+    if not getattr(user, "is_authenticated", False):
+        return "Invitado"
+    if getattr(user, "is_superuser", False):
+        return "Admin"
+    if getattr(user, "is_staff", False):
+        return "Secretaría"
+    return "Docente/Estudiante"
 
-# =================== Mapas y acciones del panel principal ==================
+def _base_context(request: HttpRequest) -> Dict[str, Any]:
+    user = getattr(request, "user", None)
+    can_admin = bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+    try:
+        profesorados = list(Profesorado.objects.all().order_by("nombre"))
+    except Exception:
+        profesorados = []
+    return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
 
-FORMS_MAP: Dict[str, Any] = {
-    "add_est": EstudianteForm,
-    "insc_prof": InscripcionProfesoradoForm,
-    "insc_esp": InscripcionEspacioForm,
-    "insc_final": InscripcionFinalForm,
-    "cargar_cursada": CargarCursadaForm,
-    "cargar_nota_final": CargarNotaFinalForm,
-    "cargar_final_resultado": CargarResultadoFinalForm,
-}
-
-ACTION_COPY: Dict[str, List[str]] = {
-    "insc_esp": ["inscripcion", "anio_academico"],
-    "cargar_cursada": ["inscripcion", "anio_academico"],
-    "cargar_nota_final": [],
-    "cargar_final_resultado": [],
-    "insc_final": [],
-}
-
-
-# =============================== Vistas HTML ===============================
+# ============================== Vistas HTML ================================
 
 @login_required
-def panel(request: HttpRequest) -> HttpResponse:
-    # >>> CAMBIO CLAVE: también lee 'action' del POST
-    action = (request.GET.get("action") or request.POST.get("action") or "section_est")
-    FormClass = FORMS_MAP.get(action)
-    context: Dict[str, Any] = {"action": action, "FormClass": FormClass}
-    context.update(_base_context(request))
-
-    TITLES = {
-        "add_est": ("Alta estudiante", ""),
-        "insc_prof": ("Inscribir a carrera", ""),
-        "insc_esp": ("Inscribir a materia", ""),
-        "insc_final": ("Inscribir a final", ""),
-        "cargar_cursada": ("Cargar cursada", ""),
-        "cargar_nota_final": ("Cargar nota de final", ""),
-        "cargar_final_resultado": ("Registrar resultado final", ""),
-    }
-    if action in TITLES:
-        context["action_title"], context["action_subtitle"] = TITLES[action]
-
-    if request.method == "GET":
-        if FormClass:
-            # Copiamos params permitidos para cada acción
-            initial = {k: request.GET.get(k) for k in ACTION_COPY.get(action, []) if request.GET.get(k)}
-            # >>> NUEVO: defaults visibles para Inscripción a Espacio
-            if action == "insc_esp":
-                initial = dict(initial or {})
-                # estado por defecto
-                initial.setdefault("estado", getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO"))
-                # año académico por defecto
-                try:
-                    initial.setdefault("anio_academico", timezone.now().year)
-                except Exception:
-                    initial.setdefault("anio_academico", datetime.now().year)
-            context["form"] = _make_form(FormClass, request, initial=initial or None)
-        return render(request, "panel.html", context)
-
-    if FormClass and request.method == "POST":
-        form = _make_form(FormClass, request, request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Guardado correctamente.")
-            params = {"action": action}
-            for key in ACTION_COPY.get(action, []):
-                val = form.cleaned_data.get(key)
-                if hasattr(val, "pk"):
-                    params[key] = str(val.pk)
-                elif val not in (None, ""):
-                    params[key] = str(val)
-            return redirect(f"{reverse('panel')}?{urlencode(params)}")
-        context["form"] = form
-        return render(request, "panel.html", context)
-
-    if FormClass:
-        context["form"] = _make_form(FormClass, request)
-    return render(request, "panel.html", context)
-
-
-# =================== Panel estudiante / cartón ===================
-
-def _build_trayectoria_blocks(inscripcion) -> List[dict]:
-    out: List[dict] = []
-    if not inscripcion:
-        return out
-
-    prof = inscripcion.profesorado
-    espacios = (
-        EspacioCurricular.objects
-        .filter(profesorado=prof)
-        .order_by("anio", "cuatrimestre", "nombre")
-    )
-
-    fin_fieldnames = {f.name for f in InscripcionFinal._meta.get_fields()}
-
-    for e in espacios:
-        base_reg = InscripcionEspacio.objects.filter(inscripcion=inscripcion, espacio=e)
-        reg_qs = _safe_order(base_reg, ("fecha", "id"), ("id",))
-        regs = [{
-            "reg_fecha": _fmt_date(getattr(r, "fecha", None)),
-            "reg_cond": getattr(r, "estado", None) or getattr(r, "condicion", None) or "—",
-            "reg_nota": (getattr(r, "nota", None) or getattr(r, "nota_num", None) or getattr(r, "nota_final", None) or "—"),
-        } for r in reg_qs]
-
-        if "inscripcion" in fin_fieldnames:
-            base_fin = InscripcionFinal.objects.filter(
-                inscripcion__inscripcion=inscripcion,
-                inscripcion__espacio=e
-            )
-        elif "inscripcion_espacio" in fin_fieldnames:
-            base_fin = InscripcionFinal.objects.filter(
-                inscripcion_espacio__inscripcion=inscripcion,
-                inscripcion_espacio__espacio=e
-            )
-        elif "insc_espacio" in fin_fieldnames:
-            base_fin = InscripcionFinal.objects.filter(
-                insc_espacio__inscripcion=inscripcion,
-                insc_espacio__espacio=e
-            )
-        else:
-            base_fin = InscripcionFinal.objects.none()
-
-        fin_qs = _safe_order(base_fin, ("fecha_examen", "id"), ("fecha", "id"), ("id",))
-        fins = []
-        for f in fin_qs:
-            fecha_fin = getattr(f, "fecha_examen", None) or getattr(f, "fecha", None)
-            condicion = getattr(f, "condicion", None) or getattr(f, "estado", None)
-            nota_fin = getattr(f, "nota_final", None) or getattr(f, "nota", None) or getattr(f, "nota_num", None)
-            fins.append({
-                "fin_fecha": _fmt_date(fecha_fin),
-                "fin_cond":  condicion or "—",
-                "fin_nota":  nota_fin if nota_fin not in (None, "") else "—",
-                "folio":     getattr(f, "folio", None) or "—",
-                "libro":     getattr(f, "libro", None) or "—",
-            })
-
-        rows = []
-        rows_count = max(len(regs), len(fins), 1)
-        for i in range(rows_count):
-            r = regs[i] if i < len(regs) else {}
-            ff = fins[i] if i < len(fins) else {}
-            rows.append({
-                "reg_fecha": r.get("reg_fecha", "—"),
-                "reg_cond":  r.get("reg_cond", "—"),
-                "reg_nota":  r.get("reg_nota", "—"),
-                "fin_fecha": ff.get("fin_fecha", "—"),
-                "fin_cond":  ff.get("fin_cond", "—"),
-                "fin_nota":  ff.get("fin_nota", "—"),
-                "folio":     ff.get("folio", "—"),
-                "libro":     ff.get("libro", "—"),
-            })
-
-        out.append({
-            "anio": _ord(getattr(e, "anio", None)) if getattr(e, "anio", None) else "",
-            "cuatri": _cuatri_label(getattr(e, "cuatrimestre", None)),
-            "espacio": getattr(e, "nombre", str(e)),
-            "rows": rows,
-        })
-    return out
+def panel_inicio(request: HttpRequest) -> HttpResponse:
+    ctx = _base_context(request)
+    return render(request, "panel_inicio.html", ctx)
 
 @login_required
-def panel_estudiante(request: HttpRequest) -> HttpResponse:
-    user = request.user
-    can_admin = user.is_staff or user.is_superuser
-    active_tab = request.GET.get("tab") or "trayectoria"
-
-    sel_est: Optional[Estudiante] = None
-    sel_prof: Optional[Profesorado] = None
-    opciones_estudiantes: List[dict] = []
-    opciones_profesorados: List[dict] = []
-
-    if can_admin:
-        opciones_estudiantes = [
-            {"id": e.id, "label": f"{e.apellido}, {e.nombre} ({e.dni})"}
-            for e in Estudiante.objects.order_by("apellido", "nombre")
-        ]
-        opciones_profesorados = [{"id": p.id, "label": p.nombre} for p in Profesorado.objects.order_by("nombre")]
-        est_id = request.GET.get("est")
-        prof_id = request.GET.get("prof")
-        if est_id:
-            sel_est = Estudiante.objects.filter(pk=est_id).first()
-        if prof_id:
-            sel_prof = Profesorado.objects.filter(pk=prof_id).first()
-    else:
-        sel_est = getattr(user, "estudiante", None)
-        if sel_est:
-            ep = (EstudianteProfesorado.objects.filter(estudiante=sel_est).select_related("profesorado").first())
-            sel_prof = ep.profesorado if ep else None
-
-    insc = None
-    if sel_est and sel_prof:
-        insc = EstudianteProfesorado.objects.filter(estudiante=sel_est, profesorado=sel_prof).first()
-
-    qs_est_prof = urlencode({"est": sel_est.id, "prof": sel_prof.id}) if (sel_est and sel_prof) else ""
-
-    context = {
-        "rol": _role_for(user),
-        "puede_elegir": can_admin,
-        "opciones_estudiantes": opciones_estudiantes,
-        "opciones_profesorados": opciones_profesorados,
-        "sel_est": sel_est,
-        "sel_prof": sel_prof,
-        "active_tab": active_tab,
-        "logout_url": reverse("logout"),
-        "qs_est_prof": qs_est_prof,
-    }
-
-    if active_tab == "trayectoria":
-        context["bloques_tray"] = _build_trayectoria_blocks(insc)
-
-    return render(request, "panel_estudiante.html", context)
-
-@login_required
-def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
-    est_id  = request.GET.get("est")  or request.GET.get("estudiante") or request.GET.get("est_id")
-    prof_id = request.GET.get("prof") or request.GET.get("profesorado") or request.GET.get("prof_id")
-
-    estudiante  = Estudiante.objects.filter(pk=est_id).first() if est_id else None
-    profesorado = Profesorado.objects.filter(pk=prof_id).first() if prof_id else None
-
-    inscripcion = None
-    if estudiante and profesorado:
-        inscripcion = (
-            EstudianteProfesorado.objects
-            .filter(estudiante=estudiante, profesorado=profesorado)
-            .order_by("id").first()
+def estudiante_list(request: HttpRequest) -> HttpResponse:
+    ctx = _base_context(request)
+    q = request.GET.get("q", "").strip()
+    qs = Estudiante.objects.all()
+    if q:
+        qs = qs.filter(
+            Q(apellidos__icontains=q)
+            | Q(nombres__icontains=q)
+            | Q(dni__icontains=q)
+            | Q(email__icontains=q)
         )
+    qs = _safe_order(qs, ["apellidos", "nombres"])
+    ctx.update({"items": qs, "q": q})
+    return render(request, "estudiante_list.html", ctx)
 
-    plan = getattr(profesorado, "plan_vigente", None)
+@login_required
+def estudiante_edit(request: HttpRequest, pk: Optional[int] = None) -> HttpResponse:
+    ctx = _base_context(request)
+    if pk:
+        est = get_object_or_404(Estudiante, pk=pk)
+    else:
+        est = Estudiante()
 
-    def get(obj, attr, default=""):
-        return getattr(obj, attr, default) if obj else default
+    if request.method == "POST":
+        form = EstudianteForm(request.POST or None, request.FILES or None, instance=est)
+        if form.is_valid():
+            est = form.save()
+            messages.success(request, "Estudiante guardado correctamente.")
+            return redirect(reverse("estudiante_edit", args=[est.pk]))
+        messages.error(request, "Por favor, corrige los errores.")
+    else:
+        form = EstudianteForm(instance=est)
 
-    bloques: List[dict] = []
+    ctx.update({"form": form, "estudiante": est})
+    return render(request, "estudiante_edit.html", ctx)
+
+@login_required
+def profesorados_list(request: HttpRequest) -> HttpResponse:
+    ctx = _base_context(request)
+    qs = Profesorado.objects.all().order_by("nombre")
+    ctx.update({"items": qs})
+    return render(request, "profesorado_list.html", ctx)
+
+@login_required
+def estudiante_panel(request: HttpRequest, insc_id: int) -> HttpResponse:
+    """
+    Cartón del estudiante: vista general con materias por año, correlatividades y promedio.
+    """
+    inscripcion = get_object_or_404(
+        EstudianteProfesorado.objects.select_related("estudiante", "profesorado"),
+        pk=insc_id
+    )
+    estudiante = inscripcion.estudiante
+    profesorado = inscripcion.profesorado
+
+    # datos de plan si los hay (opcionales)
+    try:
+        plan = getattr(profesorado, "plan", None)
+    except Exception:
+        plan = None
+
+    # bloques por año / cuatrimestre
+    try:
+        espacios = EspacioCurricular.objects.filter(profesorado=profesorado)
+    except Exception:
+        espacios = EspacioCurricular.objects.none()
+
+    # ordenar por año/cuatrimestre/nombre de forma robusta
+    espacios = _safe_order(espacios, ["anio", "cuatrimestre", "nombre"], ["nombre"])
+
+    bloques: Dict[str, List[Dict[str, Any]]] = {}
     notas_finales: List[float] = []
 
-    if profesorado:
-        esp_qs = EspacioCurricular.objects.filter(profesorado=profesorado)
-        if hasattr(EspacioCurricular, "plan") and plan:
-            esp_qs = esp_qs.filter(plan=plan)
-        esp_qs = esp_qs.order_by("anio", "cuatrimestre", "nombre")
-
-        fin_fieldnames = {f.name for f in InscripcionFinal._meta.get_fields()}
-
-        for e in esp_qs:
-            reg_list = []
-            if inscripcion:
-                reg_qs = InscripcionEspacio.objects.filter(inscripcion=inscripcion, espacio=e)
-                reg_qs = (
-                    reg_qs.exclude(estado__isnull=True)
-                          .exclude(estado__iexact="EN_CURSO")
-                          .exclude(estado__iexact="EN CURSO")
-                          .exclude(estado__iexact="CURSANDO")
-                          .exclude(estado__iexact="INSCRIPTO")
-                )
-                reg_list = list(_safe_order(reg_qs, ("fecha", "id"), ("id",)))
-
-            if "inscripcion" in fin_fieldnames:
-                qs = InscripcionFinal.objects.filter(inscripcion__espacio=e)
-                if estudiante:
-                    qs = qs.filter(inscripcion__inscripcion__estudiante=estudiante)
-                fin_list = list(_safe_order(qs, ("fecha_examen", "id"), ("fecha", "id"), ("id",)))
-            elif "inscripcion_espacio" in fin_fieldnames:
-                qs = InscripcionFinal.objects.filter(inscripcion_espacio__espacio=e)
-                if estudiante:
-                    qs = qs.filter(inscripcion_espacio__inscripcion__estudiante=estudiante)
-                fin_list = list(_safe_order(qs, ("fecha_examen", "id"), ("fecha", "id"), ("id",)))
-            elif "insc_espacio" in fin_fieldnames:
-                qs = InscripcionFinal.objects.filter(insc_espacio__espacio=e)
-                if estudiante:
-                    qs = qs.filter(insc_espacio__inscripcion__estudiante=estudiante)
-                fin_list = list(_safe_order(qs, ("fecha_examen", "id"), ("fecha", "id"), ("id",)))
-            else:
-                fin_list = []
-
-            max_len = max(len(reg_list), len(fin_list), 1)
-            rows = []
-            for i in range(max_len):
-                reg = reg_list[i] if i < len(reg_list) else None
-                fin = fin_list[i] if i < len(fin_list) else None
-
-                reg_estado = get(reg, "estado", "")
-                reg_nota   = get(reg, "nota", "") or get(reg, "nota_num", "") or get(reg, "nota_final", "")
-
-                fin_fecha  = get(fin, "fecha_examen", "") or get(fin, "fecha", "")
-                fin_estado = get(fin, "estado", "") or get(fin, "condicion", "")
-                fin_nota   = get(fin, "nota_final", "") or get(fin, "nota", "") or get(fin, "nota_num", "")
-
-                def _as_num(x):
-                    if x in (None, "", "Ausente", "Ausente In", "Ausente Ju"):
-                        return None
-                    s = str(x).strip()
-                    m = re.match(r"^\s*(\d+)", s)
-                    if m:
-                        try:
-                            return float(m.group(1).replace(",", "."))
-                        except Exception:
-                            return None
-                    try:
-                        return float(s.replace(",", "."))
-                    except Exception:
-                        return None
-
-                num = _as_num(fin_nota)
-                if num is not None and 0 < num <= 10:
-                    notas_finales.append(num)
-
-                rows.append({
-                    "reg_fecha": _fmt_date(get(reg, "fecha")),
-                    "reg_cond":  reg_estado,
-                    "reg_nota":  reg_nota,
-                    "fin_fecha": _fmt_date(fin_fecha),
-                    "fin_cond":  fin_estado,
-                    "fin_nota":  fin_nota,
-                    "folio":     get(fin, "folio", ""),
-                    "libro":     get(fin, "libro", ""),
-                })
-
-            bloques.append({
-                "anio":    _ord(getattr(e, "anio", None)),
-                "cuatri":  _cuatri_label(getattr(e, "cuatrimestre", None)),
-                "espacio": getattr(e, "nombre", str(e)),
-                "rows":    rows,
-            })
+    for e in espacios:
+        anio = getattr(e, "anio", None)
+        key = str(anio or 0)
+        rows: List[Dict[str, Any]] = bloques.setdefault(key, [])
+        rows.append({
+            "id": e.id,
+            "label": _espacio_label(e),
+            "anio": anio,
+            "cuatri": getattr(e, "cuatrimestre", None),
+            "espacio": getattr(e, "nombre", str(e)),
+            "rows":    rows,
+        })
 
     promedio_db = get(inscripcion, "promedio_general", None)
     promedio_calc = round(mean(notas_finales), 2) if notas_finales else None
@@ -479,189 +237,79 @@ def panel_estudiante_carton(request: HttpRequest) -> HttpResponse:
 
 # =============================== Endpoints JSON ===========================
 
+
 @login_required
 @require_GET
 def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
-    # Buscar inscripción seleccionada
+    """
+    Versión final y definitiva: Devuelve los espacios que un estudiante puede cursar,
+    aplicando todos los filtros de negocio según el reglamento académico.
+    """
     try:
-        insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
+        insc = EstudianteProfesorado.objects.select_related("profesorado", "estudiante").get(pk=insc_id)
+        estudiante = insc.estudiante
     except EstudianteProfesorado.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
 
-    # Bloqueo para finales si el alumno es condicional (sigue igual)
-    mode = (request.GET.get("mode") or "").strip().lower()
-    if mode in {"final", "finales"} and getattr(insc, "condicion_admin", "") == CondicionAdmin.CONDICIONAL:
-        return JsonResponse({
-            "ok": True,
-            "items": [],
-            "cond_opts": [],
-            "reason": "Estudiante condicional: no puede inscribirse a finales.",
-        })
-
-    # Año académico opcional para el filtrado de "ya inscriptos"
-    anio = request.GET.get("anio")
-
-    # Base: todos los espacios del profesorado
-    qs = (
-        EspacioCurricular.objects
-        .filter(profesorado=insc.profesorado)
-        .order_by("anio", "cuatrimestre", "nombre")
-    )
-
-    # ----------------------------------------------------------------------
-    # Excluir ya inscriptos (solo del año pedido si viene ?anio=YYYY)
-    ya = InscripcionEspacio.objects.filter(inscripcion=insc)
-    if anio and str(anio).isdigit():
-        ya = ya.filter(anio_academico=int(anio))
-    ya_ids = list(ya.values_list("espacio_id", flat=True))
-    if ya_ids:
-        qs = qs.exclude(pk__in=ya_ids)
-
-    # ----------------------------------------------------------------------
-    # Excluir aprobados (según el esquema de InscripcionFinal disponible)
-    fin_fields = {f.name for f in InscripcionFinal._meta.get_fields()}
-    aprobados_ids = set()
-
-    if "inscripcion_cursada" in fin_fields:
-        base_fin = InscripcionFinal.objects.filter(
-            inscripcion_cursada__inscripcion__estudiante=insc.estudiante,
-            inscripcion_cursada__espacio__profesorado=insc.profesorado,
-        )
-        aprobados_ids.update(
-            base_fin.filter(estado="APROBADO")
-            .values_list("inscripcion_cursada__espacio_id", flat=True)
-        )
-        aprobados_ids.update(
-            base_fin.filter(nota_final__gte=6)
-            .values_list("inscripcion_cursada__espacio_id", flat=True)
-        )
-    elif "inscripcion" in fin_fields and "espacio" in fin_fields:
-        base_fin = InscripcionFinal.objects.filter(
-            inscripcion__estudiante=insc.estudiante,
-            espacio__profesorado=insc.profesorado,
-        )
-        aprobados_ids.update(
-            base_fin.filter(estado="APROBADO").values_list("espacio_id", flat=True)
-        )
-        aprobados_ids.update(
-            base_fin.filter(nota_final__gte=6).values_list("espacio_id", flat=True)
-        )
-    elif "inscripcion_espacio" in fin_fields:
-        base_fin = InscripcionFinal.objects.filter(
-            inscripcion_espacio__inscripcion__estudiante=insc.estudiante,
-            inscripcion_espacio__espacio__profesorado=insc.profesorado,
-        )
-        aprobados_ids.update(
-            base_fin.filter(estado="APROBADO")
-            .values_list("inscripcion_espacio__espacio_id", flat=True)
-        )
-        aprobados_ids.update(
-            base_fin.filter(nota_final__gte=6)
-            .values_list("inscripcion_espacio__espacio_id", flat=True)
-        )
-    elif "insc_espacio" in fin_fields:
-        base_fin = InscripcionFinal.objects.filter(
-            insc_espacio__inscripcion__estudiante=insc.estudiante,
-            insc_espacio__espacio__profesorado=insc.profesorado,
-        )
-        aprobados_ids.update(
-            base_fin.filter(estado="APROBADO")
-            .values_list("insc_espacio__espacio_id", flat=True)
-        )
-        aprobados_ids.update(
-            base_fin.filter(nota_final__gte=6)
-            .values_list("insc_espacio__espacio_id", flat=True)
-        )
-
-    if aprobados_ids:
-        qs = qs.exclude(pk__in=aprobados_ids)
-
-    # ----------------------------------------------------------------------
-    # Correlatividades (si corresponde hacer cumplir)
-    try:
-        from .correlativas import evaluar_correlatividades, should_enforce
-        enforce = bool(should_enforce())
-    except Exception:
-        evaluar_correlatividades = None  # type: ignore
-        enforce = False
-
-    if enforce and evaluar_correlatividades:
-        permitidos_ids = []
-        for e in qs:
-            try:
-                ok, _detalles = evaluar_correlatividades(insc, e)
-            except Exception:
-                ok = True
-            if ok:
-                permitidos_ids.append(e.id)
-        qs = qs.filter(id__in=permitidos_ids)
-
-    # ----------------------------------------------------------------------
-    # Opciones de condición por espacio (si el helper está disponible)
-    try:
-        from .condiciones import _choices_condicion_para_espacio
-        def _cond_opts_para(e):
-            return [v for (v, _l) in _choices_condicion_para_espacio(e)]
-    except Exception:
-        def _cond_opts_para(e):  # noqa: E306
-            return []
-
-    items = [{"id": e.id, "nombre": _espacio_label(e), "cond_opts": _cond_opts_para(e)} for e in qs]
-    default = _cond_opts_para(qs.first()) if qs.exists() else []
-    return JsonResponse({"ok": True, "items": items, "cond_opts": default})
-    try:
-        insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
-    except EstudianteProfesorado.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
-
-    mode = (request.GET.get("mode") or "").strip().lower()
-    if mode in {"final", "finales"} and getattr(insc, "condicion_admin", "") == CondicionAdmin.CONDICIONAL:
-        return JsonResponse({
-            "ok": True,
-            "items": [],
-            "cond_opts": [],
-            "reason": "Estudiante condicional: no puede inscribirse a finales.",
-        })
-
+    # 1. Búsqueda inicial de todas las materias de la carrera
     qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado).order_by("anio", "cuatrimestre", "nombre")
 
-    ya_ids = list(InscripcionEspacio.objects.filter(inscripcion=insc).values_list("espacio_id", flat=True))
-    if ya_ids:
-        qs = qs.exclude(pk__in=ya_ids)
+    # 2. Filtro: Excluir materias en las que YA se inscribió en el año académico seleccionado
+    anio_academico = request.GET.get("anio_academico")
+    if anio_academico and anio_academico.isdigit():
+        ya_inscripto_ids = InscripcionEspacio.objects.filter(
+            inscripcion=insc,
+            anio_academico=int(anio_academico)
+        ).values_list("espacio_id", flat=True)
+        
+        if ya_inscripto_ids.exists():
+            qs = qs.exclude(pk__in=ya_inscripto_ids)
 
+    # 3. Filtro Definitivo: Excluir materias APROBADAS o con REGULARIDAD VIGENTE
     try:
-        from .condiciones import _choices_condicion_para_espacio
-        def _cond_opts_para(e):
-            return [v for (v, _l) in _choices_condicion_para_espacio(e)]
-    except Exception:
-        def _cond_opts_para(e):
-            return []
+        # A) Materias con APROBACIÓN FINAL (Promoción, Aprobado directo, Final Regular/Libre, Equivalencia)
+        aprobadas_ids = set(Movimiento.objects.filter(
+            Q(inscripcion__estudiante=estudiante, tipo="REG", condicion__codigo__in=["PROMOCION", "APROBADO"]) |
+            Q(inscripcion__estudiante=estudiante, tipo="FIN", nota_num__gte=6) |
+            Q(inscripcion__estudiante=estudiante, condicion__codigo="EQUIVALENCIA")
+        ).values_list("espacio_id", flat=True))
 
-    items = [{"id": e.id, "nombre": _espacio_label(e), "cond_opts": _cond_opts_para(e)} for e in qs]
-    default = _cond_opts_para(qs.first()) if qs.exists() else []
-    return JsonResponse({"ok": True, "items": items, "cond_opts": default})
+        # B) Materias con REGULARIDAD VIGENTE (2 años y 45 días)
+        fecha_limite = timezone.now().date() - timedelta(days=775) # 365*2 + 45
+        regular_vigente_ids = set(Movimiento.objects.filter(
+            inscripcion__estudiante=estudiante,
+            tipo="REG",
+            condicion__codigo="REGULAR",
+            fecha__gte=fecha_limite
+        ).values_list("espacio_id", flat=True))
 
+        # C) Unimos todos los IDs que se deben excluir
+        ids_a_excluir = aprobadas_ids.union(regular_vigente_ids)
+
+        if ids_a_excluir:
+            qs = qs.exclude(pk__in=ids_a_excluir)
+            
+    except (FieldError, NameError):
+        pass
+
+    # 4. Filtro: Aplicar CORRELATIVIDADES
+    if evaluar_correlatividades:
+        espacios_permitidos_ids = [
+            espacio.id for espacio in qs 
+            if evaluar_correlatividades(insc, espacio, tipo="CURSAR")[0]
+        ]
+        qs = qs.filter(pk__in=espacios_permitidos_ids)
+
+    # Respuesta final
+    items = [{"id": e.id, "nombre": _espacio_label(e)} for e in qs]
+    return JsonResponse({"ok": True, "items": items})
 
 @login_required
 @require_GET
-def get_condiciones_por_espacio(request: HttpRequest, espacio_id: int):
-    try:
-        e = EspacioCurricular.objects.get(pk=espacio_id)
-    except EspacioCurricular.DoesNotExist:
-        return JsonResponse({"ok": False, "error": "Espacio no encontrado"}, status=404)
-
-    try:
-        from .condiciones import _choices_condicion_para_espacio
-        choices = _choices_condicion_para_espacio(e)
-        data = [{"value": v, "label": l} for (v, l) in choices]
-        return JsonResponse(data, safe=False)
-    except Exception:
-        return JsonResponse([], safe=False)
-
-@login_required
-@require_GET
-def get_correlatividades(request: HttpRequest, espacio_id: int):
-    insc_id = request.GET.get("insc_id")
+def get_correlatividades(request: HttpRequest, espacio_id: int, insc_id: Optional[int] = None):
+    """
+    Devuelve (según el helper `correlativas`) los requisitos del espacio y si se cumplen.
+    """
     try:
         espacio = EspacioCurricular.objects.get(pk=espacio_id)
     except EspacioCurricular.DoesNotExist:
@@ -686,71 +334,95 @@ def get_correlatividades(request: HttpRequest, espacio_id: int):
             "estado_encontrado": d.get("estado_encontrado"),
             "motivo": d.get("motivo"),
         } for d in detalles]
-        return JsonResponse({"ok": True, "puede_cursar": ok, "detalles": data})
+        return JsonResponse({"ok": True, "puede_cursar": bool(ok), "detalles": data})
 
+    # si no hay insc_id, devolvemos solo los requisitos del espacio
     reqs = obtener_requisitos_para(espacio)
-    data = [{"espacio_id": r.espacio_id, "etiqueta": r.etiqueta, "minimo": r.minimo} for r in reqs]
+    data = [{
+        "espacio_id": r.espacio_id,
+        "etiqueta": r.etiqueta,
+        "minimo": r.minimo,
+    } for r in reqs]
     return JsonResponse({"ok": True, "detalles": data})
 
-
-# ---------------------- Guardar Inscripción a Espacio (POST) ----------------------
+# ---------------------- Endpoints de guardado/altas -----------------------
 
 @login_required
 @require_POST
-def guardar_inscripcion_espacio(request: HttpRequest):
+def crear_inscripcion_cursada(request: HttpRequest, insc_prof_id: int):
     """
-    Endpoint de guardado único desde el panel para alta/actualización de InscripcionEspacio.
-    Respeta las reglas de baja/alta:
-      - Si estado = BAJA y no viene fecha_baja, setea hoy.
-      - Si estado != BAJA, limpia fecha_baja y motivo_baja.
+    Crea una InscripcionEspacio (cursada) de manera segura desde el panel.
     """
-    try:
-        insc_id = int(request.POST.get("inscripcion"))
-        espacio_id = int(request.POST.get("espacio"))
-        anio = int(request.POST.get("anio_academico"))
-    except (TypeError, ValueError):
-        return JsonResponse({"ok": False, "errors": {"__all__": ["Parámetros inválidos"]}}, status=400)
+    insc = get_object_or_404(EstudianteProfesorado.objects.select_related("estudiante", "profesorado"), pk=insc_prof_id)
 
-    insc = get_object_or_404(EstudianteProfesorado, pk=insc_id)
-    espacio = get_object_or_404(EspacioCurricular, pk=espacio_id, profesorado=insc.profesorado)
+    # intentamos inferir año académico si no viene
+    initial = {}
+    anio_in = request.POST.get("anio_academico")
+    if not anio_in:
+        try:
+            initial["anio_academico"] = year_now()
+        except Exception:
+            initial["anio_academico"] = timezone.now().year
 
-    obj, created = InscripcionEspacio.objects.get_or_create(
-        inscripcion=insc,
-        espacio=espacio,
-        anio_academico=anio,
-        defaults={"fecha": date.today()},
-    )
+    # wrapper para construir un form aceptando kwargs extra si corresponde
+    def _build_form(FormClass, data=None, files=None, initial=None):
+        try:
+            return FormClass(data, files, request=request, user=getattr(request, "user", None), initial=initial)
+        except TypeError:
+            try:
+                return FormClass(data, files, initial=initial)
+            except TypeError:
+                try:
+                    return FormClass(data, files)
+                except TypeError:
+                    return FormClass()
 
-    form = InscripcionEspacioForm(request.POST, instance=obj)
+    form = _build_form(InscripcionEspacioForm, request.POST or None, request.FILES or None, initial=initial)
     if not form.is_valid():
         return JsonResponse({"ok": False, "errors": form.errors}, status=400)
 
-    inst = form.save(commit=False)
+    obj: InscripcionEspacio = form.save(commit=False)
+    obj.inscripcion = insc
 
-    # Reglas de baja / alta
-    if inst.estado == EstadoInscripcion.BAJA:
-        if not getattr(inst, "fecha_baja", None):
-            inst.fecha_baja = date.today()
-    else:
-        inst.fecha_baja = None
-        if hasattr(inst, "motivo_baja"):
-            inst.motivo_baja = ""
+    # EstadoInscripcion default si el form no lo define
+    estado_val = form.cleaned_data.get("estado")
+    if not estado_val:
+        try:
+            estado_val = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
+        except Exception:
+            estado_val = "EN_CURSO"
+    obj.estado = estado_val
 
-    inst.save()
+    obj.save()
+    return JsonResponse({"ok": True, "id": obj.pk, "label": _espacio_label(obj.espacio)})
 
-    # (Opcional P1) Log de estado
-    # InscripcionEspacioEstadoLog.objects.create(
-    #     insc_espacio=inst, estado=inst.estado, usuario=request.user
-    # )
-
-    return JsonResponse({"ok": True, "created": created, "estado": inst.estado})
-
-
-# Solo Secretaría/Admin
 @login_required
-@user_passes_test(is_sec_or_admin)
-@require_GET
-def get_situacion_academica(request: HttpRequest, insc_id: int):
+@require_POST
+def crear_movimiento(request: HttpRequest, insc_cursada_id: int):
+    """
+    Crea un Movimiento (REG/FIN) asociado a una InscripcionEspacio.
+    """
+    cursada = get_object_or_404(InscripcionEspacio.objects.select_related("inscripcion", "espacio"), pk=insc_cursada_id)
+    form = MovimientoForm(request.POST or None, request.FILES or None)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+
+    mv: Movimiento = form.save(commit=False)
+    mv.inscripcion = cursada.inscripcion
+    mv.espacio = cursada.espacio
+    mv.save()
+    return JsonResponse({"ok": True, "id": mv.pk})
+
+# --------------------------- Utilitarios simples --------------------------
+
+@login_required
+def redir_estudiante(request: HttpRequest, est_id: int) -> HttpResponse:
+    est = get_object_or_404(Estudiante, pk=est_id)
+    return redirect(reverse("estudiante_edit", args=[est.pk]))
+
+@login_required
+def redir_inscripcion(request: HttpRequest, insc_id: int) -> HttpResponse:
     insc = get_object_or_404(EstudianteProfesorado, pk=insc_id)
-    data = build_kpis(insc)
-    return JsonResponse({"ok": True, "kpis": data})
+    return redirect(reverse("estudiante_panel", args=[insc.pk]))
+
+# =============================== FIN DEL ARCHIVO ==========================

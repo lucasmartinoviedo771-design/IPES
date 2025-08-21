@@ -72,6 +72,7 @@
       const espacioSel = document.getElementById('id_espacio')      || document.querySelector('select[name="espacio"]');
 
       async function loadEspacios(inscId) {
+		console.log("-> Se llamó a loadEspacios con el ID:", inscId);
         // Limpia y deja solo la opción vacía
         if (!espacioSel) return;
         espacioSel.innerHTML = '<option value="">---------</option>';
@@ -83,15 +84,15 @@
         if (!baseUrl) return;
 
         try {
-          const url = `${baseUrl}?inscripcion=${encodeURIComponent(inscId)}`;
+          const url = baseUrl.replace('0', inscId);
           const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
           if (!res.ok) return;
           const data = await res.json(); // Espera: [{id, label}, ...]
 
-          for (const item of data) {
+          for (const item of data.items) {
             const opt = document.createElement('option');
             opt.value = item.id;
-            opt.textContent = item.label;
+            opt.textContent = item.nombre;
             espacioSel.appendChild(opt);
           }
         } catch (e) {
