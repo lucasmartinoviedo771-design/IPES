@@ -1,29 +1,28 @@
 # academia_core/models.py
 from datetime import date, timedelta
 from decimal import Decimal
+from django.conf import settings
+
 import os
 import re
 
 from django.core.exceptions import ValidationError, FieldError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.text import slugify
 from django.contrib.auth import get_user_model
-
 
 # --- Choices administrativos ---
 class LegajoEstado(models.TextChoices):
     COMPLETO = "COMPLETO", "Completo"
     INCOMPLETO = "INCOMPLETO", "Incompleto"
 
-
 class CondicionAdmin(models.TextChoices):
     REGULAR = "REGULAR", "Regular"
     CONDICIONAL = "CONDICIONAL", "Condicional"
-
 
 # ---------- Helpers para archivos ----------
 def estudiante_foto_path(instance, filename):
@@ -33,7 +32,6 @@ def estudiante_foto_path(instance, filename):
     base, ext = os.path.splitext(filename or "")
     safe_dni = (instance.dni or "sin_dni").strip()
     return f"estudiantes/{safe_dni}/foto{ext.lower()}"
-
 
 # ===================== Catálogos básicos =====================
 
@@ -49,7 +47,6 @@ class Profesorado(models.Model):
         if not self.slug:
             self.slug = slugify(self.nombre)
         super().save(*args, **kwargs)
-
 
 class PlanEstudios(models.Model):
     profesorado = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="planes")
@@ -70,7 +67,6 @@ class PlanEstudios(models.Model):
         if not self.resolucion_slug:
             self.resolucion_slug = slugify((self.resolucion or "").replace("/", "-"))
         super().save(*args, **kwargs)
-
 
 # --- Estudiante -------------------------------------------------------------
 class Estudiante(models.Model):
@@ -141,7 +137,6 @@ class Estudiante(models.Model):
     def espacios_en_anio(self, anio_academico: int):
         """Materias del alumno en un año académico dado."""
         return self.espacios_qs.filter(cursadas__anio_academico=anio_academico)
-
 
 # --- EstudianteProfesorado --------------------------------------------------
 class EstudianteProfesorado(models.Model):
@@ -346,13 +341,11 @@ class EstudianteProfesorado(models.Model):
             self.condicion_admin = self.calcular_condicion_admin()
         super().save(*args, **kwargs)
 
-
 try:
     EstudianteProfesorado.LegajoEstado
 except AttributeError:
     EstudianteProfesorado.LegajoEstado = LegajoEstado
     EstudianteProfesorado.CondicionAdmin = CondicionAdmin
-
 
 class EspacioCurricular(models.Model):
     CUATRIS = [
@@ -398,7 +391,6 @@ class EspacioCurricular(models.Model):
         n = (getattr(self, "nombre", "") or "").lower()
         return "edi" in n
 
-
 # ===================== Correlatividades =====================
 
 class Correlatividad(models.Model):
@@ -428,13 +420,11 @@ class Correlatividad(models.Model):
             req = f"todos hasta {self.requiere_todos_hasta_anio}°"
         return f"[{self.plan.resolucion}] {self.espacio.nombre} / {self.tipo} → {self.requisito}: {req}"
 
-
 # ===================== Condiciones Académicas (Dinámicas) =====================
 
 class TipoCondicion(models.TextChoices):
     CURSADA = "REG", "Cursada"
     FINAL = "FIN", "Final"
-
 
 class Condicion(models.Model):
     codigo = models.CharField(max_length=50, primary_key=True, help_text="Código único, ej: 'REGULAR', 'PROMOCION'")
@@ -448,7 +438,6 @@ class Condicion(models.Model):
         verbose_name = "Condición Académica"
         verbose_name_plural = "Condiciones Académicas"
 
-
 class EspacioCondicion(models.Model):
     espacio = models.ForeignKey(EspacioCurricular, on_delete=models.CASCADE)
     condicion = models.ForeignKey(Condicion, on_delete=models.CASCADE)
@@ -460,7 +449,6 @@ class EspacioCondicion(models.Model):
         unique_together = (("espacio", "condicion"),)
         verbose_name = "Condición por Espacio"
         verbose_name_plural = "Condiciones por Espacio"
-
 
 # ---------- Helpers de estado académico (correlatividades) ----------
 
@@ -508,7 +496,6 @@ def _tiene_regularidad_vigente(insc: EstudianteProfesorado, esp: EspacioCurricul
     return insc.movimientos.filter(
         espacio=esp, tipo="REG", condicion__codigo="REGULAR", fecha__gte=limite
     ).exists()
-
 
 # ===================== Movimientos académicos =====================
 
@@ -632,12 +619,10 @@ class Movimiento(models.Model):
     def __str__(self):
         return f"{self.inscripcion} · {self.espacio} · {self.condicion}"
 
-
 # ===================== Inscripción a espacios (cursada por año) =====================
-
 class EstadoInscripcion(models.TextChoices):
     EN_CURSO = "EN_CURSO", "En curso"
-    BAJA = "BAJA", "Baja"
+    BAJA     = "BAJA",     "Baja"
 
 
 class InscripcionEspacio(models.Model):
@@ -648,7 +633,9 @@ class InscripcionEspacio(models.Model):
         EspacioCurricular, on_delete=models.CASCADE, related_name="cursadas"
     )
     anio_academico = models.PositiveIntegerField()
-    fecha = models.DateField(default=date.today)
+
+    # renombrado desde 'fecha' y con auto_now_add (NO volver a definir 'fecha')
+    fecha_inscripcion = models.DateField(auto_now_add=True)
 
     estado = models.CharField(
         max_length=10,
@@ -656,7 +643,11 @@ class InscripcionEspacio(models.Model):
         default=EstadoInscripcion.EN_CURSO,
     )
     fecha_baja = models.DateField(null=True, blank=True)
-    motivo_baja = models.TextField(blank=True, default="")  # ← NUEVO
+    motivo_baja = models.TextField(blank=True, default="")
+
+    # auditoría
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
@@ -665,11 +656,20 @@ class InscripcionEspacio(models.Model):
             models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
         ]
         constraints = [
-            # NOTA: según comentaste, en migración 0002 ya existe 'cursada_fecha_baja_si_baja'.
-            # Aquí añadimos la complementaria: si está EN_CURSO, la fecha_baja debe ser NULL.
+            # EN_CURSO ⇒ fecha_baja debe ser NULL
             models.CheckConstraint(
                 name="cursada_fecha_null_si_en_curso",
                 check=(~Q(estado=EstadoInscripcion.EN_CURSO) | Q(fecha_baja__isnull=True)),
+            ),
+            # BAJA ⇒ fecha_baja obligatoria
+            models.CheckConstraint(
+                name="cursada_fecha_baja_si_baja",
+                check=(Q(estado=EstadoInscripcion.BAJA, fecha_baja__isnull=False) | ~Q(estado=EstadoInscripcion.BAJA)),
+            ),
+            # fecha_baja ≥ fecha_inscripcion (o NULL)
+            models.CheckConstraint(
+                name="cursada_fecha_baja_ge_inscripcion",
+                check=Q(fecha_baja__gte=F("fecha_inscripcion")) | Q(fecha_baja__isnull=True),
             ),
         ]
 
@@ -679,92 +679,43 @@ class InscripcionEspacio(models.Model):
            self.inscripcion.profesorado_id != self.espacio.profesorado_id:
             raise ValidationError("El espacio pertenece a otro profesorado.")
 
-        # coherencia estado/fecha_baja (además de la constraint de BD)
+        # coherencia estado/fecha_baja (además de constraints)
         if self.estado == EstadoInscripcion.BAJA and not self.fecha_baja:
             raise ValidationError("Debe indicar 'fecha_baja' cuando el estado es Baja.")
         if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja:
             raise ValidationError("No debe tener 'fecha_baja' si la cursada está En curso.")
 
-        # correlatividades
+        # correlatividades según fecha_inscripcion
         try:
-            ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
+            ok, faltan = _cumple_correlativas(
+                self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha_inscripcion
+            )
         except Exception:
             ok, faltan = True, []
         if not ok:
             msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
-            raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
+            raise ValidationError(
+                f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}."
+            )
 
     def __str__(self):
         return f"{self.inscripcion.estudiante} · {self.espacio.nombre} · {self.anio_academico}"
-    inscripcion = models.ForeignKey(
-        EstudianteProfesorado, on_delete=models.CASCADE, related_name="cursadas"
-    )
-    espacio = models.ForeignKey(
-        EspacioCurricular, on_delete=models.CASCADE, related_name="cursadas"
-    )
-    anio_academico = models.PositiveIntegerField()
-    fecha = models.DateField(default=date.today)
 
-    # ya existente
-    estado = models.CharField(
-        max_length=10,
-        choices=EstadoInscripcion.choices,
-        default=EstadoInscripcion.EN_CURSO
-    )
 
-    # NUEVO 👇
-    fecha_baja = models.DateField(null=True, blank=True)
+# (opcional, recomendado) Log de cambios de estado
+class InscripcionEspacioEstadoLog(models.Model):
+    insc_espacio = models.ForeignKey(
+        InscripcionEspacio, on_delete=models.CASCADE, related_name="estado_logs"
+    )
+    estado = models.CharField(max_length=20)  # EN_CURSO/BAJA/…
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    nota = models.TextField(blank=True, default="")
 
     class Meta:
-        ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
-        unique_together = [("inscripcion", "espacio", "anio_academico")]
-        indexes = [
-            models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
-        ]
-        # NUEVO: coherencia entre estado y fecha_baja
-        constraints = [
-            models.CheckConstraint(
-                name="cursada_fecha_baja_si_baja",
-                check=(
-                    (Q(estado=EstadoInscripcion.BAJA) & Q(fecha_baja__isnull=False))
-                    | ~Q(estado=EstadoInscripcion.BAJA)
-                ),
-            ),
-        ]
-
-    def clean(self):
-        # coherencia de profesorado (ya estaba)
-        if self.inscripcion and self.espacio and \
-           self.inscripcion.profesorado_id != self.espacio.profesorado_id:
-            raise ValidationError("El espacio pertenece a otro profesorado.")
-
-        # NUEVO: validaciones de baja
-        if self.estado == EstadoInscripcion.BAJA and not self.fecha_baja:
-            raise ValidationError("Debe indicar 'fecha_baja' cuando el estado es Baja.")
-        if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja:
-            raise ValidationError("No debe tener 'fecha_baja' si la cursada está En curso.")
-
-        # correlatividades (como ya tenías)
-        try:
-            ok, faltan = _cumple_correlativas(self.inscripcion, self.espacio, "CURSAR", fecha=self.fecha)
-        except Exception:
-            ok, faltan = True, []
-        if not ok:
-            msgs = [f"{r.requisito.lower()} de '{req.nombre}'" for r, req in faltan]
-            raise ValidationError(f"No cumple correlatividades para CURSAR: faltan {', '.join(msgs)}.")
-
-    # OPCIONAL: autocompletar fecha_baja al pasar a BAJA
-    def save(self, *args, **kwargs):
-        if self.estado == EstadoInscripcion.BAJA and self.fecha_baja is None:
-            self.fecha_baja = date.today()
-        if self.estado == EstadoInscripcion.EN_CURSO and self.fecha_baja is not None:
-            # si vuelve a EN_CURSO, limpiamos la fecha de baja
-            self.fecha_baja = None
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.inscripcion.estudiante} · {self.espacio.nombre} · {self.anio_academico}"
-
+        ordering = ["-fecha"]
 # ===================== Signals =====================
 
 @receiver(post_save, sender=Movimiento)
@@ -783,7 +734,6 @@ def _update_legajo_estado(sender, instance, **kwargs):
     except Exception:
         pass
 
-
 # ===================== ROLES / USUARIOS =====================
 
 User = get_user_model()
@@ -797,7 +747,6 @@ class Docente(models.Model):
 
     def __str__(self):
         return f"{self.apellido}, {self.nombre} ({self.dni})"
-
 
 class DocenteEspacio(models.Model):
     docente = models.ForeignKey(Docente, on_delete=models.CASCADE, related_name="asignaciones")
@@ -839,7 +788,6 @@ def _crear_perfil_usuario(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
 
-
 # ===================== Inscripción a Mesa de Examen Final =====================
 
 class Actividad(models.Model):
@@ -862,7 +810,6 @@ class Actividad(models.Model):
     def __str__(self):
         u = self.user.username if self.user else "—"
         return f"[{self.creado:%Y-%m-%d %H:%M}] {u} · {self.get_accion_display()}"
-
 
 class InscripcionFinal(models.Model):
     inscripcion_cursada = models.ForeignKey(

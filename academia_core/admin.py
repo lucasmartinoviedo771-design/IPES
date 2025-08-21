@@ -283,12 +283,16 @@ def accion_marcar_baja(modeladmin, request, queryset):
 
 @admin.register(InscripcionEspacio)
 class InscripcionEspacioAdmin(admin.ModelAdmin):
-    list_display = ("estudiante", "profesorado", "espacio", "anio_academico", "estado", "fecha")
-    list_filter = ("anio_academico", "estado", "espacio__profesorado", "espacio__anio", "espacio__cuatrimestre")
-    search_fields = ("inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre")
+    list_display = ("estudiante", "profesorado", "espacio", "anio_academico", "estado",
+                    "fecha_inscripcion", "fecha_baja")  # <- antes 'fecha'
+    list_filter = ("anio_academico", "estado", "espacio__profesorado",
+                   "espacio__anio", "espacio__cuatrimestre",
+                   "fecha_inscripcion", "fecha_baja")
+    search_fields = ("inscripcion__estudiante__apellido",
+                     "inscripcion__estudiante__dni", "espacio__nombre")
     autocomplete_fields = ("inscripcion", "espacio")
-    date_hierarchy = "fecha"
-    ordering = ("-anio_academico", "-fecha", "-id")
+    date_hierarchy = "fecha_inscripcion"   # <- antes 'fecha'
+    ordering = ("-anio_academico", "-fecha_inscripcion", "-id")  # <- antes 'fecha'
     list_per_page = 50
     list_select_related = ("inscripcion__estudiante", "inscripcion__profesorado", "espacio")
     actions = ["accion_marcar_baja"]
