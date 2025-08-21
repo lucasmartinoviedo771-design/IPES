@@ -243,6 +243,10 @@ if InscripcionEspacio and EspacioCurricular:
                 "fecha_baja",
                 "motivo_baja",
             )
+            # Estilo/clases del <select> (ajustá a tu CSS/Tailwind)
+            widgets = {
+                "estado": forms.Select(attrs={"class": "form-select w-full"}),
+            }
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -250,20 +254,24 @@ if InscripcionEspacio and EspacioCurricular:
             # Hasta que elijan "inscripcion", el queryset queda vacío
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
 
-            # --- ARREGLO CLAVE: asegurar <select> con opciones e initial SIEMPRE ---
+            # --- CLAVE: asegurar <select> con opciones e initial en altas ---
             estado_field = self.fields.get("estado")
             if estado_field:
-                # Forzamos un <select> con id estable para que JS pueda encontrarlo
-                estado_field.widget = forms.Select(attrs={"id": "id_estado"})
+                # Mantener clases y sumar id estable para JS (sin reemplazar el widget)
+                estado_field.widget.attrs.setdefault("class", "form-select w-full")
+                estado_field.widget.attrs.setdefault("id", "id_estado")
+
+                # 1) Siempre ofrecer las opciones del enum (evita combo vacío)
                 default_choices = getattr(
                     EstadoInscripcion,
                     "choices",
                     (("EN_CURSO", "En curso"), ("BAJA", "Baja")),
                 )
-                # Copia lista para evitar iterables perezosos raros
                 estado_field.choices = list(default_choices)
-                # initial por defecto (no pisa valores del instance/bound data)
-                estado_field.initial = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
+
+                # 2) En altas, mostrar un valor por defecto visible
+                if not getattr(self.instance, "pk", None) and not self.initial.get("estado"):
+                    estado_field.initial = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
 
             # Setear queryset de espacio cuando ya conocemos la inscripción seleccionada
             insc_id = None
@@ -291,6 +299,11 @@ if InscripcionEspacio and EspacioCurricular:
                     self.fields["espacio"].queryset = qs
                 except EstudianteProfesorado.DoesNotExist:
                     pass
+
+        # Blindaje adicional (si llega vacío por cualquier razón)
+        def clean_estado(self):
+            value = self.cleaned_data.get("estado")
+            return value or getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
 
         def clean(self):
             cleaned = super().clean()

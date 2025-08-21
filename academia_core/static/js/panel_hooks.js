@@ -1,4 +1,3 @@
-
 /*! panel_hooks.js (v2) — mejoras no invasivas para el panel unificado */
 (function () {
   function onReady(fn){ if(document.readyState!=='loading'){ fn(); } else { document.addEventListener('DOMContentLoaded', fn); } }
@@ -31,7 +30,7 @@
         const txt = (profSel.options[profSel.selectedIndex]?.text || '').toLowerCase();
         const esCert = txt.includes('certificacion docente') || txt.includes('certificación docente');
         if(titSec){ titSec.closest('label').style.display = esCert ? 'none' : ''; titSec.disabled = esCert; }
-        [titSup, inc].forEach(el => { if(!el) return; el.closest('label').style.display = esCert ? '' : 'none'; el.disabled = !esCert; });
+        [titSup, inc].forEach(el => { if(!el) return; el.closest('label').style.display = esCert ? '' : 'none'; el.disabled = !el.closest('label').style.display ? false : true; });
       }
       profSel && profSel.addEventListener('change', toggleCertDoc);
       toggleCertDoc();
@@ -41,7 +40,12 @@
       const actionVal = actionInput ? actionInput.value : '';
       const inscSel   = document.getElementById('id_inscripcion') || document.querySelector('select[name="inscripcion"]');
       const espacioSel= document.getElementById('id_espacio')      || document.querySelector('select[name="espacio"]');
-      const condSel   = document.getElementById('id_condicion')    || document.querySelector('select[name="condicion"]') || document.querySelector('select[name="estado"]');
+
+      // Buscar SOLO el campo 'condicion' (nunca el de 'estado')
+      const condSel =
+        document.getElementById('id_condicion') ||
+        document.querySelector('select[name="condicion"]');
+
       const isRegularidad = (actionVal === 'cargar_cursada');
       const isFinalForm   = (actionVal === 'cargar_nota_final' || actionVal === 'cargar_final_resultado' || actionVal === 'insc_final');
       const shouldWireAjax = isRegularidad || isFinalForm || (actionVal === 'insc_esp');

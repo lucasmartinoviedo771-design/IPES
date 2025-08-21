@@ -13,6 +13,7 @@ from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_GET, require_POST
+from django.utils import timezone  # <<< agregado para initial de anio_academico
 
 try:
     from .label_utils import espacio_etiqueta as _espacio_label_from_utils
@@ -179,7 +180,18 @@ def panel(request: HttpRequest) -> HttpResponse:
 
     if request.method == "GET":
         if FormClass:
+            # Copiamos params permitidos para cada acción
             initial = {k: request.GET.get(k) for k in ACTION_COPY.get(action, []) if request.GET.get(k)}
+            # >>> NUEVO: defaults visibles para Inscripción a Espacio
+            if action == "insc_esp":
+                initial = dict(initial or {})
+                # estado por defecto
+                initial.setdefault("estado", getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO"))
+                # año académico por defecto
+                try:
+                    initial.setdefault("anio_academico", timezone.now().year)
+                except Exception:
+                    initial.setdefault("anio_academico", datetime.now().year)
             context["form"] = _make_form(FormClass, request, initial=initial or None)
         return render(request, "panel.html", context)
 
@@ -255,10 +267,10 @@ def _build_trayectoria_blocks(inscripcion) -> List[dict]:
             nota_fin = getattr(f, "nota_final", None) or getattr(f, "nota", None) or getattr(f, "nota_num", None)
             fins.append({
                 "fin_fecha": _fmt_date(fecha_fin),
-                "fin_cond": condicion or "—",
-                "fin_nota": nota_fin if nota_fin not in (None, "") else "—",
-                "folio": getattr(f, "folio", None) or "—",
-                "libro": getattr(f, "libro", None) or "—",
+                "fin_cond":  condicion or "—",
+                "fin_nota":  nota_fin if nota_fin not in (None, "") else "—",
+                "folio":     getattr(f, "folio", None) or "—",
+                "libro":     getattr(f, "libro", None) or "—",
             })
 
         rows = []
