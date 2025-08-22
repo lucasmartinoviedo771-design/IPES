@@ -131,7 +131,7 @@ def _base_context(request: HttpRequest) -> Dict[str, Any]:
 @login_required
 def panel_inicio(request: HttpRequest) -> HttpResponse:
     ctx = _base_context(request)
-    return render(request, "panel_inicio.html", ctx)
+    return render(request, "academia_core/panel_inicio.html", ctx)
 
 @login_required
 def estudiante_list(request: HttpRequest) -> HttpResponse:
