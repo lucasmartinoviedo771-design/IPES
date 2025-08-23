@@ -4,7 +4,7 @@
 
 {% block content %}
   <div class="row">
-    <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar rounded-3 shadow-sm p-4">
+    <nav class="col-md-2 col-lg-2 d-md-block sidebar rounded-3 shadow-sm p-3 sidebar-surface">
       <div class="position-sticky">
         <h3 class="h5">Acciones</h3>
         <ul class="nav flex-column nav-pills">
@@ -29,9 +29,8 @@
       </div>
     </nav>
 
-    <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-      <div class="bg-white p-4 rounded-3 shadow-sm">
-        <h2 class="h4">{{ action_title }}</h2>
+    <main class="col-md-10 col-lg-10 px-3">
+      <div class="bg-white rounded-3 shadow-sm compact main-scroll p-2 form-surface">
         {% if action_subtitle %}<p class="text-muted">{{ action_subtitle|safe }}</p>{% endif %}
 
         {% if action == 'section_est' %}
@@ -46,46 +45,230 @@
           </ul>
 
         {% elif form %}
-          <form method="post" enctype="multipart/form-data" action="?action={{ action }}" id="form-main">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="{{ action }}">
+          <form class="row g-2 gy-1 compact" novalidate>
 
-            {% if form.non_field_errors %}
-              <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
-            {% endif %}
+  <!-- ===== DATOS PERSONALES ===== -->
+  <div class="col-12"><h6 class="text-uppercase text-muted mb-2">Datos personales</h6></div>
 
-            {% if form.errors %}
-              <div class="alert alert-danger" role="alert">
-                <strong>Por favor, corrige los errores:</strong>
-                <ul class="mb-0">
-                  {% for field in form %}
-                    {% for error in field.errors %}
-                      <li>{{ field.label }}: {{ error }}</li>
-                    {% endfor %}
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endif %}
+  <!-- Fila 1: DNI / Apellido / Nombre -->
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">DNI <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="dni" inputmode="numeric" placeholder="Ej: 12345678" required>
+  </div>
 
-            <div class="row g-3">
-              {% for field in form %}
-                <div class="col-md-6">
-                  <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                  {{ field.as_widget }}
-                  {% if field.help_text %}
-                    <div class="form-text">{{ field.help_text }}</div>
-                  {% endif %}
-                </div>
-              {% endfor %}
-            </div>
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Apellido <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="apellido" autocomplete="family-name" required>
+  </div>
 
-            <div class="mt-4">
-              <button type="submit" class="btn btn-success">Guardar</button>
-              <a href="?" class="btn btn-secondary">Cancelar</a>
-            </div>
-          </form>
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Nombre <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="nombre" autocomplete="given-name" required>
+  </div>
+
+  <!-- Fila 2: Fecha / Lugar / Activo -->
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Fecha nacimiento</label>
+    <input type="date" class="form-control" name="fecha_nacimiento">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Lugar nacimiento</label>
+    <input type="text" class="form-control" name="lugar_nacimiento" placeholder="Ciudad, provincia">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4 d-flex align-items-end">
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="activo" name="activo" checked>
+      <label class="form-check-label" for="activo">Activo</label>
+    </div>
+  </div>
+
+  <!-- ===== CONTACTO ===== -->
+  <div class="col-12 pt-2"><h6 class="text-uppercase text-muted mb-2">Contacto</h6></div>
+
+  <!-- Fila 3: Email / Teléfono / Localidad -->
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Email</label>
+    <input type="email" class="form-control" name="email" autocomplete="email" placeholder="nombre@dominio.com">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Teléfono</label>
+    <input type="tel" class="form-control" name="telefono" inputmode="tel" placeholder="Ej: 11 1234 5678">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Localidad</label>
+    <input type="text" class="form-control" name="localidad" autocomplete="address-level2">
+  </div>
+
+  <!-- ===== EMERGENCIA ===== -->
+  <div class="col-12 pt-2"><h6 class="text-uppercase text-muted mb-2">Emergencia</h6></div>
+
+  <!-- Fila 4: Tel. emergencia / Parentesco / (vacío) -->
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Tel. de emergencia</label>
+    <input type="tel" class="form-control" name="telefono_emergencia" inputmode="tel">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Parentesco (opcional)</label>
+    <input type="text" class="form-control" name="parentesco">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4 d-none d-xl-block"></div>
+
+  <!-- ===== FOTO ===== -->
+  <div class="col-12 pt-2"><h6 class="text-uppercase text-muted mb-2">Foto</h6></div>
+
+  <!-- Fila 5: Archivo / Preview / (vacío) -->
+  <div class="col-12 col-md-6 col-xl-4">
+    <label class="form-label">Foto</label>
+    <input type="file" class="form-control" name="foto" accept="image/*" id="fotoInput">
+    <div class="form-text">JPG o PNG, máx. 2MB.</div>
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4 d-flex align-items-end">
+    <img id="fotoPreview" class="rounded-3 border" style="width:110px;height:110px;object-fit:cover;display:none;">
+  </div>
+
+  <div class="col-12 col-md-6 col-xl-4 d-none d-xl-block"></div>
+
+  <!-- ===== ACCIONES ===== -->
+  <div class="col-12">
+    <div class="d-flex justify-content-start gap-2 pt-2 mt-1 border-top">
+      <a href="{% url 'panel' %}?action=section_est" class="btn btn-outline-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-success px-4">Guardar</button>
+    </div>
+  </div>
+</form>
+
+<script>
+  // Preview de la foto
+  const input = document.getElementById('fotoInput');
+  const preview = document.getElementById('fotoPreview');
+  input?.addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (!f) { preview.style.display='none'; return; }
+    preview.src = URL.createObjectURL(f);
+    preview.style.display = 'block';
+  });
+</script>
+
+<script>
+  // Preview de foto
+  const input = document.getElementById('fotoInput');
+  const preview = document.getElementById('fotoPreview');
+  input?.addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (!f) { preview.style.display='none'; return; }
+    preview.src = URL.createObjectURL(f);
+    preview.style.display = 'block';
+  });
+</script>
         {% endif %}
       </div>
     </main>
   </div>
+
+<style>
+/* ===== Página (pastel muy suave) ===== */
+:root{
+  --bg-app:   #f2cbbd;   /* fondo general (durazno más oscuro) */
+  --surface:  #fffaf7;   /* panel del formulario (apenas teñido) */
+  --field-bd: #e7e2dc;   /* borde de inputs */
+  --ring:     #ffb899;   /* color de foco */
+  --muted:    #6b7280;
+}
+
+/* Fuerza el fondo sobre utilidades Bootstrap que llevan !important */
+html, body { min-height: 100%; }
+body, body.bg-light, .bg-light{
+  background: var(--bg-app) !important;
+  background-color: var(--bg-app) !important;
+}
+
+/* ===== Panel del formulario ===== */
+.form-surface{
+  background: var(--surface) !important;      /* ya NO blanco puro */
+  border: 1px solid rgba(0,0,0,.04);
+  box-shadow: 0 6px 20px rgba(0,0,0,.04);
+}
+
+/* ===== Inputs/combobox SIEMPRE BLANCOS ===== */
+.form-surface .form-control,
+.form-surface .form-select,
+.form-surface .form-control:hover,
+.form-surface .form-select:hover,
+.form-surface .form-control:focus,
+.form-surface .form-select:focus{
+  background-color: #ffffff !important;       /* blanco */
+}
+
+/* Borde y foco suaves (sin cambiar el blanco) */
+.form-surface .form-control,
+.form-surface .form-select{
+  border-color: var(--field-bd);
+}
+.form-surface .form-control:focus,
+.form-surface .form-select:focus{
+  border-color: var(--ring);
+  box-shadow: 0 0 0 .2rem rgba(255,184,153,.25);
+  outline: none;
+}
+
+/* Placeholders más tenues */
+.form-surface .form-control::placeholder{
+  color: color-mix(in srgb, var(--muted) 60%, white);
+}
+
+/* --- Sidebar & Topbar con el mismo pastel del formulario --- */
+.sidebar-surface,
+.topbar-surface{
+  background: var(--surface) !important;
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 4px 18px rgba(0,0,0,.04);
+}
+.topbar-surface{ border-radius: 0 0 12px 12px; }   /* esquinas inferiores suaves */
+.sidebar-surface{ border-radius: 12px; }
+
+/* Si quedaron con bg-white por Bootstrap, forzamos igualmente */
+.sidebar-surface.bg-white,
+.topbar-surface.bg-white{ background: var(--surface) !important; }
+
+/* Links del menú laterales: legibles y con hover suave (opcional) */
+.sidebar-surface .nav-link{ color: #1f2937; }
+.sidebar-surface .nav-link:hover{ background: #fff; border-radius: .5rem; }
+.sidebar-surface .nav-link.active{ box-shadow: inset 0 0 0 1px var(--field-bd); }
+
+/* Compactación suave para que entre más contenido en pantalla */
+.compact{ font-size:.94rem; }
+.compact .form-label{ font-weight:600; font-size:.9rem; margin-bottom:.2rem; }
+.compact .form-control,
+.compact .form-select,
+.compact .form-check-input{ padding:.35rem .5rem; font-size:.9rem; }
+.compact .btn{ padding:.4rem .75rem; font-size:.9rem; }
+
+/* Altura con scroll interno si el panel es largo */
+.main-scroll{ max-height: calc(100vh - 120px) !important; overflow:auto; }
+
+/* En pantallas <992px forzamos 1 columna si te queda apretado */
+ @media (max-width: 991.98px){
+  .compact .row{ --bs-gutter-y: .6rem; }
+}
+</style>
+
+<script>
+  // Preview de foto
+  const input = document.getElementById('fotoInput');
+  const preview = document.getElementById('fotoPreview');
+  input?.addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (!f) { preview.style.display='none'; return; }
+    const url = URL.createObjectURL(f);
+    preview.src = url;
+    preview.style.display = 'block';
+  });
+</script>
 {% endblock %}

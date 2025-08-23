@@ -194,6 +194,9 @@ class EPAdmin(admin.ModelAdmin):
 
 
 # --- Admin Models ---
+class EstudianteAdmin(admin.ModelAdmin):
+    list_display = ["apellido", "nombre", "dni", "email"]
+    search_fields = ["apellido", "nombre", "dni", "email"]
 class ProfesoradoAdmin(admin.ModelAdmin):
     list_display = ["nombre", "plan_vigente", "slug"]
     search_fields = ["nombre", "plan_vigente"]
@@ -214,7 +217,6 @@ class InscripcionEspacioAdmin(admin.ModelAdmin):
     list_display = ["inscripcion", "espacio", "anio_academico", "fecha_inscripcion", "estado"]
     list_filter = ["anio_academico", "estado", "espacio__profesorado"]
     search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
-    inlines = [MovimientoInline]
     raw_id_fields = ["inscripcion", "espacio"]
 
 
