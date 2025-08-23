@@ -29,7 +29,7 @@ def _fmt_nota(m):
     return m.nota_texto or ""
 
 # Resolver rutas /media y /static cuando generamos PDF
-def _link_callback(uri, rel):
+def _link_callback(uri):
     if uri.startswith(settings.MEDIA_URL):
         path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
         return path
@@ -353,32 +353,7 @@ def alumno_home(request):
     return render(request, "alumno_home.html", {"estudiante": est, "items": items})
 
 # ---------- Panel DOCENTE ----------
-@login_required
-def docente_home(request):
-    perfil = getattr(request.user, "perfil", None)
-    if not perfil or perfil.rol != "DOCENTE" or not perfil.docente:
-        return HttpResponseForbidden("Solo para docentes.")
 
-    doc = perfil.docente
-    asignaciones = (DocenteEspacio.objects
-                    .filter(docente=doc)
-                    .select_related("espacio", "espacio__profesorado", "espacio__plan")
-                    .order_by("espacio__profesorado__nombre", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"))
-
-    # contar alumnos por espacio (distintos por inscripción con movimientos)
-    for de in asignaciones:
-        de.alumnos_count = (Movimiento.objects
-                            .filter(espacio=de.espacio)
-                            .values("inscripcion_id")
-                            .distinct()
-                            .count())
-        # por si el template quiere slugs:
-        de.espacio.profesorado.slug = slugify(de.espacio.profesorado.nombre)
-        if de.espacio.plan:
-            de.espacio.plan.resolucion_slug = (de.espacio.plan.resolucion or "").replace("/", "-")
-
-    ctx = {"docente": doc, "asignaciones": asignaciones}
-    return render(request, "docente_home.html", ctx)
 
 @login_required
 def docente_espacio_detalle(request, espacio_id: int):

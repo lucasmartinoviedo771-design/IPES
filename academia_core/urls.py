@@ -36,9 +36,7 @@ from .views_cbv import (
     # Materias
     MateriaListView, MateriaCreateView,
     MateriaUpdateView, MateriaDeleteView,
-    # Calificaciones
-    CalificacionListView, CalificacionCreateView,
-    CalificacionUpdateView, CalificacionDeleteView,
+    
 )
 
 urlpatterns = [

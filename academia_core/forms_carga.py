@@ -193,16 +193,4 @@ if Movimiento and Condicion:
                 ).order_by("nombre")
 
 
-# --- Placeholders (para que las importaciones no rompan) ---
 
-class CargarCursadaForm(forms.Form):
-    pass
-
-class CargarNotaFinalForm(forms.Form):
-    pass
-
-class CargarResultadoFinalForm(forms.Form):
-    pass
-
-class InscripcionFinalForm(forms.Form):
-    pass

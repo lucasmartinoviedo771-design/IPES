@@ -19,30 +19,3 @@ class EspacioForm(forms.ModelForm):
             "anio": forms.TextInput(attrs={"placeholder": "1° / 2° / 3° / 4°"}),
         }
 
-# --- NUEVO FORMULARIO AGREGADO ---
-class FiltroEspaciosForm(forms.Form):
-    profesorado = forms.ModelChoiceField(
-        queryset=Profesorado.objects.all().order_by("nombre"),
-        required=True, label="Profesorado",
-    )
-    plan = forms.ModelChoiceField(
-        queryset=PlanEstudios.objects.none(),
-        required=True, label="Plan",
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        p_val = self.data.get("profesorado") or self.initial.get("profesorado")
-        try:
-            p_id = int(p_val) if p_val else None
-        except ValueError:
-            p_id = None
-
-        if p_id:
-            plans = PlanEstudios.objects.filter(profesorado_id=p_id).order_by("-vigente", "resolucion")
-            self.fields["plan"].queryset = plans
-            if not (self.data.get("plan") or self.initial.get("plan")) and plans.count() == 1:
-                self.initial["plan"] = plans.first().pk
-        else:
-            self.fields["plan"].queryset = PlanEstudios.objects.none()

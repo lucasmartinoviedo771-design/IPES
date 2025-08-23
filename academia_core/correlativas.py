@@ -149,6 +149,4 @@ def evaluar_correlatividades(inscripcion, espacio) -> Tuple[bool, List[Dict[str,
     return ok_global, detalles
 
 
-def should_enforce() -> bool:
-    """Feature flag para permitir 'solo advertir' sin bloquear."""
-    return getattr(settings, "ACADEMIA_ENFORCE_CORREL", True)
+
