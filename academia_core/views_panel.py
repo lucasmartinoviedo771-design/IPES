@@ -40,6 +40,36 @@ def _base_context(request: HttpRequest):
         profesorados = []
     return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
 
+# --- helpers al inicio del archivo (debajo de los imports y modelos) ---
+def _profesorados_para_select():
+    fields = {f.name for f in Profesorado._meta.get_fields()}
+    qs = Profesorado.objects.all()
+
+    # detectar nombre del campo "activo"
+    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
+        if flag in fields:
+            qs = qs.filter(**{flag: True})
+            break
+
+    # ordenar por nombre si existe
+    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
+
+    # armar lista de dicts id/nombre/tipo
+    if "tipo" in fields:
+        data = list(qs.values("id", "nombre", "tipo"))
+    else:
+        data = [{"id": p.id, "nombre": getattr(p, "nombre", str(p)), "tipo": "profesorado"} for p in qs]
+
+    # fallback: si quedó vacío, mostrar TODOS (útil para probar UI)
+    if not data:
+        all_qs = Profesorado.objects.all().order_by("nombre" if "nombre" in fields else "id")
+        if "tipo" in fields:
+            data = list(all_qs.values("id", "nombre", "tipo"))
+        else:
+            data = [{"id": p.id, "nombre": getattr(p, "nombre", str(p)), "tipo": "profesorado"} for p in all_qs]
+    return data
+
+
 @login_required
 def panel(request: HttpRequest) -> HttpResponse:
     """
@@ -72,14 +102,13 @@ def panel(request: HttpRequest) -> HttpResponse:
             except Exception:
                 ctx["estudiantes"] = []
 
-            # Profesorados activos (campo 'activa' o 'activo', según tu modelo)
+            # Profesorados (activos si existe flag; si no hay, mostrar todos)
             try:
-                ctx["profesorados"] = list(Profesorado.objects.filter(activa=True).values("id", "nombre", "tipo"))
-                if not ctx["profesorados"]:
-                    # fallback por si el boolean se llama 'activo'
-                    ctx["profesorados"] = list(Profesorado.objects.filter(activo=True).values("id", "nombre", "tipo"))
+                ctx["profesorados"] = _profesorados_para_select()
             except Exception:
-                ctx["profesorados"] = []
+                # último fallback: al menos todos, con tipo por defecto
+                ctx["profesorados"] = [{"id": p.id, "nombre": getattr(p, "nombre", str(p)), "tipo": "profesorado"}
+                                       for p in Profesorado.objects.all().order_by("nombre")]
 
             # Cohortes 2010..año actual (desc)
             anio_actual = date.today().year
