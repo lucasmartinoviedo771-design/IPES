@@ -12,7 +12,10 @@
             <a href="?action=section_est" class="nav-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">Estudiantes</a>
           </li>
           <li class="nav-item">
-            <a href="?action=section_insc" class="nav-link {% if action == 'section_insc' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">Inscripciones</a>
+            <a href="?action=section_insc"
+               class="nav-link {% if action == 'section_insc' or action == 'insc_carrera' or action == 'insc_prof' or action == 'insc_esp' or action == 'insc_final' %}active{% endif %}">
+              Inscripciones
+            </a>
           </li>
           <li class="nav-item">
             <a href="?action=section_calif" class="nav-link {% if action == 'section_calif' %}active{% endif %}">Calificaciones</a>
@@ -46,7 +49,57 @@
             <li class="mt-2"><a href="?action=insc_esp" class="btn btn-primary">➜ Inscribir a materia (cursada)</a></li>
           </ul>
 
-        {% elif form %}
+        {% elif action == 'insc_carrera' or action == 'insc_prof' %}
+  <form class="row g-2 gy-1 compact" novalidate>
+    <div class="col-12"><h6 class="text-uppercase text-muted mb-2">Inscripción a carrera</h6></div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label">Estudiante <span class="text-danger">*</span></label>
+      <select name="estudiante_id" class="form-select" {% if not estudiantes %}disabled{% endif %}>
+        <option value="">{{ estudiantes|length|yesno:"Seleccioná…,No hay estudiantes activos" }}</option>
+        {% for e in estudiantes %}
+          <option value="{{ e.id }}">{{ e.apellido }} {{ e.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12 col-md-6">
+      <label class="form-label">Profesorado <span class="text-danger">*</span></label>
+      <select name="profesorado_id" class="form-select" {% if not profesorados %}disabled{% endif %}>
+        <option value="">{{ profesorados|length|yesno:"Seleccioná…,No hay profesorados activos" }}</option>
+        {% for p in profesorados %}
+          <option value="{{ p.id }}">{{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <label class="form-label">Cohorte <span class="text-danger">*</span></label>
+      <select name="cohorte" class="form-select">
+        {% for anio in cohortes %}
+          <option value="{{ anio }}">{{ anio }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <label class="form-label">Curso introductorio</label>
+      <select name="curso_introductorio" class="form-select">
+        <option value="aprobado">Aprobado</option>
+        <option value="desaprobado">Desaprobado</option>
+      </select>
+    </div>
+
+    <!-- Acá después sumamos todos los checks y la lógica Regular/Condicional -->
+
+    <div class="col-12">
+      <div class="d-flex justify-content-start gap-2 pt-2 mt-1 border-top">
+        <a href="{% url 'panel' %}?action=section_insc" class="btn btn-outline-secondary">Volver</a>
+        <button type="submit" class="btn btn-success px-4">Guardar</button>
+      </div>
+    </div>
+  </form>
+{% elif form %}
           <form class="row g-2 gy-1 compact" novalidate>
 
   <!-- ===== DATOS PERSONALES ===== -->
