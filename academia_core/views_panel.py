@@ -2,7 +2,10 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.urls import reverse
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.views.decorators.http import require_GET, require_POST
+from django.shortcuts import redirect
+
 from .models import (
     Estudiante, Profesorado,
     EstudianteProfesorado, EspacioCurricular,
@@ -112,3 +115,52 @@ def panel(request: HttpRequest) -> HttpResponse:
 
     # fallback
     return render(request, "academia_core/panel_inicio.html", {"action": "section_est"})
+
+# === STUBS / FALLBACKS PARA EVITAR ImportError (pegar AL FINAL de views_panel.py) ===
+
+# panel_correlatividades
+if "panel_correlatividades" not in globals():
+    def panel_correlatividades(request):
+        return HttpResponse("Correlatividades — en construcción.")
+
+# panel_horarios
+if "panel_horarios" not in globals():
+    def panel_horarios(request):
+        return HttpResponse("Horarios — en construcción.")
+
+# panel_docente
+if "panel_docente" not in globals():
+    def panel_docente(request):
+        return HttpResponse("Panel Docente — en construcción.")
+
+# API: espacios por inscripción (GET)
+if "get_espacios_por_inscripcion" not in globals():
+    @require_GET
+    def get_espacios_por_inscripcion(request, insc_id: int):
+        return JsonResponse({"ok": True, "items": []})
+
+# API: correlatividades (GET)
+if "get_correlatividades" not in globals():
+    @require_GET
+    def get_correlatividades(request, espacio_id: int, insc_id: int = None):
+        return JsonResponse({"ok": True, "rules": [], "puede_cursar": True})
+
+# Guardados (POST)
+if "crear_inscripcion_cursada" not in globals():
+    @require_POST
+    def crear_inscripcion_cursada(request, insc_prof_id: int):
+        return JsonResponse({"ok": False, "error": "No implementado"}, status=501)
+
+if "crear_movimiento" not in globals():
+    @require_POST
+    def crear_movimiento(request, insc_cursada_id: int):
+        return JsonResponse({"ok": False, "error": "No implementado"}, status=501)
+
+# Redirecciones utilitarias
+if "redir_estudiante" not in globals():
+    def redir_estudiante(request, dni: str):
+        return redirect(f"/panel/?action=section_est&dni={dni}")
+
+if "redir_inscripcion" not in globals():
+    def redir_inscripcion(request, insc_id: int):
+        return redirect(f"/panel/estudiante/{insc_id}/")
