@@ -22,6 +22,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone  # <<< agregado para initial de anio_academico
 from django.db.models import Q
 from django.core.exceptions import FieldError
+from .models import Correlatividad, Movimiento, Condicion
 
 
 try:
@@ -39,6 +40,7 @@ from .models import (
     CondicionAdmin,
     EstadoInscripcion,   # <- agregado para el endpoint de guardado
     Movimiento,  # <-- usado para aprobadas/regularidad
+    Docente,
 )
 from .forms_carga import (
     EstudianteForm,
@@ -46,7 +48,55 @@ from .forms_carga import (
     InscripcionEspacioForm,
     MovimientoForm,
 )
+from .forms_student import StudentInscripcionEspacioForm, StudentInscripcionFinalForm
 from .utils import get, coalesce, year_now
+
+def panel_docente(request):
+    try:
+        docente = Docente.objects.get(email=request.user.email)
+        espacios = docente.espacios.all()
+    except Docente.DoesNotExist:
+        espacios = []
+
+    return render(request, 'panel_docente.html', {'espacios': espacios})
+
+
+def panel_horarios(request):
+    try:
+        estudiante = Estudiante.objects.get(email=request.user.email)
+        inscripciones = EstudianteProfesorado.objects.filter(estudiante=estudiante)
+        profesorados = [i.profesorado for i in inscripciones]
+        espacios = EspacioCurricular.objects.filter(profesorado__in=profesorados)
+        horarios = Horario.objects.filter(espacio__in=espacios).order_by('dia_semana', 'hora_inicio')
+        dias_semana = Horario.DIAS
+    except Estudiante.DoesNotExist:
+        horarios = []
+        dias_semana = []
+
+    return render(request, 'panel_horarios.html', {'horarios': horarios, 'dias_semana': dias_semana})
+
+
+
+def panel_correlatividades(request):
+    try:
+        estudiante = Estudiante.objects.get(email=request.user.email)
+        inscripciones = EstudianteProfesorado.objects.filter(estudiante=estudiante)
+        profesorados = [i.profesorado for i in inscripciones]
+        espacios = EspacioCurricular.objects.filter(profesorado__in=profesorados)
+
+        correlatividades = []
+        for espacio in espacios:
+            correlatividad_rules = Correlatividad.objects.filter(espacio=espacio)
+            correlatividades.append({
+                'espacio': espacio,
+                'rules': correlatividad_rules
+            })
+
+    except Estudiante.DoesNotExist:
+        correlatividades = []
+
+    return render(request, 'panel_correlatividades.html', {'correlatividades': correlatividades})
+
 
 # ============================ Helpers de formato ============================
 
@@ -58,27 +108,23 @@ def _fmt_date(d):
         pass
     return str(d)
 
-def _ord(n):
-    if not n:
-        return ""
+def _ord(n: Optional[int]) -> str:
     try:
         n = int(n)
+        return f"{n}º"
     except Exception:
-        return ""
-    return f"{n}º Año"
+        return "—"
 
-def _cuatri_label(x):
-    if x in (None, "", 0):
-        return ""
-    try:
-        x = int(x)
-    except Exception:
-        s = str(x).upper().strip()
-        if s in ("ANUAL", "A"):
-            return "Anual"
-        m = re.search(r"\d+", s)
-        return f"{m.group(0)}º C" if m else s
-    return "Anual" if x == 0 else f"{x}º C"
+def _cuatri_label(cuatri: Optional[int], formato: Optional[str]) -> str:
+    """
+    Traduce cuatrimestre / formato a etiqueta legible:
+    1 -> '1º C', 2 -> '2º C', None/0/Anual -> 'Anual'
+    """
+    if cuatri in (1, 2):
+        return f"{cuatri}º C"
+    # si no hay valor, tratamos como anual
+    txt = (formato or "").strip().lower()
+    return "Anual" if not txt else ("Anual" if "anual" in txt else "Anual")
 
 def _espacio_label(e: EspacioCurricular) -> str:
     if _espacio_label_from_utils:
@@ -115,7 +161,16 @@ def _role_for(user) -> str:
         return "Admin"
     if getattr(user, "is_staff", False):
         return "Secretaría"
-    return "Docente/Estudiante"
+    try:
+        if hasattr(user, "rol") and user.rol:
+            return str(user.rol)
+        if user.groups.filter(name__iexact="Docente").exists():
+            return "Docente"
+        if user.groups.filter(name__iexact="Estudiante").exists():
+            return "Estudiante"
+    except Exception:
+        pass
+    return "Usuario"
 
 def _base_context(request: HttpRequest) -> Dict[str, Any]:
     user = getattr(request, "user", None)
@@ -126,12 +181,137 @@ def _base_context(request: HttpRequest) -> Dict[str, Any]:
         profesorados = []
     return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
 
+@login_required
+def panel(request: HttpRequest) -> HttpResponse:
+    """
+    Vista unificada del panel.
+    Redirige a la plantilla correcta según el rol del usuario.
+    """
+    user = request.user
+    role = _role_for(user)
+
+    if role in ["Admin", "Secretaría"]:
+        ctx = _base_context(request)
+    
+        # === LA LÍNEA CLAVE QUE FALTABA ===
+        # Leemos el parámetro 'action' de la URL. Si no existe, usamos 'section_est' como valor por defecto.
+        action = request.GET.get("action", "section_est")
+        
+        # Pasamos la acción y el formulario (inicialmente vacío) a la plantilla
+        ctx["action"] = action
+        ctx["form"] = None
+        
+        # Títulos por defecto
+        ctx["action_title"] = "Inicio"
+        ctx["action_subtitle"] = "Bienvenido al panel de gestión."
+
+        # Ahora, según la 'action', definimos el título y cargamos el formulario correspondiente
+        if action == "add_est":
+            ctx["action_title"] = "Nuevo Estudiante"
+            ctx["action_subtitle"] = "Completa los datos para dar de alta un nuevo estudiante."
+            ctx["form"] = EstudianteForm()
+
+        elif action == "insc_prof":
+            ctx["action_title"] = "Inscribir a Carrera"
+            ctx["action_subtitle"] = "Selecciona un estudiante y un profesorado para crear una nueva inscripción."
+            ctx["form"] = InscripcionProfesoradoForm()
+
+        elif action == "insc_esp":
+            ctx["action_title"] = "Inscribir a Espacio Curricular"
+            ctx["action_subtitle"] = "Inscribe a un estudiante en una materia para el ciclo académico actual."
+            form = InscripcionEspacioForm()
+            # Ponemos el año actual por defecto en el campo anio_academico (si existe)
+            try:
+                form.fields["anio_academico"].initial = timezone.now().year
+            except Exception:
+                pass
+            ctx["form"] = form
+        
+        # Agregamos los títulos para las secciones que no tienen formulario
+        elif action == "section_est":
+            ctx["action_title"] = "Estudiantes"
+            ctx["action_subtitle"] = "Gestiona los estudiantes existentes o crea uno nuevo."
+            
+        elif action == "section_insc":
+            ctx["action_title"] = "Inscripciones"
+            ctx["action_subtitle"] = "Gestiona las inscripciones a carreras, materias y mesas de examen."
+            
+        elif action == "section_calif":
+            ctx["action_title"] = "Calificaciones"
+            ctx["action_subtitle"] = "Carga y gestiona las calificaciones de los estudiantes."
+            
+        elif action == "section_admin":
+            ctx["action_title"] = "Administración"
+            ctx["action_subtitle"] = "Configuración de espacios, planes y correlatividades."
+            
+        elif action == "section_help":
+            ctx["action_title"] = "Ayuda"
+            ctx["action_subtitle"] = "Información y soporte."
+
+        # Finalmente, renderizamos la plantilla con todo el contexto preparado
+        return render(request, "academia_core/panel_inicio.html", ctx)
+    elif role == "Estudiante":
+        action = request.GET.get("action") or "tray"
+        ctx: Dict[str, Any] = {"action": action}
+        ctx.update(_base_ctx_est(request))
+
+        TITLES = {
+            "tray": ("Mi trayectoria", ""),
+            "correl": ("Consulta de correlatividades", ""),
+            "sit": ("Situación académica", ""),
+            "horarios": ("Horarios", ""),
+            "insc_esp": ("Inscribirme a una materia", ""),
+            "insc_final": ("Inscribirme a un final", ""),
+            "hist": ("Histórico (cartón)", "Vista consolidada por espacio con regularidad y mesas finales."),
+        }
+        if action in TITLES:
+            ctx["action_title"], ctx["action_subtitle"] = TITLES[action]
+
+        if action == "insc_esp":
+            form = StudentInscripcionEspacioForm(request.POST or None, request=request)
+            if request.method == "POST" and form.is_valid():
+                form.save()
+                return redirect(f"{reverse('panel_estudiante')}?action=insc_esp&ok=1")
+            ctx["form"] = form
+
+        elif action == "insc_final":
+            form = StudentInscripcionFinalForm(request.POST or None, request=request)
+            if request.method == "POST" and form.is_valid():
+                form.save()
+                return redirect(f"{reverse('panel_estudiante')}?action=insc_final&ok=1")
+            ctx["form"] = form
+
+        elif action == "tray":
+            est = getattr(request.user, "estudiante", None)
+            try:
+                if est is None and request.user.email:
+                    est = Estudiante.objects.filter(email__iexact=request.user.email).first()
+            except Exception:
+                est = None
+            if est:
+                inscs = EstudianteProfesorado.objects.filter(estudiante=est)
+                cursadas = InscripcionEspacio.objects.filter(inscripcion__in=inscs).select_related("espacio")
+            else:
+                cursadas = InscripcionEspacio.objects.none()
+            ctx["cursadas"] = cursadas
+
+        elif action == "correl":
+            return panel_correlatividades(request)
+
+        elif action == "horarios":
+            return panel_horarios(request)
+
+        elif action == "hist":
+            ctx["carton_rows"] = _carton_rows(request)
+
+        return render(request, "panel_estudiante.html", ctx)
+    elif role == "Docente":
+        return panel_docente(request)
+
+
 # ============================== Vistas HTML ================================
 
-@login_required
-def panel_inicio(request: HttpRequest) -> HttpResponse:
-    ctx = _base_context(request)
-    return render(request, "academia_core/panel_inicio.html", ctx)
+
 
 @login_required
 def estudiante_list(request: HttpRequest) -> HttpResponse:
@@ -238,12 +418,20 @@ def estudiante_panel(request: HttpRequest, insc_id: int) -> HttpResponse:
 # =============================== Endpoints JSON ===========================
 
 
+# En: academia_core/views_panel.py
+
+# En: academia_core/views_panel.py
+
+# Asegúrate de tener estos imports al principio del archivo
+from .models import Correlatividad, Movimiento, Condicion
+
+
+
 @login_required
 @require_GET
 def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
     """
-    Versión final y definitiva: Devuelve los espacios que un estudiante puede cursar,
-    aplicando todos los filtros de negocio según el reglamento académico.
+    Versión CORREGIDA: Incluye una lógica de filtros y correlatividades funcional.
     """
     try:
         insc = EstudianteProfesorado.objects.select_related("profesorado", "estudiante").get(pk=insc_id)
@@ -251,59 +439,153 @@ def get_espacios_por_inscripcion(request: HttpRequest, insc_id: int):
     except EstudianteProfesorado.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
 
-    # 1. Búsqueda inicial de todas las materias de la carrera
-    qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado).order_by("anio", "cuatrimestre", "nombre")
+    # --- OBTENER ESTADO ACADÉMICO DEL ALUMNO ---
+    # Obtenemos de una sola vez todas las materias que el alumno tiene APROBADAS o REGULARIZADAS
+    movimientos_alumno = Movimiento.objects.filter(inscripcion__estudiante=estudiante)
 
-    # 2. Filtro: Excluir materias en las que YA se inscribió en el año académico seleccionado
+    materias_aprobadas_ids = set(movimientos_alumno.filter(
+        Q(tipo="REG", condicion__codigo__in=["PROMOCION", "APROBADO"]) |
+        Q(tipo="FIN", nota_num__gte=6) |
+        Q(condicion__codigo="EQUIVALENCIA")
+    ).values_list("espacio_id", flat=True))
+
+    materias_regularizadas_ids = set(movimientos_alumno.filter(
+        condicion__codigo__in=["REGULAR", "PROMOCION", "APROBADO"]
+    ).values_list("espacio_id", flat=True))
+
+
+    # 1. Búsqueda inicial de todas las materias de la carrera
+    qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
+
+    # 2. Filtro: Excluir APROBADAS
+    if materias_aprobadas_ids:
+        qs = qs.exclude(pk__in=materias_aprobadas_ids)
+
+    # 3. Filtro: Excluir ya inscriptas en el año (si aplica)
+    anio_academico = request.GET.get("anio_academico")
+    if anio_academico and anio_academico.isdigit():
+        ya_inscripto_ids = InscripcionEspacio.objects.filter(
+            inscripcion=insc, anio_academico=int(anio_academico)
+        ).values_list("espacio_id", flat=True)
+        if ya_inscripto_ids.exists():
+            qs = qs.exclude(pk__in=ya_inscripto_ids)
+
+    # 4. Filtro final: Aplicar CORRELATIVIDADES
+    # Iteramos sobre las materias restantes y verificamos si se cumplen los requisitos
+    espacios_permitidos = []
+    for espacio in qs:
+        # Buscamos todas las reglas de correlatividad para cursar este espacio
+        reglas = Correlatividad.objects.filter(espacio=espacio, tipo="CURSAR")
+
+        # Si no hay reglas, la materia está permitida
+        if not reglas.exists():
+            espacios_permitidos.append(espacio)
+            continue
+
+        # Si hay reglas, verificamos que se cumplan todas
+        cumple_todas = True
+        for regla in reglas:
+            if regla.requisito == "APROBADA":
+                if regla.requiere_espacio_id not in materias_aprobadas_ids:
+                    cumple_todas = False
+                    break # Si una falla, no hace falta seguir revisando
+            elif regla.requisito == "REGULARIZADA":
+                if regla.requiere_espacio_id not in materias_regularizadas_ids:
+                    cumple_todas = False
+                    break
+
+        if cumple_todas:
+            espacios_permitidos.append(espacio)
+
+    # La respuesta final se basa en la lista filtrada por correlatividades
+    items = [{"id": e.id, "nombre": _espacio_label(e)} for e in espacios_permitidos]
+    return JsonResponse({"ok": True, "items": items})
+    
+    
+    
+    
+    """
+    Versión de DEPURACIÓN: Devuelve los espacios que un estudiante puede cursar,
+    imprimiendo en la terminal cada paso del filtro.
+    """
+    print("\n--- INICIANDO DEPURACIÓN DE get_espacios_por_inscripcion ---")
+    try:
+        insc = EstudianteProfesorado.objects.select_related("profesorado", "estudiante").get(pk=insc_id)
+        estudiante = insc.estudiante
+        print(f"1. Estudiante encontrado: {estudiante}")
+    except EstudianteProfesorado.DoesNotExist:
+        print("!!! ERROR: Inscripción no encontrada.")
+        return JsonResponse({"ok": False, "error": "Inscripción no encontrada"}, status=404)
+
+    # 1. Búsqueda inicial
+    qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado).order_by("anio", "cuatrimestre", "nombre")
+    print(f"2. Materias totales de la carrera: {qs.count()}")
+
+    # 2. Filtro: Excluir ya inscriptas en el año
     anio_academico = request.GET.get("anio_academico")
     if anio_academico and anio_academico.isdigit():
         ya_inscripto_ids = InscripcionEspacio.objects.filter(
             inscripcion=insc,
             anio_academico=int(anio_academico)
         ).values_list("espacio_id", flat=True)
-        
-        if ya_inscripto_ids.exists():
-            qs = qs.exclude(pk__in=ya_inscripto_ids)
 
-    # 3. Filtro Definitivo: Excluir materias APROBADAS o con REGULARIDAD VIGENTE
+        if ya_inscripto_ids.exists():
+            print(f"3. Excluyendo {len(ya_inscripto_ids)} materias ya inscriptas en {anio_academico}.")
+            qs = qs.exclude(pk__in=ya_inscripto_ids)
+            print(f"   Materias restantes tras filtro de inscriptas: {qs.count()}")
+
+    # 3. Filtro: Excluir APROBADAS o con REGULARIDAD VIGENTE
     try:
-        # A) Materias con APROBACIÓN FINAL (Promoción, Aprobado directo, Final Regular/Libre, Equivalencia)
         aprobadas_ids = set(Movimiento.objects.filter(
             Q(inscripcion__estudiante=estudiante, tipo="REG", condicion__codigo__in=["PROMOCION", "APROBADO"]) |
             Q(inscripcion__estudiante=estudiante, tipo="FIN", nota_num__gte=6) |
             Q(inscripcion__estudiante=estudiante, condicion__codigo="EQUIVALENCIA")
         ).values_list("espacio_id", flat=True))
+        print(f"4. IDs de materias APROBADAS encontradas: {aprobadas_ids}")
 
-        # B) Materias con REGULARIDAD VIGENTE (2 años y 45 días)
-        fecha_limite = timezone.now().date() - timedelta(days=775) # 365*2 + 45
+        fecha_limite = timezone.now().date() - timedelta(days=775)
         regular_vigente_ids = set(Movimiento.objects.filter(
             inscripcion__estudiante=estudiante,
             tipo="REG",
             condicion__codigo="REGULAR",
             fecha__gte=fecha_limite
         ).values_list("espacio_id", flat=True))
+        print(f"5. IDs de materias con REGULARIDAD VIGENTE encontradas: {regular_vigente_ids}")
 
-        # C) Unimos todos los IDs que se deben excluir
         ids_a_excluir = aprobadas_ids.union(regular_vigente_ids)
+        print(f"6. IDs totales a excluir (aprobadas + regulares): {ids_a_excluir}")
 
         if ids_a_excluir:
             qs = qs.exclude(pk__in=ids_a_excluir)
-            
-    except (FieldError, NameError):
+
+        print(f"   Materias restantes tras filtro de aprobadas/regulares: {qs.count()}")
+
+    except (FieldError, NameError) as e:
+        print(f"!!! ERROR en el filtro de aprobadas/regulares: {e}")
         pass
 
     # 4. Filtro: Aplicar CORRELATIVIDADES
     if evaluar_correlatividades:
-        espacios_permitidos_ids = [
-            espacio.id for espacio in qs 
-            if evaluar_correlatividades(insc, espacio, tipo="CURSAR")[0]
-        ]
-        qs = qs.filter(pk__in=espacios_permitidos_ids)
+        print("7. Aplicando filtro de CORRELATIVIDADES...")
+        # Usaremos una lista temporal para ver qué está pasando
+        espacios_finales_ids = []
+        for espacio in qs:
+            puede_cursar, _ = evaluar_correlatividades(insc, espacio)
+            if puede_cursar:
+                espacios_finales_ids.append(espacio.id)
+            # Opcional: Descomenta la siguiente línea para ver por qué se rechaza una materia
+            # else:
+            #     print(f"   -> RECHAZADA por correlatividad: {espacio.nombre}")
+
+        qs = qs.filter(pk__in=espacios_finales_ids)
+        print(f"   Materias restantes tras filtro de correlatividades: {qs.count()}")
+    else:
+        print("7. ADVERTENCIA: La función 'evaluar_correlatividades' no está disponible.")
 
     # Respuesta final
     items = [{"id": e.id, "nombre": _espacio_label(e)} for e in qs]
+    print("--- FIN DEPURACIÓN ---")
     return JsonResponse({"ok": True, "items": items})
-
 @login_required
 @require_GET
 def get_correlatividades(request: HttpRequest, espacio_id: int, insc_id: Optional[int] = None):
@@ -347,55 +629,38 @@ def get_correlatividades(request: HttpRequest, espacio_id: int, insc_id: Optiona
 
 # ---------------------- Endpoints de guardado/altas -----------------------
 
+
+
 @login_required
 @require_POST
 def crear_inscripcion_cursada(request: HttpRequest, insc_prof_id: int):
     """
-    Crea una InscripcionEspacio (cursada) de manera segura desde el panel.
+    Versión CORREGIDA para guardar la inscripción a la cursada.
     """
-    insc = get_object_or_404(EstudianteProfesorado.objects.select_related("estudiante", "profesorado"), pk=insc_prof_id)
+    insc = get_object_or_404(EstudianteProfesorado, pk=insc_prof_id)
 
-    # intentamos inferir año académico si no viene
-    initial = {}
-    anio_in = request.POST.get("anio_academico")
-    if not anio_in:
-        try:
-            initial["anio_academico"] = year_now()
-        except Exception:
-            initial["anio_academico"] = timezone.now().year
+    # Creamos el formulario directamente con los datos del POST
+    form = InscripcionEspacioForm(request.POST)
 
-    # wrapper para construir un form aceptando kwargs extra si corresponde
-    def _build_form(FormClass, data=None, files=None, initial=None):
-        try:
-            return FormClass(data, files, request=request, user=getattr(request, "user", None), initial=initial)
-        except TypeError:
-            try:
-                return FormClass(data, files, initial=initial)
-            except TypeError:
-                try:
-                    return FormClass(data, files)
-                except TypeError:
-                    return FormClass()
+    if form.is_valid():
+        # Guardamos el objeto pero sin mandarlo a la base de datos todavía
+        obj = form.save(commit=False)
 
-    form = _build_form(InscripcionEspacioForm, request.POST or None, request.FILES or None, initial=initial)
-    if not form.is_valid():
+        # Asignamos manualmente la inscripción del estudiante, ya que no es parte del formulario
+        obj.inscripcion = insc
+
+        # Ahora sí, guardamos el objeto completo en la base de datos
+        obj.save()
+
+        # Devolvemos una respuesta JSON de éxito
+        return JsonResponse({"ok": True, "id": obj.pk, "label": _espacio_label(obj.espacio)})
+    else:
+        # Si el formulario no es válido, devolvemos los errores en formato JSON
         return JsonResponse({"ok": False, "errors": form.errors}, status=400)
-
-    obj: InscripcionEspacio = form.save(commit=False)
-    obj.inscripcion = insc
-
-    # EstadoInscripcion default si el form no lo define
-    estado_val = form.cleaned_data.get("estado")
-    if not estado_val:
-        try:
-            estado_val = getattr(EstadoInscripcion, "EN_CURSO", "EN_CURSO")
-        except Exception:
-            estado_val = "EN_CURSO"
-    obj.estado = estado_val
-
-    obj.save()
-    return JsonResponse({"ok": True, "id": obj.pk, "label": _espacio_label(obj.espacio)})
-
+        
+        
+        
+        
 @login_required
 @require_POST
 def crear_movimiento(request: HttpRequest, insc_cursada_id: int):
@@ -426,3 +691,172 @@ def redir_inscripcion(request: HttpRequest, insc_id: int) -> HttpResponse:
     return redirect(reverse("estudiante_panel", args=[insc.pk]))
 
 # =============================== FIN DEL ARCHIVO ==========================
+
+
+# ----------------- helpers comunes -----------------
+
+
+
+
+def _base_ctx_est(request: HttpRequest) -> Dict[str, Any]:
+    user = getattr(request, "user", None)
+    try:
+        inscs = EstudianteProfesorado.objects.filter(estudiante__user=user).select_related("profesorado")
+        if not inscs.exists() and user and user.email:
+            inscs = EstudianteProfesorado.objects.filter(estudiante__email__iexact=user.email).select_related("profesorado")
+    except Exception:
+        inscs = EstudianteProfesorado.objects.none()
+    profesorados = [i.profesorado for i in inscs]
+    return {"rol": _role_for(user), "profesorados": profesorados}
+
+
+
+
+
+    """Detecta el nombre del FK desde InscripcionFinal hacia InscripcionEspacio."""
+    for f in InscripcionFinal._meta.get_fields():
+        try:
+            if getattr(f, "related_model", None).__name__ == "InscripcionEspacio":
+                return f.name
+        except Exception:
+            pass
+    return None
+
+def _inscripciones_del_usuario(request: HttpRequest):
+    user = request.user
+    est = getattr(user, "estudiante", None)
+    if est:
+        return EstudianteProfesorado.objects.filter(estudiante=est)
+    if user.email:
+        return EstudianteProfesorado.objects.filter(estudiante__email__iexact=user.email)
+    return EstudianteProfesorado.objects.none()
+
+def _carton_rows(request: HttpRequest) -> List[Dict[str, Any]]:
+    """
+    Genera filas estilo 'cartón' (similar a tu Apps Script):
+    - Se recorre TODO el plan del/los profesorados del alumno (todos los espacios).
+    - Para cada espacio se listan eventos 'regularidad' (InscripcionEspacio) y 'final' (InscripcionFinal),
+      en filas separadas. Si no hay eventos, se agrega una fila vacía de ese espacio.
+    - Orden: anio, cuatrimestre, nombre, fecha.
+    """
+    inscs = _inscripciones_del_usuario(request)
+    if not inscs.exists():
+        return []
+
+    # Todos los espacios del/los profesorados del alumno
+    espacios = (
+        EspacioCurricular.objects
+        .filter(profesorado__in=[i.profesorado for i in inscs])
+        .order_by("anio", "cuatrimestre", "nombre")
+    )
+
+    # Precalcular las cursadas y finales del alumno para cruzar por espacio
+    cursadas = (
+        InscripcionEspacio.objects
+        .filter(inscripcion__in=inscs)
+        .select_related("espacio", "inscripcion")
+    )
+    # finales: localizar FK dinámicamente
+    fk_final = _final_fk_name()
+    if fk_final:
+        finales = (
+            InscripcionFinal.objects
+            .filter(**{f"{fk_final}__inscripcion__in": inscs})
+            .select_related(fk_final)
+        )
+    else:
+        finales = InscripcionFinal.objects.none()
+
+    # Índices por espacio para acceso rápido
+    by_esp_cursadas: Dict[int, List[InscripcionEspacio]] = {}
+    for c in cursadas:
+        by_esp_cursadas.setdefault(c.espacio_id, []).append(c)
+
+    by_esp_finales: Dict[int, List[InscripcionFinal]] = {}
+    if fk_final:
+        for f in finales:
+            ie: InscripcionEspacio = getattr(f, fk_final)
+            if ie and ie.espacio_id:
+                by_esp_finales.setdefault(ie.espacio_id, []).append(f)
+
+    rows: List[Dict[str, Any]] = []
+    for e in espacios:
+        anio_txt = _ord(getattr(e, "anio", None))
+        cuatri_txt = _cuatri_label(getattr(e, "cuatrimestre", None), getattr(e, "formato", None))
+
+        ev_reg = sorted(by_esp_cursadas.get(e.id, []), key=lambda x: (x.fecha or date.min))
+        ev_fin = sorted(by_esp_finales.get(e.id, []), key=lambda x: (getattr(x, "fecha", None) or date.min))
+
+        # Si hay eventos de ambos tipos, los “intercalamos” como en Sheets: una fila por evento.
+        eventos: List[Tuple[str, Any]] = [
+            *[( "reg", it) for it in ev_reg],
+            *[( "fin", it) for it in ev_fin],
+        ]
+        # orden por fecha dentro del mismo espacio
+        def _ev_date(ev):
+            kind, obj = ev
+            if kind == "reg":
+                return obj.fecha or date.min
+            # 'fin'
+            return getattr(obj, "fecha", None) or date.min
+
+        eventos.sort(key=_ev_date)
+
+        if not eventos:
+            # fila “vacía” del espacio
+            rows.append({
+                "anio": anio_txt,
+                "cuatri": cuatri_txt,
+                "espacio": e.nombre,
+                "reg_fecha": "",
+                "reg_cond": "",
+                "reg_nota": "",
+                "fin_fecha": "",
+                "fin_cond": "",
+                "fin_nota": "",
+                "fin_folio": "",
+                "fin_libro": "",
+                "fin_id": "",
+                "break_after": True,  # ayuda visual para cortar grupos por espacio
+            })
+            continue
+
+        for idx, (kind, obj) in enumerate(eventos):
+            is_reg = (kind == "reg")
+            if is_reg:
+                reg_fecha = obj.fecha or ""
+                reg_cond  = obj.estado or ""
+                reg_nota  = ""  # InscripcionEspacio no suele tener nota numérica
+                fin_fecha = fin_cond = fin_nota = fin_folio = fin_libro = fin_id = ""
+            else:
+                reg_fecha = reg_cond = reg_nota = ""
+                fin_fecha = getattr(obj, "fecha", "")
+                fin_cond  = getattr(obj, "estado", "")
+                # nota_final puede llamarse distinto si personalizaste; probamos ambos
+                fin_nota  = getattr(obj, "nota_final", "") or getattr(obj, "nota", "")
+                fin_folio = getattr(obj, "folio", "")  # si no existe, queda vacío
+                fin_libro = getattr(obj, "libro", "")  # si no existe, queda vacío
+                fin_id    = getattr(obj, "id", "")
+
+            rows.append({
+                "anio": anio_txt if idx == 0 else "",     # sólo en la primera línea del espacio
+                "cuatri": cuatri_txt if idx == 0 else "",
+                "espacio": e.nombre if idx == 0 else "",
+                "reg_fecha": reg_fecha,
+                "reg_cond": reg_cond,
+                "reg_nota": reg_nota,
+                "fin_fecha": fin_fecha,
+                "fin_cond": fin_cond,
+                "fin_nota": fin_nota,
+                "fin_folio": fin_folio,
+                "fin_libro": fin_libro,
+                "fin_id": fin_id,
+                "break_after": (idx == len(eventos) - 1),
+            })
+
+    return rows
+
+
+# ----------------- vista principal panel estudiante -----------------
+
+

@@ -2,6 +2,7 @@
 from datetime import date
 
 from django.contrib import admin
+from django.forms import ModelForm, ValidationError
 from django.utils.html import format_html
 from django.db.models import Count, Q
 
@@ -9,6 +10,7 @@ from .models import (
     Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
     EspacioCurricular, Movimiento, InscripcionEspacio,
     Docente, DocenteEspacio, UserProfile, EstadoInscripcion,
+    Correlatividad, Horario, Condicion,
 )
 
 # ===================== Helpers de rol/alcance =====================
@@ -51,7 +53,6 @@ def _solo_lectura(request):
 
 # ===================== Catálogos básicos =====================
 
-@admin.register(Profesorado)
 class ProfesoradoAdmin(admin.ModelAdmin):
     list_display = ("nombre", "plan_vigente")
     search_fields = ("nombre",)
@@ -65,7 +66,6 @@ class ProfesoradoAdmin(admin.ModelAdmin):
         return qs
 
 
-@admin.register(PlanEstudios)
 class PlanEstudiosAdmin(admin.ModelAdmin):
     list_display = ("profesorado", "resolucion", "nombre", "vigente")
     list_filter = ("profesorado", "vigente")
@@ -89,7 +89,6 @@ class PlanEstudiosAdmin(admin.ModelAdmin):
 
 # ===================== Estudiantes =====================
 
-@admin.register(Estudiante)
 class EstudianteAdmin(admin.ModelAdmin):
     list_display = (
         "apellido", "nombre", "dni", "email", "telefono", "localidad", "activo",
@@ -151,7 +150,6 @@ class EstudianteAdmin(admin.ModelAdmin):
 
 # ===================== Espacios =====================
 
-@admin.register(EspacioCurricular)
 class EspacioAdmin(admin.ModelAdmin):
     list_display = ("profesorado", "plan_en_dos_lineas", "anio", "cuatrimestre", "nombre", "horas", "formato")
     list_filter = ("profesorado", "plan__resolucion", "anio", "cuatrimestre", "formato")
@@ -212,7 +210,6 @@ class MovimientoInline(admin.TabularInline):
 
 # ===================== Inscripciones (Estudiante ↔ Profesorado) =====================
 
-@admin.register(EstudianteProfesorado)
 class EPAdmin(admin.ModelAdmin):
     list_display = (
         "estudiante", "profesorado", "cohorte", "libreta",
@@ -281,7 +278,6 @@ def accion_marcar_baja(modeladmin, request, queryset):
     updated = queryset.update(estado=EstadoInscripcion.BAJA, fecha_baja=date.today())
     modeladmin.message_user(request, f"{updated} cursadas marcadas como BAJA")
 
-@admin.register(InscripcionEspacio)
 class InscripcionEspacioAdmin(admin.ModelAdmin):
     list_display = ("estudiante", "profesorado", "espacio", "anio_academico", "estado",
                     "fecha_inscripcion", "fecha_baja")  # <- antes 'fecha'
@@ -328,7 +324,6 @@ class InscripcionEspacioAdmin(admin.ModelAdmin):
 
 # ===================== Movimientos =====================
 
-@admin.register(Movimiento)
 class MovimientoAdmin(admin.ModelAdmin):
     list_display = (
         "tipo", "condicion", "nota_resumen", "fecha",
@@ -424,7 +419,6 @@ class DocenteEspacioInline(admin.TabularInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-@admin.register(Docente)
 class DocenteAdmin(admin.ModelAdmin):
     list_display = ("apellido", "nombre", "dni", "email", "activo")
     search_fields = ("apellido", "nombre", "dni", "email")
@@ -441,7 +435,6 @@ class DocenteAdmin(admin.ModelAdmin):
         return qs
 
 
-@admin.register(DocenteEspacio)
 class DocenteEspacioAdmin(admin.ModelAdmin):
     list_display = ("docente", "espacio", "desde", "hasta")
     search_fields = ("docente__apellido", "docente__nombre", "docente__dni", "espacio__nombre")
@@ -463,41 +456,162 @@ class DocenteEspacioAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-@admin.register(UserProfile)
+
+class CorrelatividadAdminForm(ModelForm):
+    class Meta:
+        model = Correlatividad
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        requiere_espacio = cleaned_data.get("requiere_espacio")
+        requiere_todos_hasta_anio = cleaned_data.get("requiere_todos_hasta_anio")
+
+        if requiere_espacio and requiere_todos_hasta_anio:
+            raise ValidationError(
+                "No puedes especificar un espacio requerido y 'todos hasta año' al mismo tiempo."
+            )
+        if not requiere_espacio and not requiere_todos_hasta_anio:
+            raise ValidationError(
+                "Debes especificar un espacio requerido o 'todos hasta año'."
+            )
+        return cleaned_data
+
+
+# --- Inlines ---
+class CorrelatividadInline(admin.TabularInline):
+    model = Correlatividad
+    form = CorrelatividadAdminForm  # Usamos nuestro formulario personalizado
+    extra = 0
+    fields = ["tipo", "requisito", "requiere_espacio", "requiere_todos_hasta_anio", "observaciones"]
+    autocomplete_fields = ["requiere_espacio"]
+    # Añadimos help_text para mayor claridad
+    fieldsets = (
+        (None, {
+            'fields': (
+                ("tipo", "requisito"),
+                ("requiere_espacio", "requiere_todos_hasta_anio"),
+                "observaciones",
+            ),
+            'description': (
+                "Define la condición para cursar o rendir este espacio. "
+                "Debes elegir un 'Espacio requerido' O 'Todos hasta año', pero no ambos."
+            )
+        }),
+    )
+
+
+class DocenteEspacioInline(admin.TabularInline):
+    model = DocenteEspacio
+    extra = 0
+    autocomplete_fields = ["docente"]
+
+
+class InscripcionEspacioInline(admin.TabularInline):
+    model = InscripcionEspacio
+    extra = 0
+    fields = ["espacio", "anio_academico", "fecha_inscripcion", "estado", "fecha_baja", "motivo_baja"]
+    readonly_fields = ["fecha_inscripcion"]
+    autocomplete_fields = ["espacio"]
+
+
+
+
+
+# --- Admin Models ---
+class ProfesoradoAdmin(admin.ModelAdmin):
+    list_display = ["nombre", "plan_vigente", "slug"]
+    search_fields = ["nombre", "plan_vigente"]
+    prepopulated_fields = {"slug": ["nombre"]}
+
+
+class PlanEstudiosAdmin(admin.ModelAdmin):
+    list_display = ["profesorado", "resolucion", "nombre", "vigente"]
+    list_filter = ["vigente", "profesorado"]
+    search_fields = ["profesorado__nombre", "resolucion", "nombre"]
+    prepopulated_fields = {"resolucion_slug": ["resolucion"]}
+
+
+class EspacioCurricularAdmin(admin.ModelAdmin):
+    list_display = ["nombre", "profesorado", "plan", "anio", "cuatrimestre", "horas"]
+    list_filter = ["profesorado", "plan", "anio", "cuatrimestre"]
+    search_fields = ["nombre", "profesorado__nombre", "plan__nombre"]
+    inlines = [DocenteEspacioInline, CorrelatividadInline]
+
+
+class EstudianteAdmin(admin.ModelAdmin):
+    list_display = ["apellido", "nombre", "dni", "email", "activo"]
+    list_filter = ["activo"]
+    search_fields = ["apellido", "nombre", "dni", "email"]
+
+
+class EstudianteProfesoradoAdmin(admin.ModelAdmin):
+    list_display = ["estudiante", "profesorado", "cohorte", "legajo_estado", "condicion_admin", "promedio_general"]
+    list_filter = ["profesorado", "cohorte", "legajo_estado", "condicion_admin"]
+    search_fields = ["estudiante__apellido", "estudiante__nombre", "estudiante__dni", "profesorado__nombre"]
+    inlines = [InscripcionEspacioInline]
+    raw_id_fields = ["estudiante", "profesorado"]
+
+
+class InscripcionEspacioAdmin(admin.ModelAdmin):
+    list_display = ["inscripcion", "espacio", "anio_academico", "fecha_inscripcion", "estado"]
+    list_filter = ["anio_academico", "estado", "espacio__profesorado"]
+    search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
+    inlines = [MovimientoInline]
+    raw_id_fields = ["inscripcion", "espacio"]
+
+
+class MovimientoAdmin(admin.ModelAdmin):
+    list_display = ["inscripcion", "espacio", "tipo", "fecha", "condicion", "nota_num"]
+    list_filter = ["tipo", "condicion", "espacio__profesorado"]
+    search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
+    raw_id_fields = ["inscripcion", "espacio", "condicion"]
+
+
+class CondicionAdmin(admin.ModelAdmin):
+    list_display = ["codigo", "nombre", "tipo"]
+    list_filter = ["tipo"]
+    search_fields = ["codigo", "nombre"]
+
+
+class DocenteAdmin(admin.ModelAdmin):
+    list_display = ["apellido", "nombre", "dni", "email", "activo"]
+    list_filter = ["activo"]
+    search_fields = ["apellido", "nombre", "dni", "email"]
+
+
+class DocenteEspacioAdmin(admin.ModelAdmin):
+    list_display = ["docente", "espacio", "desde", "hasta"]
+    list_filter = ["espacio__profesorado"]
+    search_fields = ["docente__apellido", "espacio__nombre"]
+    raw_id_fields = ["docente", "espacio"]
+
+
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "rol", "estudiante", "docente")
-    list_filter = ("rol",)
-    search_fields = ("user__username", "user__email", "estudiante__dni", "docente__dni")
-    filter_horizontal = ("profesorados_permitidos",)
-
-    # Sólo SECRETARIA o superuser pueden modificar perfiles desde el admin
-    def has_add_permission(self, request):
-        if getattr(request.user, "is_superuser", False):
-            return True
-        return _rol(request) == "SECRETARIA"
-
-    def has_change_permission(self, request, obj=None):
-        if getattr(request.user, "is_superuser", False):
-            return True
-        return _rol(request) == "SECRETARIA"
-
-    def has_delete_permission(self, request, obj=None):
-        if getattr(request.user, "is_superuser", False):
-            return True
-        return _rol(request) == "SECRETARIA"
+    list_display = ["user", "rol", "estudiante", "docente"]
+    list_filter = ["rol", "profesorados_permitidos"]
+    search_fields = ["user__username", "estudiante__apellido", "docente__apellido"]
+    raw_id_fields = ["user", "estudiante", "docente"]
 
 
-# --- Correlatividades ---
-from .models import Correlatividad  # (lo dejamos separado para respetar tu organización)
+class HorarioAdmin(admin.ModelAdmin):
+    list_display = ["espacio", "dia_semana", "hora_inicio", "hora_fin", "docente"]
+    list_filter = ["dia_semana", "espacio__profesorado", "docente"]
+    search_fields = ["espacio__nombre", "docente__apellido"]
+    raw_id_fields = ["espacio", "docente"]
 
-@admin.register(Correlatividad)
-class CorrelatividadAdmin(admin.ModelAdmin):
-    list_display = ("plan", "espacio", "tipo", "requisito", "detalle")
-    list_filter = ("plan", "tipo", "requisito", "espacio__anio", "espacio__cuatrimestre")
-    search_fields = ("espacio__nombre", "plan__resolucion")
-    autocomplete_fields = ("plan", "espacio", "requiere_espacio")
 
-    def detalle(self, obj):
-        if obj.requiere_espacio:
-            return obj.requiere_espacio.nombre
-        return f"Todos hasta {obj.requiere_todos_hasta_anio}°"
+# Register your models here.
+admin.site.register(Profesorado, ProfesoradoAdmin)
+admin.site.register(PlanEstudios, PlanEstudiosAdmin)
+admin.site.register(Estudiante, EstudianteAdmin)
+admin.site.register(EspacioCurricular, EspacioAdmin)
+admin.site.register(EstudianteProfesorado, EPAdmin)
+admin.site.register(InscripcionEspacio, InscripcionEspacioAdmin)
+admin.site.register(Movimiento, MovimientoAdmin)
+admin.site.register(Condicion, CondicionAdmin)
+admin.site.register(Docente, DocenteAdmin)
+admin.site.register(DocenteEspacio, DocenteEspacioAdmin)
+admin.site.register(UserProfile, UserProfileAdmin)
+admin.site.register(Correlatividad)
+admin.site.register(Horario, HorarioAdmin)

@@ -45,7 +45,7 @@ class StudentInscripcionEspacioForm(forms.ModelForm):
     """
     class Meta:
         model = InscripcionEspacio
-        fields = ["inscripcion", "anio_academico", "espacio", "fecha", "estado"]
+        fields = ["inscripcion", "anio_academico", "espacio"]
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)

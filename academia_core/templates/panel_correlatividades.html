@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mt-4">Correlatividades</h2>
+    <hr>
+
+    {% for item in correlatividades %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">{{ item.espacio.nombre }}</h4>
+        </div>
+        <div class="card-body">
+            {% if item.rules %}
+            <ul class="list-group list-group-flush">
+                {% for rule in item.rules %}
+                <li class="list-group-item">
+                    <strong>Para {{ rule.get_tipo_display }}:</strong>
+                    {% if rule.requiere_espacio %}
+                        Se requiere tener <strong>{{ rule.requiere_espacio.nombre }}</strong> {{ rule.get_requisito_display }}.
+                    {% elif rule.requiere_todos_hasta_anio %}
+                        Se requiere tener todas las materias hasta <strong>{{ rule.requiere_todos_hasta_anio }}° año</strong> aprobadas.
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">No hay correlatividades definidas para este espacio.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+        No se encontraron correlatividades para tus materias.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

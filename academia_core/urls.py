@@ -10,8 +10,10 @@ from .views import (
 # Panel y APIs (ajustado a views_panel.py actualizado)
 from .views_panel import (
     # Paneles
-    panel_inicio,
-    estudiante_panel,
+    panel,
+    panel_correlatividades,
+    panel_horarios,
+    panel_docente,
     # APIs (AJAX)
     get_espacios_por_inscripcion,
     get_correlatividades,
@@ -48,12 +50,15 @@ urlpatterns = [
     path("carton/<slug:prof_slug>/<slug:res_slug>/<str:dni>/pdf/", carton_generico_pdf, name="carton_generico_pdf"),
 
     # ---------------- Panel -------------------
-    path("panel/", panel_inicio, name="panel"),
-    path("panel/home/", panel_inicio, name="panel_home"),
+    path("panel/", panel, name="panel"),
+    path("panel/home/", panel, name="panel_home"),
 
     # Panel de Estudiante (cartón por inscripción)
     # Nota: el view espera <int:insc_id>
-    path("panel/estudiante/<int:insc_id>/", estudiante_panel, name="estudiante_panel"),
+    path("panel/estudiante/<int:insc_id>/", panel, name="estudiante_panel"),
+    path("panel/correlatividades/", panel_correlatividades, name="panel_correlatividades"),
+    path("panel/horarios/", panel_horarios, name="panel_horarios"),
+    path("panel/docente/", panel_docente, name="panel_docente"),
 
     # ---------------- CBVs (Alumnos) ----------
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),

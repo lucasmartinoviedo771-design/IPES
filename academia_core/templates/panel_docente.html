@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Docente{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mt-4">Mis Espacios Curriculares</h2>
+    <hr>
+
+    <div class="row">
+        {% for espacio in espacios %}
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">{{ espacio.nombre }}</h4>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Año:</strong> {{ espacio.anio }}</p>
+                    <p class="card-text"><strong>Cuatrimestre:</strong> {{ espacio.get_cuatrimestre_display }}</p>
+                    <a href="#" class="btn btn-primary">Ver Alumnos</a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col">
+            <div class="alert alert-info">
+                No tienes espacios curriculares asignados.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

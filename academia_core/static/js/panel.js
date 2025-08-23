@@ -95,7 +95,8 @@ function initInscripcionUI() {
 window.addEventListener('DOMContentLoaded', initInscripcionUI);
 
 // Llamada AJAX para guardar la inscripción de cursada
-window.guardarInscripcion = async function(urlGuardar) {
+// Llamada AJAX para guardar la inscripción de cursada
+window.guardarInscripcion = async function() { // Ya no necesita el parámetro urlGuardar
   const form = document.getElementById('form-inscribir');
   if (!form) {
     alert('No se encontró el formulario de inscripción.');
@@ -113,13 +114,24 @@ window.guardarInscripcion = async function(urlGuardar) {
     return;
   }
 
+  // === LA LÓGICA NUEVA ===
+  // Obtenemos el ID de la inscripción a carrera que el usuario seleccionó
+  const inscripcionCarreraId = insc.value;
+  if (!inscripcionCarreraId) {
+      alert('Por favor, selecciona primero una inscripción a carrera.');
+      return;
+  }
+  // Construimos la URL dinámicamente con ese ID
+  const urlGuardar = `/panel/inscripciones/${inscripcionCarreraId}/cursadas/crear/`;
+  // =======================
+
   const data = new FormData(form);
 
   // CSRF
   const csrf = getCookie('csrftoken') || getCsrfFromForm();
 
   try {
-    const resp = await fetch(urlGuardar, {
+    const resp = await fetch(urlGuardar, { // Usamos la URL que acabamos de construir
       method: 'POST',
       headers: { 'X-CSRFToken': csrf },
       body: data,
@@ -135,7 +147,7 @@ window.guardarInscripcion = async function(urlGuardar) {
 
     alert('Guardado ✔');
 
-    // Si querés refrescar la lista/estado del form:
+    // Si quieres que la página se refresque después de guardar, puedes descomentar la siguiente línea:
     // location.reload();
 
   } catch (err) {
