@@ -40,7 +40,9 @@
 
         {% elif action == 'section_insc' %}
           <ul class="list-unstyled">
-            <li><a href="?action=insc_prof" class="btn btn-primary">➜ Inscribir a carrera</a></li>
+            <li class="nav-item">
+            <a href="{% url 'panel' %}?action=insc_carrera" class="nav-link">➜ Inscribir a carrera</a>
+          </li>
             <li class="mt-2"><a href="?action=insc_esp" class="btn btn-primary">➜ Inscribir a materia (cursada)</a></li>
           </ul>
 
