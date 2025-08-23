@@ -66,16 +66,32 @@ def panel(request: HttpRequest) -> HttpResponse:
         # --- INSCRIPCIÓN A CARRERA (alias insc_carrera / insc_prof) ---
         elif action in ("insc_carrera", "insc_prof"):
             ctx["action_title"] = "Inscripción a carrera"
+
             try:
                 ctx["estudiantes"] = Estudiante.objects.filter(activo=True).order_by("apellido", "nombre")
             except Exception:
                 ctx["estudiantes"] = []
+
+            # Profesorados activos (campo 'activa' o 'activo', según tu modelo)
             try:
-                # se espera que Profesorado tenga campo 'activa' y 'tipo'
-                ctx["profesorados"] = Profesorado.objects.filter(activa=True).values("id", "nombre", "tipo")
+                ctx["profesorados"] = list(Profesorado.objects.filter(activa=True).values("id", "nombre", "tipo"))
+                if not ctx["profesorados"]:
+                    # fallback por si el boolean se llama 'activo'
+                    ctx["profesorados"] = list(Profesorado.objects.filter(activo=True).values("id", "nombre", "tipo"))
             except Exception:
                 ctx["profesorados"] = []
-            # NO seteamos ctx["form"] aquí (para no disparar el alta de estudiante)
+
+            # Cohortes 2010..año actual (desc)
+            anio_actual = date.today().year
+            ctx["cohortes"] = list(range(2010, anio_actual + 1))[::-1]
+
+            # Requisitos base para el template
+            ctx["base_checks"] = [
+                ("dni_legalizado", "DNI legalizado"),
+                ("certificado_medico", "Certificado médico"),
+                ("fotocarnet", "Foto carnet"),
+                ("folio_oficio", "Folio oficio"),
+            ]
 
         # --- INSCRIPCIÓN A MATERIA (cursada) ---
         elif action == "insc_esp":

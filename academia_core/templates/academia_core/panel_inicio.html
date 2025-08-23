@@ -36,70 +36,284 @@
       <div class="bg-white rounded-3 shadow-sm compact main-scroll p-2 form-surface">
         {% if action_subtitle %}<p class="text-muted">{{ action_subtitle|safe }}</p>{% endif %}
 
+        {# ===================== ESTUDIANTES ===================== #}
         {% if action == 'section_est' %}
           <ul class="list-unstyled">
             <li><a href="?action=add_est" class="btn btn-primary">➜ Nuevo estudiante</a></li>
           </ul>
 
+        {# ===================== INSCRIPCIONES (menu) ===================== #}
         {% elif action == 'section_insc' %}
           <ul class="list-unstyled">
             <li class="nav-item">
-            <a href="{% url 'panel' %}?action=insc_carrera" class="nav-link">➜ Inscribir a carrera</a>
-          </li>
+              <a href="{% url 'panel' %}?action=insc_carrera" class="nav-link">➜ Inscribir a carrera</a>
+            </li>
             <li class="mt-2"><a href="?action=insc_esp" class="btn btn-primary">➜ Inscribir a materia (cursada)</a></li>
           </ul>
 
+        {# ===================== INSCRIPCIÓN A CARRERA ===================== #}
         {% elif action == 'insc_carrera' or action == 'insc_prof' %}
-  <form class="row g-2 gy-1 compact" novalidate>
-    <div class="col-12"><h6 class="text-uppercase text-muted mb-2">Inscripción a carrera</h6></div>
+<form id="form-insc-carrera" class="row g-2 gy-1 compact" novalidate>
+  <div class="col-12"><h6 class="text-uppercase text-muted mb-2">INSCRIPCIÓN A CARRERA</h6></div>
 
-    <div class="col-12 col-md-6">
-      <label class="form-label">Estudiante <span class="text-danger">*</span></label>
-      <select name="estudiante_id" class="form-select" {% if not estudiantes %}disabled{% endif %}>
-        <option value="">{{ estudiantes|length|yesno:"Seleccioná…,No hay estudiantes activos" }}</option>
-        {% for e in estudiantes %}
-          <option value="{{ e.id }}">{{ e.apellido }} {{ e.nombre }}</option>
-        {% endfor %}
-      </select>
-    </div>
+  <!-- Estudiante -->
+  <div class="col-12 col-lg-6">
+    <label class="form-label">Estudiante <span class="text-danger">*</span></label>
+    <select id="estudiante" name="estudiante" class="form-select">
+      <option value="" selected>Seleccioná...</option>
+      {% for e in estudiantes %}
+        <option value="{{ e.id }}">{{ e.apellido }}, {{ e.nombre }} — DNI {{ e.dni }}</option>
+      {% empty %}
+        <option disabled>No hay estudiantes activos</option>
+      {% endfor %}
+    </select>
+  </div>
 
-    <div class="col-12 col-md-6">
-      <label class="form-label">Profesorado <span class="text-danger">*</span></label>
-      <select name="profesorado_id" class="form-select" {% if not profesorados %}disabled{% endif %}>
-        <option value="">{{ profesorados|length|yesno:"Seleccioná…,No hay profesorados activos" }}</option>
+  <!-- Profesorado -->
+  <div class="col-12 col-lg-6">
+    <label class="form-label">Profesorado <span class="text-danger">*</span></label>
+    <select id="profesorado" name="profesorado" class="form-select">
+      {% if profesorados %}
         {% for p in profesorados %}
-          <option value="{{ p.id }}">{{ p.nombre }}</option>
+          <option value="{{ p.id }}" data-tipo="{{ p.tipo|default:'profesorado' }}">{{ p.nombre }}</option>
         {% endfor %}
-      </select>
-    </div>
+      {% else %}
+        <option disabled selected>No hay profesorados activos</option>
+      {% endif %}
+    </select>
+    <div class="form-text">Si es “Certificación Docente”, cambian los requisitos.</div>
+  </div>
 
-    <div class="col-12 col-md-4">
-      <label class="form-label">Cohorte <span class="text-danger">*</span></label>
-      <select name="cohorte" class="form-select">
-        {% for anio in cohortes %}
-          <option value="{{ anio }}">{{ anio }}</option>
-        {% endfor %}
-      </select>
-    </div>
+  <!-- Cohorte / Curso introductorio -->
+  <div class="col-12">
+    <label class="form-label">Cohorte <span class="text-danger">*</span></label>
+    <select id="cohorte" name="cohorte" class="form-select">
+      {% for anio in cohortes %}<option value="{{ anio }}">{{ anio }}</option>{% endfor %}
+    </select>
+  </div>
 
-    <div class="col-12 col-md-4">
-      <label class="form-label">Curso introductorio</label>
-      <select name="curso_introductorio" class="form-select">
-        <option value="aprobado">Aprobado</option>
-        <option value="desaprobado">Desaprobado</option>
-      </select>
-    </div>
+  <div class="col-12">
+    <label class="form-label">Curso introductorio</label>
+    <select id="curso_intro" name="curso_intro" class="form-select">
+      <option value="Aprobado">Aprobado</option>
+      <option value="Desaprobado">Desaprobado</option>
+    </select>
+  </div>
 
-    <!-- Acá después sumamos todos los checks y la lógica Regular/Condicional -->
+  <div class="col-12 col-md-4 d-flex align-items-end">
+    <span id="chip-estado" class="badge text-bg-secondary">ESTADO: —</span>
+  </div>
 
-    <div class="col-12">
-      <div class="d-flex justify-content-start gap-2 pt-2 mt-1 border-top">
-        <a href="{% url 'panel' %}?action=section_insc" class="btn btn-outline-secondary">Volver</a>
-        <button type="submit" class="btn btn-success px-4">Guardar</button>
+  <div class="col-12 pt-2"><h6 class="text-uppercase text-muted mb-2">Documentación</h6></div>
+
+  <!-- Requisitos base -->
+  <div class="row g-2">
+    {% for id,label in base_checks %}
+      <div class="col-6 col-md-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="{{ id }}" name="{{ id }}">
+          <label class="form-check-label" for="{{ id }}">{{ label }}</label>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Grupo Profesorado común -->
+  <div id="grp-profesorado" class="row g-2 mt-1">
+    <div class="col-12 col-md-3">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="titulo_secundario_legalizado" name="titulo_secundario_legalizado">
+        <label class="form-check-label" for="titulo_secundario_legalizado">Título secundario legalizado</label>
       </div>
     </div>
-  </form>
-{% elif form %}
+    <div class="col-12 col-md-3">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="titulo_en_tramite" name="titulo_en_tramite">
+        <label class="form-check-label" for="titulo_en_tramite">Título en trámite</label>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="adeuda_materia" name="adeuda_materia">
+        <label class="form-check-label" for="adeuda_materia">Adeuda materia</label>
+      </div>
+    </div>
+
+    {# Campos de Adeuda: SOLO visibles si "Adeuda materia" está activo #}
+    <div id="adeuda_fields" class="col-12 d-none">
+      <div class="row g-2">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Materias adeudadas</label>
+          <input type="text" class="form-control" id="materias_adeudadas" name="materias_adeudadas" disabled>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Escuela / Institución</label>
+          <input type="text" class="form-control" id="institucion_adeuda" name="institucion_adeuda" disabled>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grupo: Certificación Docente -->
+  <div id="grp-certificacion" class="row g-2 mt-1 d-none">
+    <div class="col-12 col-md-3">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="titulo_terciario_legalizado" name="titulo_terciario_legalizado">
+        <label class="form-check-label" for="titulo_terciario_legalizado">Título terciario/univ. legalizado</label>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="incumbencias_presentadas" name="incumbencias_presentadas">
+        <label class="form-check-label" for="incumbencias_presentadas">Incumbencias presentadas</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nota compromiso + chip -->
+  <div class="col-12 mt-1">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="nota_compromiso" name="nota_compromiso" disabled>
+      <label class="form-check-label" for="nota_compromiso">Nota compromiso</label>
+      <small class="text-muted d-block">Se habilita automáticamente si falta documentación.</small>
+    </div>
+  </div>
+  <div class="col-12 col-md-4 mt-2">
+    <span id="chip-estado" class="badge text-bg-secondary">ESTADO: —</span>
+  </div>
+
+  <!-- Acciones -->
+  <div class="col-12">
+    <div class="d-flex justify-content-start gap-2 pt-2 mt-1 border-top">
+      <a href="{% url 'panel' %}?action=section_insc" class="btn btn-outline-secondary">Volver</a>
+      <button type="submit" class="btn btn-success px-4">Guardar</button>
+    </div>
+  </div>
+</form>
+
+{# ===== JS: exclusividad + mostrar/ocultar + estado ===== #}
+<script>
+(function(){
+  const $ = (s) => document.querySelector(s);
+
+  // Select profesorado y grupos
+  const profSel = $('#profesorado');
+  const tipoActual = () => profSel?.selectedOptions?.[0]?.dataset?.tipo || 'profesorado';
+
+  const grpProf = $('#grp-profesorado');
+  const grpCert = $('#grp-certificacion');
+
+  // Trío exclusivo
+  const chkSec = $('#titulo_secundario_legalizado');
+  const chkTram = $('#titulo_en_tramite');
+  const chkAde  = $('#adeuda_materia');
+
+  // Campos de Adeuda
+  const adeudaBox = $('#adeuda_fields');
+  const inMat = $('#materias_adeudadas');
+  const inIns = $('#institucion_adeuda');
+
+  // Certificación
+  const chkTer = $('#titulo_terciario_legalizado');
+  const chkInc = $('#incumbencias_presentadas');
+
+  // Base + chip
+  const base = { dni:$('#dni_legalizado'), med:$('#certificado_medico'), fot:$('#fotocarnet'), fol:$('#folio_oficio') };
+  const chip = $('#chip-estado');
+  const chkNota = $('#nota_compromiso');
+
+  // Helpers
+  function showAdeudaFields(show){
+    adeudaBox?.classList.toggle('d-none', !show);
+    if (inMat) inMat.disabled = !show;
+    if (inIns) inIns.disabled = !show;
+    if (!show){ if (inMat) inMat.value=''; if (inIns) inIns.value=''; }
+  }
+
+  function exclusive(which){
+    // deja solo UNO entre Sec / Tram / Ade
+    if (which === 'sec' && chkSec?.checked){
+      if (chkTram) chkTram.checked = false;
+      if (chkAde)  chkAde.checked  = false;
+      showAdeudaFields(false);
+    }
+    if (which === 'tram' && chkTram?.checked){
+      if (chkSec) chkSec.checked = false;
+      if (chkAde) chkAde.checked = false;
+      showAdeudaFields(false);
+    }
+    if (which === 'ade' && chkAde?.checked){
+      if (chkSec) chkSec.checked = false;
+      if (chkTram) chkTram.checked = false;
+      showAdeudaFields(true);
+    }
+    if (which === 'ade' && !chkAde?.checked){
+      showAdeudaFields(false);
+    }
+  }
+
+  function calcularEstado(){
+    const baseOk = base.dni?.checked && base.med?.checked && base.fot?.checked && base.fol?.checked;
+    const tipo = tipoActual();
+    let regular = false;
+
+    if (tipo === 'certificacion_docente'){
+      regular = !!(baseOk && chkTer?.checked && chkInc?.checked);
+    } else {
+      // En profesorado común: REGULAR solo con secundario legalizado
+      regular = !!(baseOk && chkSec?.checked);
+    }
+
+    if (chip){
+      chip.textContent = 'ESTADO: ' + (regular ? 'REGULAR' : 'CONDICIONAL');
+      chip.className   = 'badge ' + (regular ? 'text-bg-success' : 'text-bg-warning');
+    }
+    if (chkNota){ chkNota.disabled = regular; chkNota.checked = !regular; }
+  }
+
+  function togglePorTipo(){
+    const tipo = tipoActual();
+    if (tipo === 'certificacion_docente'){
+      grpCert?.classList.remove('d-none');
+      grpProf?.classList.add('d-none');
+      // limpiar los que no aplican
+      if (chkSec)  chkSec.checked = false;
+      if (chkTram) chkTram.checked = false;
+      if (chkAde)  chkAde.checked  = false;
+      showAdeudaFields(false);
+    } else {
+      grpCert?.classList.add('d-none');
+      grpProf?.classList.remove('d-none');
+      // limpiar certificación
+      if (chkTer) chkTer.checked = false;
+      if (chkInc) chkInc.checked = false;
+      // mantener adeuda_fields acorde al check actual
+      showAdeudaFields(!!chkAde?.checked);
+    }
+    calcularEstado();
+  }
+
+  // Eventos
+  chkSec?.addEventListener('change', () => { exclusive('sec');  calcularEstado(); });
+  chkTram?.addEventListener('change', () => { exclusive('tram'); calcularEstado(); });
+  chkAde?.addEventListener('change',  () => { exclusive('ade');  calcularEstado(); });
+
+  ['#dni_legalizado','#certificado_medico','#fotocarnet','#folio_oficio',
+   '#titulo_terciario_legalizado','#incumbencias_presentadas',
+   '#materias_adeudadas','#institucion_adeuda'
+  ].forEach(sel => document.querySelector(sel)?.addEventListener('input', calcularEstado));
+
+  profSel?.addEventListener('change', togglePorTipo);
+
+  // Init
+  showAdeudaFields(!!chkAde?.checked);
+  togglePorTipo();
+  calcularEstado();
+})();
+</script>
+
+        {# ===================== NUEVO ESTUDIANTE ===================== #}
+        {% elif form %}
           <form class="row g-2 gy-1 compact" novalidate>
 
   <!-- ===== DATOS PERSONALES ===== -->
@@ -210,18 +424,6 @@
     preview.style.display = 'block';
   });
 </script>
-
-<script>
-  // Preview de foto
-  const input = document.getElementById('fotoInput');
-  const preview = document.getElementById('fotoPreview');
-  input?.addEventListener('change', e => {
-    const f = e.target.files?.[0];
-    if (!f) { preview.style.display='none'; return; }
-    preview.src = URL.createObjectURL(f);
-    preview.style.display = 'block';
-  });
-</script>
         {% endif %}
       </div>
     </main>
@@ -230,42 +432,39 @@
 <style>
 /* ===== Página (pastel muy suave) ===== */
 :root{
-  --bg-app:   #f2cbbd;   /* fondo general (durazno más oscuro) */
+  --bg-app:   #f2cbbd;   /* fondo general */
   --surface:  #fffaf7;   /* panel del formulario (apenas teñido) */
   --field-bd: #e7e2dc;   /* borde de inputs */
   --ring:     #ffb899;   /* color de foco */
   --muted:    #6b7280;
 }
 
-/* Fuerza el fondo sobre utilidades Bootstrap que llevan !important */
 html, body { min-height: 100%; }
 body, body.bg-light, .bg-light{
   background: var(--bg-app) !important;
   background-color: var(--bg-app) !important;
 }
 
-/* ===== Panel del formulario ===== */
+/* Panel del formulario */
 .form-surface{
-  background: var(--surface) !important;      /* ya NO blanco puro */
+  background: var(--surface) !important;
   border: 1px solid rgba(0,0,0,.04);
   box-shadow: 0 6px 20px rgba(0,0,0,.04);
 }
 
-/* ===== Inputs/combobox SIEMPRE BLANCOS ===== */
+/* Inputs/combobox blancos */
 .form-surface .form-control,
 .form-surface .form-select,
 .form-surface .form-control:hover,
 .form-surface .form-select:hover,
 .form-surface .form-control:focus,
 .form-surface .form-select:focus{
-  background-color: #ffffff !important;       /* blanco */
+  background-color: #ffffff !important;
 }
 
-/* Borde y foco suaves (sin cambiar el blanco) */
+/* Borde y foco suaves */
 .form-surface .form-control,
-.form-surface .form-select{
-  border-color: var(--field-bd);
-}
+.form-surface .form-select{ border-color: var(--field-bd); }
 .form-surface .form-control:focus,
 .form-surface .form-select:focus{
   border-color: var(--ring);
@@ -278,26 +477,20 @@ body, body.bg-light, .bg-light{
   color: color-mix(in srgb, var(--muted) 60%, white);
 }
 
-/* --- Sidebar & Topbar con el mismo pastel del formulario --- */
+/* Sidebar & Topbar */
 .sidebar-surface,
 .topbar-surface{
   background: var(--surface) !important;
   border: 1px solid rgba(0,0,0,.06);
   box-shadow: 0 4px 18px rgba(0,0,0,.04);
 }
-.topbar-surface{ border-radius: 0 0 12px 12px; }   /* esquinas inferiores suaves */
+.topbar-surface{ border-radius: 0 0 12px 12px; }
 .sidebar-surface{ border-radius: 12px; }
-
-/* Si quedaron con bg-white por Bootstrap, forzamos igualmente */
-.sidebar-surface.bg-white,
-.topbar-surface.bg-white{ background: var(--surface) !important; }
-
-/* Links del menú laterales: legibles y con hover suave (opcional) */
 .sidebar-surface .nav-link{ color: #1f2937; }
 .sidebar-surface .nav-link:hover{ background: #fff; border-radius: .5rem; }
 .sidebar-surface .nav-link.active{ box-shadow: inset 0 0 0 1px var(--field-bd); }
 
-/* Compactación suave para que entre más contenido en pantalla */
+/* Compactación */
 .compact{ font-size:.94rem; }
 .compact .form-label{ font-weight:600; font-size:.9rem; margin-bottom:.2rem; }
 .compact .form-control,
@@ -305,25 +498,11 @@ body, body.bg-light, .bg-light{
 .compact .form-check-input{ padding:.35rem .5rem; font-size:.9rem; }
 .compact .btn{ padding:.4rem .75rem; font-size:.9rem; }
 
-/* Altura con scroll interno si el panel es largo */
+/* Scroll interno */
 .main-scroll{ max-height: calc(100vh - 120px) !important; overflow:auto; }
 
-/* En pantallas <992px forzamos 1 columna si te queda apretado */
- @media (max-width: 991.98px){
+@media (max-width: 991.98px){
   .compact .row{ --bs-gutter-y: .6rem; }
 }
 </style>
-
-<script>
-  // Preview de foto
-  const input = document.getElementById('fotoInput');
-  const preview = document.getElementById('fotoPreview');
-  input?.addEventListener('change', e => {
-    const f = e.target.files?.[0];
-    if (!f) { preview.style.display='none'; return; }
-    const url = URL.createObjectURL(f);
-    preview.src = url;
-    preview.style.display = 'block';
-  });
-</script>
 {% endblock %}
