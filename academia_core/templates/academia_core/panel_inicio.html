@@ -191,38 +191,42 @@
   </div>
 </form>
 
-{# ===== JS: exclusividad + mostrar/ocultar + estado ===== #}
 <script>
 (function(){
   const $ = (s) => document.querySelector(s);
 
-  // Select profesorado y grupos
+  // ---- elementos
   const profSel = $('#profesorado');
-  const tipoActual = () => profSel?.selectedOptions?.[0]?.dataset?.tipo || 'profesorado';
-
   const grpProf = $('#grp-profesorado');
   const grpCert = $('#grp-certificacion');
 
-  // Trío exclusivo
-  const chkSec = $('#titulo_secundario_legalizado');
+  const chkSec  = $('#titulo_secundario_legalizado');
   const chkTram = $('#titulo_en_tramite');
   const chkAde  = $('#adeuda_materia');
 
-  // Campos de Adeuda
   const adeudaBox = $('#adeuda_fields');
-  const inMat = $('#materias_adeudadas');
-  const inIns = $('#institucion_adeuda');
+  const inMat  = $('#materias_adeudadas');
+  const inIns  = $('#institucion_adeuda');
 
-  // Certificación
   const chkTer = $('#titulo_terciario_legalizado');
   const chkInc = $('#incumbencias_presentadas');
 
-  // Base + chip
   const base = { dni:$('#dni_legalizado'), med:$('#certificado_medico'), fot:$('#fotocarnet'), fol:$('#folio_oficio') };
   const chip = $('#chip-estado');
   const chkNota = $('#nota_compromiso');
 
-  // Helpers
+  // ---- helpers
+  const norm = (s) => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+
+  function tipoActual(){
+    const opt = profSel?.selectedOptions?.[0];
+    const byData = norm(opt?.dataset?.tipo);
+    const byText = norm(opt?.textContent);
+    if (byData.includes('certificacion') && byData.includes('docent')) return 'certificacion_docente';
+    if (byText.includes('certificacion docente')) return 'certificacion_docente';
+    return 'profesorado';
+  }
+
   function showAdeudaFields(show){
     adeudaBox?.classList.toggle('d-none', !show);
     if (inMat) inMat.disabled = !show;
@@ -230,21 +234,27 @@
     if (!show){ if (inMat) inMat.value=''; if (inIns) inIns.value=''; }
   }
 
+  function setDisabled(el, disabled){
+    if (!el) return;
+    el.disabled = disabled;
+    if (disabled) el.checked = false;
+  }
+
   function exclusive(which){
     // deja solo UNO entre Sec / Tram / Ade
     if (which === 'sec' && chkSec?.checked){
-      if (chkTram) chkTram.checked = false;
-      if (chkAde)  chkAde.checked  = false;
+      setDisabled(chkTram, false); setDisabled(chkAde, false);
+      chkTram.checked = false; chkAde.checked = false;
       showAdeudaFields(false);
     }
     if (which === 'tram' && chkTram?.checked){
-      if (chkSec) chkSec.checked = false;
-      if (chkAde) chkAde.checked = false;
+      setDisabled(chkSec, false); setDisabled(chkAde, false);
+      chkSec.checked = false; chkAde.checked = false;
       showAdeudaFields(false);
     }
     if (which === 'ade' && chkAde?.checked){
-      if (chkSec) chkSec.checked = false;
-      if (chkTram) chkTram.checked = false;
+      setDisabled(chkSec, false); setDisabled(chkTram, false);
+      chkSec.checked = false; chkTram.checked = false;
       showAdeudaFields(true);
     }
     if (which === 'ade' && !chkAde?.checked){
@@ -253,17 +263,14 @@
   }
 
   function calcularEstado(){
-    const baseOk = base.dni?.checked && base.med?.checked && base.fot?.checked && base.fol?.checked;
-    const tipo = tipoActual();
+    const baseOk = !!(base.dni?.checked && base.med?.checked && base.fot?.checked && base.fol?.checked);
+    const t = tipoActual();
     let regular = false;
-
-    if (tipo === 'certificacion_docente'){
-      regular = !!(baseOk && chkTer?.checked && chkInc?.checked);
+    if (t === 'certificacion_docente'){
+      regular = baseOk && !!(chkTer?.checked && chkInc?.checked);
     } else {
-      // En profesorado común: REGULAR solo con secundario legalizado
-      regular = !!(baseOk && chkSec?.checked);
+      regular = baseOk && !!chkSec?.checked;
     }
-
     if (chip){
       chip.textContent = 'ESTADO: ' + (regular ? 'REGULAR' : 'CONDICIONAL');
       chip.className   = 'badge ' + (regular ? 'text-bg-success' : 'text-bg-warning');
@@ -272,28 +279,38 @@
   }
 
   function togglePorTipo(){
-    const tipo = tipoActual();
-    if (tipo === 'certificacion_docente'){
+    const t = tipoActual();
+    if (t === 'certificacion_docente'){
+      // Mostrar bloque de Certificación; ocultar y deshabilitar el de Secundario/Adeuda
       grpCert?.classList.remove('d-none');
       grpProf?.classList.add('d-none');
-      // limpiar los que no aplican
-      if (chkSec)  chkSec.checked = false;
-      if (chkTram) chkTram.checked = false;
-      if (chkAde)  chkAde.checked  = false;
+
+      setDisabled(chkSec,  true);
+      setDisabled(chkTram, true);
+      setDisabled(chkAde,  true);
       showAdeudaFields(false);
+
+      // Habilitar los de certificación
+      setDisabled(chkTer, false);
+      setDisabled(chkInc, false);
     } else {
+      // Mostrar bloque de Secundario/Adeuda; ocultar y deshabilitar certificación
       grpCert?.classList.add('d-none');
       grpProf?.classList.remove('d-none');
-      // limpiar certificación
-      if (chkTer) chkTer.checked = false;
-      if (chkInc) chkInc.checked = false;
-      // mantener adeuda_fields acorde al check actual
+
+      setDisabled(chkTer, true);
+      setDisabled(chkInc, true);
+
+      // re-habilitar trio; mantener campos de adeuda según el check
+      setDisabled(chkSec,  false);
+      setDisabled(chkTram, false);
+      setDisabled(chkAde,  false);
       showAdeudaFields(!!chkAde?.checked);
     }
     calcularEstado();
   }
 
-  // Eventos
+  // ---- eventos
   chkSec?.addEventListener('change', () => { exclusive('sec');  calcularEstado(); });
   chkTram?.addEventListener('change', () => { exclusive('tram'); calcularEstado(); });
   chkAde?.addEventListener('change',  () => { exclusive('ade');  calcularEstado(); });
@@ -301,11 +318,11 @@
   ['#dni_legalizado','#certificado_medico','#fotocarnet','#folio_oficio',
    '#titulo_terciario_legalizado','#incumbencias_presentadas',
    '#materias_adeudadas','#institucion_adeuda'
-  ].forEach(sel => document.querySelector(sel)?.addEventListener('input', calcularEstado));
+  ].forEach(sel => $(sel)?.addEventListener('input', calcularEstado));
 
   profSel?.addEventListener('change', togglePorTipo);
 
-  // Init
+  // ---- init
   showAdeudaFields(!!chkAde?.checked);
   togglePorTipo();
   calcularEstado();

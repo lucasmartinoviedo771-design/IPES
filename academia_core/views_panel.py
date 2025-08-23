@@ -4,9 +4,17 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.urls import reverse
 
+import unicodedata
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.shortcuts import redirect
+
+def _norm(txt: str) -> str:
+    if not txt:
+        return ""
+    # quita acentos y pasa a minúscula
+    return "".join(c for c in unicodedata.normalize("NFD", txt) if unicodedata.category(c) != "Mn").lower()
 
 from .models import (
     Estudiante, Profesorado,
@@ -44,29 +52,32 @@ def _base_context(request: HttpRequest):
 def _profesorados_para_select():
     fields = {f.name for f in Profesorado._meta.get_fields()}
     qs = Profesorado.objects.all()
-
-    # detectar nombre del campo "activo"
     for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
         if flag in fields:
             qs = qs.filter(**{flag: True})
             break
-
-    # ordenar por nombre si existe
     qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
 
-    # armar lista de dicts id/nombre/tipo
-    if "tipo" in fields:
-        data = list(qs.values("id", "nombre", "tipo"))
-    else:
-        data = [{"id": p.id, "nombre": getattr(p, "nombre", str(p)), "tipo": "profesorado"} for p in qs]
+    data = list(qs.values("id", "nombre", "tipo") if "tipo" in fields else qs.values("id", "nombre"))
 
-    # fallback: si quedó vacío, mostrar TODOS (útil para probar UI)
+    # Normalizamos 'tipo' si viene vacío
+    for p in data:
+        nombre = p.get("nombre", "")
+        t = p.get("tipo") if "tipo" in p else None
+        if not t:
+            n = _norm(nombre)
+            p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
+
+    # Fallback: si quedó vacío, mostramos todos (útil para probar UI)
     if not data:
         all_qs = Profesorado.objects.all().order_by("nombre" if "nombre" in fields else "id")
-        if "tipo" in fields:
-            data = list(all_qs.values("id", "nombre", "tipo"))
-        else:
-            data = [{"id": p.id, "nombre": getattr(p, "nombre", str(p)), "tipo": "profesorado"} for p in all_qs]
+        data = list(all_qs.values("id", "nombre", "tipo") if "tipo" in fields else all_qs.values("id", "nombre"))
+        for p in data:
+            nombre = p.get("nombre", "")
+            t = p.get("tipo") if "tipo" in p else None
+            if not t:
+                n = _norm(nombre)
+                p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
     return data
 
 
