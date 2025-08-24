@@ -651,11 +651,14 @@ class InscripcionEspacio(models.Model):
 
     class Meta:
         ordering = ["-anio_academico", "espacio__anio", "espacio__cuatrimestre", "espacio__nombre"]
-        unique_together = [("inscripcion", "espacio", "anio_academico")]
+        # unique_together = [("inscripcion", "espacio", "anio_academico")] # Replaced by UniqueConstraint
         indexes = [
             models.Index(fields=["inscripcion", "anio_academico"], name="idx_cursada_insc_anio"),
         ]
         constraints = [
+            models.UniqueConstraint(
+                fields=["inscripcion", "espacio", "anio_academico"], name="uniq_insc_est_esp_ciclo"
+            ),
             # EN_CURSO ⇒ fecha_baja debe ser NULL
             models.CheckConstraint(
                 name="cursada_fecha_null_si_en_curso",

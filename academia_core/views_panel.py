@@ -1,15 +1,20 @@
+from __future__ import annotations
 from datetime import date
-
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.urls import reverse
-from django.contrib import messages
 
 import unicodedata
 
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
-from django.shortcuts import redirect
+
+
+# ========= helpers generales =========
 
 def _norm(txt: str) -> str:
     if not txt:
@@ -17,18 +22,60 @@ def _norm(txt: str) -> str:
     # quita acentos y pasa a minúscula
     return "".join(c for c in unicodedata.normalize("NFD", txt) if unicodedata.category(c) != "Mn").lower()
 
-# ---- helpers (poner junto a los demás) ----
+
+def _get_model(*names):
+    """Devuelve el primer modelo existente en academia_core con alguno de estos nombres."""
+    for n in names:
+        try:
+            return apps.get_model("academia_core", n)
+        except Exception:
+            continue
+    return None
+
+
+def _fk_name_to(model, related_model_cls) -> str | None:
+    for f in model._meta.get_fields():
+        if getattr(f, "is_relation", False) and getattr(f, "many_to_one", False) and f.related_model is related_model_cls:
+            return f.name
+    return None
+
+
+def _has_field(model, *names) -> str | None:
+    fields = {f.name for f in model._meta.get_fields()}
+    for n in names:
+        if n in fields:
+            return n
+    return None
+
+
+# ========= modelos (robustos) =========
+# estos existen en tu app
+Estudiante        = _get_model("Estudiante")
+Profesorado       = _get_model("Profesorado")
+PlanEstudios      = _get_model("PlanEstudios")
+EspacioCurricular = _get_model("EspacioCurricular")
+Correlatividad    = _get_model("Correlatividad")
+EstudianteProfesorado = _get_model("EstudianteProfesorado")
+
+# estos pueden no existir o llamarse distinto
+InscripcionEspacio = _get_model("InscripcionEspacio", "InscripcionCursada", "InscripcionMateria")
+ResultadoFinal     = _get_model("ResultadoFinal", "ActaFinal", "Aprobacion", "CalificacionFinal")
+Regularidad        = _get_model("Regularidad", "Cursada", "CondicionCursada")
+Movimiento         = _get_model("Movimiento")              # alternativa a Regularidad (con condicion.codigo)
+InscripcionFinal   = _get_model("InscripcionFinal", "MesaInscripcion")
+
+
+# ========= helpers de datos para selects =========
 
 def _get_estudiantes_activos():
-    from .models import Estudiante
     fields = {f.name for f in Estudiante._meta.get_fields()}
     qs = Estudiante.objects.all()
     if "activo" in fields:
         qs = qs.filter(activo=True)
     return list(qs.order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni"))
 
-def _get_profesorados_activos():
-    from .models import Profesorado
+
+def _profesorados_para_select():
     fields = {f.name for f in Profesorado._meta.get_fields()}
     qs = Profesorado.objects.all()
     for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
@@ -36,63 +83,19 @@ def _get_profesorados_activos():
             qs = qs.filter(**{flag: True})
             break
     qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
+
     data = list(qs.values("id", "nombre", "tipo") if "tipo" in fields else qs.values("id", "nombre"))
-    # Tipo por defecto
+    # Normalizamos 'tipo' si viene vacío
     for p in data:
-        if "tipo" not in p or not p["tipo"]:
-            name = p.get("nombre", "")
-            n = unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower()
+        nombre = p.get("nombre", "")
+        t = p.get("tipo") if "tipo" in p else None
+        if not t:
+            n = _norm(nombre)
             p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
     return data
 
-def _get_materias_para_select():
-    """
-    Devuelve materias activas con: id, nombre, profesorado_id, periodo (ANUAL/1C/2C).
-    Soporta nombres de campos frecuentes y cae con defaults si no existen.
-    """
-    try:
-        from .models import Materia
-    except Exception:
-        return []
 
-    fields = {f.name for f in Materia._meta.get_fields()}
-    qs = Materia.objects.all()
-
-    # activo/activa/habilitado
-    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
-        if flag in fields:
-            qs = qs.filter(**{flag: True})
-            break
-
-    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
-
-    data = []
-    for m in qs:
-        # id de profesorados (FK)
-        pid = getattr(m, "profesorado_id", None)
-        if pid is None and hasattr(m, "profesorado") and getattr(m, "profesorado", None):
-            try:
-                pid = m.profesorado.id
-            except Exception:
-                pid = None
-
-        nombre = getattr(m, "nombre", str(m))
-        # período
-        if "periodo" in fields:
-            per = getattr(m, "periodo", None) or "ANUAL"
-        elif "cuatrimestre" in fields:
-            c = getattr(m, "cuatrimestre", None)
-            per = "1C" if c == 1 else ("2C" if c == 2 else "ANUAL")
-        else:
-            per = "ANUAL"
-
-        data.append({"id": m.id, "nombre": nombre, "profesorado_id": pid, "periodo": per})
-    return data
-
-from .models import (
-    Estudiante, Profesorado,
-    EstudianteProfesorado, EspacioCurricular,
-)
+# ========= rol/contexto =========
 
 def _role_for(user) -> str:
     if not getattr(user, "is_authenticated", False):
@@ -112,6 +115,7 @@ def _role_for(user) -> str:
         pass
     return "Usuario"
 
+
 def _base_context(request: HttpRequest):
     user = getattr(request, "user", None)
     can_admin = bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
@@ -121,38 +125,174 @@ def _base_context(request: HttpRequest):
         profesorados = []
     return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
 
-# --- helpers al inicio del archivo (debajo de los imports y modelos) ---
-def _profesorados_para_select():
-    fields = {f.name for f in Profesorado._meta.get_fields()}
-    qs = Profesorado.objects.all()
-    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
-        if flag in fields:
-            qs = qs.filter(**{flag: True})
-            break
-    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
 
-    data = list(qs.values("id", "nombre", "tipo") if "tipo" in fields else qs.values("id", "nombre"))
+# ========= ELEGIBILIDAD: estado académico del alumno =========
 
-    # Normalizamos 'tipo' si viene vacío
-    for p in data:
-        nombre = p.get("nombre", "")
-        t = p.get("tipo") if "tipo" in p else None
-        if not t:
-            n = _norm(nombre)
-            p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
+def _estado_sets_para_estudiante(estudiante_id: int, plan_id: int, ciclo: int | None = None):
+    """
+    Devuelve 4 sets de IDs de espacios (del plan):
+      - aprobadas_ids
+      - regularizadas_ids (incluye aprobadas)
+      - inscriptas_ids (cursada vigente; filtra por ciclo si se provee)
+      - inscriptas_final_ids (si existe el modelo)
+    Funciona aunque algunos modelos no existan o se llamen distinto.
+    """
+    aprobadas_ids        : set[int] = set()
+    regularizadas_ids    : set[int] = set()
+    inscriptas_ids       : set[int] = set()
+    inscriptas_final_ids : set[int] = set()
 
-    # Fallback: si quedó vacío, mostramos todos (útil para probar UI)
-    if not data:
-        all_qs = Profesorado.objects.all().order_by("nombre" if "nombre" in fields else "id")
-        data = list(all_qs.values("id", "nombre", "tipo") if "tipo" in fields else all_qs.values("id", "nombre"))
-        for p in data:
-            nombre = p.get("nombre", "")
-            t = p.get("tipo") if "tipo" in p else None
-            if not t:
-                n = _norm(nombre)
-                p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
-    return data
+    # --- Aprobadas (final/promoción) ---
+    if ResultadoFinal:
+        fk_est  = _fk_name_to(ResultadoFinal, Estudiante)
+        fk_esp  = _fk_name_to(ResultadoFinal, EspacioCurricular)
+        fk_plan = _fk_name_to(ResultadoFinal, PlanEstudios) or _has_field(ResultadoFinal, "plan", "plan_id")
+        if fk_est and fk_esp:
+            qs = ResultadoFinal.objects.filter(**{f"{fk_est}_id": estudiante_id})
+            if fk_plan:
+                key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
+                qs = qs.filter(**{key: plan_id})
+            f_estado = _has_field(ResultadoFinal, "estado", "situacion", "condicion", "resultado")
+            f_aprob  = _has_field(ResultadoFinal, "aprobado", "is_aprobado", "ok")
+            f_nota   = _has_field(ResultadoFinal, "nota", "calificacion", "puntaje")
+            if f_aprob:
+                qs = qs.filter(**{f_aprob: True})
+            elif f_estado:
+                qs = qs.filter(**{f"{f_estado}__in": ["APROBADO", "PROMOCIONADO"]})
+            elif f_nota:
+                qs = qs.filter(**{f"{f_nota}__gte": 4})
+            aprobadas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
 
+    # --- Regularizadas (incluye aprobadas) ---
+    if Regularidad:
+        fk_est  = _fk_name_to(Regularidad, Estudiante)
+        fk_esp  = _fk_name_to(Regularidad, EspacioCurricular)
+        fk_plan = _fk_name_to(Regularidad, PlanEstudios) or _has_field(Regularidad, "plan", "plan_id")
+        if fk_est and fk_esp:
+            qs = Regularidad.objects.filter(**{f"{fk_est}_id": estudiante_id})
+            if fk_plan:
+                key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
+                qs = qs.filter(**{key: plan_id})
+            f_estado = _has_field(Regularidad, "estado", "situacion", "condicion")
+            f_reg    = _has_field(Regularidad, "regular", "es_regular", "is_regular")
+            if f_reg:
+                qs = qs.filter(**{f_reg: True})
+            elif f_estado:
+                qs = qs.filter(**{f"{f_estado}__in": ["REGULAR", "PROMOCIONADO", "APROBADO"]})
+            regularizadas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
+
+    elif Movimiento:
+        # Alternativa: Movimiento -> inscripcion (FK) -> espacio, y Condicion con 'codigo'
+        f_insc = _has_field(Movimiento, "inscripcion")
+        if f_insc and InscripcionEspacio:
+            # nombres en InscripcionEspacio
+            fk_est_ie  = _fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
+            fk_esp_ie  = _fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
+            fk_plan_ie = _fk_name_to(InscripcionEspacio, PlanEstudios) or _has_field(InscripcionEspacio, "plan", "plan_id")
+            qs = Movimiento.objects.filter(**{f"{f_insc}__{fk_est_ie}_id": estudiante_id})
+            if fk_plan_ie:
+                key = fk_plan_ie if fk_plan_ie.endswith("_id") else f"{fk_plan_ie}_id"
+                qs = qs.filter(**{f"{f_insc}__{key}": plan_id})
+            # Condiciones válidas para “regular”
+            cond_field = _has_field(Movimiento, "condicion")
+            if cond_field:
+                qs = qs.filter(**{f"{cond_field}__codigo__in": ["REGULAR", "PROMOCIONADO", "APROBADO"]})
+            regularizadas_ids = set(qs.values_list(f"{f_insc}__{fk_esp_ie}_id", flat=True))
+
+    # incluir aprobadas dentro de regularizadas
+    regularizadas_ids |= aprobadas_ids
+
+    # --- Ya inscripto a cursada ---
+    if InscripcionEspacio:
+        fk_est  = _fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
+        fk_esp  = _fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
+        fk_plan = _fk_name_to(InscripcionEspacio, PlanEstudios) or _has_field(InscripcionEspacio, "plan", "plan_id")
+        f_ciclo = _has_field(InscripcionEspacio, "ciclo", "anio", "anio_lectivo", "anio_academico")
+        qs = InscripcionEspacio.objects.filter(**{f"{fk_est}_id": estudiante_id})
+        if fk_plan:
+            key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
+            qs = qs.filter(**{key: plan_id})
+        if ciclo and f_ciclo:
+            qs = qs.filter(**{f_ciclo: ciclo})
+        inscriptas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
+
+    # --- Ya inscripto a final (opcional) ---
+    if InscripcionFinal:
+        fk_est  = _fk_name_to(InscripcionFinal, Estudiante) or "estudiante"
+        fk_esp  = _fk_name_to(InscripcionFinal, EspacioCurricular) or "espacio"
+        fk_plan = _fk_name_to(InscripcionFinal, PlanEstudios) or _has_field(InscripcionFinal, "plan", "plan_id")
+        qs = InscripcionFinal.objects.filter(**{f"{fk_est}_id": estudiante_id})
+        if fk_plan:
+            key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
+            qs = qs.filter(**{key: plan_id})
+        inscriptas_final_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
+
+    return aprobadas_ids, regularizadas_ids, inscriptas_ids, inscriptas_final_ids
+
+
+def _correlativas_para(espacio_id: int, plan_id: int, para: str):
+    para = (para or "PARA_CURSAR").upper()
+    qs = Correlatividad.objects.filter(plan_id=plan_id, espacio_id=espacio_id)
+    if para == "PARA_CURSAR":
+        return qs.filter(Q(tipo__iexact="PARA_CURSAR") | Q(tipo__isnull=True))
+    return qs.filter(tipo__iexact="PARA_RENDIR")
+
+
+def _cumple_correlatividad(c, aprobadas_ids: set[int], regularizadas_ids: set[int], plan_id: int) -> bool:
+    req = (c.requisito or "").upper()
+    objetivo = aprobadas_ids if req.startswith("APROB") else regularizadas_ids
+
+    if c.requiere_espacio_id:
+        return c.requiere_espacio_id in objetivo
+
+    if c.requiere_todos_hasta_anio:
+        hasta = int(c.requiere_todos_hasta_anio)
+        ids_hasta = set(
+            EspacioCurricular.objects.filter(plan_id=plan_id, anio__lte=hasta).values_list("id", flat=True)
+        )
+        return ids_hasta.issubset(objetivo)
+
+    # sin requisito explícito -> no bloquea
+    return True
+
+
+def _habilitado(estudiante_id: int, plan_id: int, espacio, para: str, ciclo: int | None = None):
+    aprobadas, regularizadas, inscriptas, insc_final = _estado_sets_para_estudiante(estudiante_id, plan_id, ciclo)
+
+    # vetos generales
+    if para == "PARA_CURSAR" and espacio.id in inscriptas:
+        return False, "ya_inscripto"
+    if para == "PARA_CURSAR" and espacio.id in regularizadas:
+        return False, "ya_regular"
+    if espacio.id in aprobadas:
+        return False, "ya_aprobado"
+    if para == "PARA_RENDIR" and espacio.id in insc_final:
+        return False, "ya_inscripto_final"
+
+    # correlativas
+    faltantes = []
+    for c in _correlativas_para(espacio.id, plan_id, para):
+        if not _cumple_correlatividad(c, aprobadas, regularizadas, plan_id):
+            if c.requiere_espacio_id:
+                faltantes.append({
+                    "tipo": (c.tipo or para).upper(),
+                    "requisito": (c.requisito or "").upper(),
+                    "requiere_espacio_id": c.requiere_espacio_id,
+                })
+            elif c.requiere_todos_hasta_anio:
+                faltantes.append({
+                    "tipo": (c.tipo or para).upper(),
+                    "requisito": (c.requisito or "").upper(),
+                    "requiere_todos_hasta_anio": int(c.requiere_todos_hasta_anio),
+                })
+
+    if faltantes:
+        return False, {"motivo": "falta_correlativas", "faltantes": faltantes}
+
+    return True, None
+
+
+# ========= Vistas del panel =========
 
 @login_required
 def panel(request: HttpRequest) -> HttpResponse:
@@ -202,11 +342,7 @@ def panel(request: HttpRequest) -> HttpResponse:
                     return render(request, "academia_core/panel_inicio.html", ctx)
 
                 # crear instancia
-                e = Estudiante(
-                    dni=dni,
-                    apellido=apellido,
-                    nombre=nombre,
-                )
+                e = Estudiante(dni=dni, apellido=apellido, nombre=nombre)
 
                 # opcionales (si existen en el modelo)
                 if hasattr(e, "fecha_nacimiento"):
@@ -228,6 +364,7 @@ def panel(request: HttpRequest) -> HttpResponse:
                 # guardar
                 e.save()
                 messages.success(request, "Estudiante guardado con éxito.")
+                # quedarse en el mismo formulario:
                 return redirect(f"{reverse('panel')}?action=add_est")
 
         # --- INSCRIPCIÓN A CARRERA (alias insc_carrera / insc_prof) ---
@@ -262,23 +399,71 @@ def panel(request: HttpRequest) -> HttpResponse:
         # --- INSCRIPCIÓN A MATERIA (cursada) ---
         elif action == "insc_esp":
             ctx["action_title"] = "Inscripción a materia (cursada)"
+            ctx["action_subtitle"] = "Inscribí a un estudiante en un espacio curricular."
 
+            # Estudiantes (activos si existe el flag)
             try:
-                ctx["estudiantes"] = _get_estudiantes_activos()
+                est_qs = Estudiante.objects.all()
+                if hasattr(Estudiante, "activo"):
+                    est_qs = est_qs.filter(activo=True)
+                ctx["estudiantes"] = list(
+                    est_qs.order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni")
+                )
             except Exception:
                 ctx["estudiantes"] = []
 
+            # Profesorados (activos si existe el flag; fallback a todos)
             try:
-                ctx["profesorados"] = _get_profesorados_activos()
+                prof_qs = Profesorado.objects.all()
+                if hasattr(Profesorado, "activa"):
+                    prof_qs = prof_qs.filter(activa=True)
+                elif hasattr(Profesorado, "activo"):
+                    prof_qs = prof_qs.filter(activo=True)
+                prof_qs = prof_qs.order_by("nombre") if hasattr(Profesorado, "nombre") else prof_qs.order_by("id")
+                profesorados = list(prof_qs.values("id", "nombre", "tipo") if hasattr(Profesorado, "tipo") else prof_qs.values("id", "nombre"))
+                for p in profesorados:
+                    p.setdefault("tipo", "profesorado")
+                ctx["profesorados"] = profesorados
             except Exception:
                 ctx["profesorados"] = []
 
+            # Espacios curriculares (activos si existe el flag) -> id, nombre, profesorado_id, periodo
             try:
-                ctx["materias"] = _get_materias_para_select()
-            except Exception:
-                ctx["materias"] = []
+                ec_qs = EspacioCurricular.objects.all()
+                if hasattr(EspacioCurricular, "activa"):
+                    ec_qs = ec_qs.filter(activa=True)
+                elif hasattr(EspacioCurricular, "activo"):
+                    ec_qs = ec_qs.filter(activo=True)
+                ec_qs = ec_qs.order_by("nombre") if hasattr(EspacioCurricular, "nombre") else ec_qs.order_by("id")
 
-            # Ciclo lectivo (año) y períodos
+                espacios = []
+                for e in ec_qs:
+                    # FK a profesorado
+                    prof_id = getattr(e, "profesorado_id", None)
+                    if prof_id is None and hasattr(e, "profesorado") and getattr(e, "profesorado", None):
+                        try:
+                            prof_id = e.profesorado.id
+                        except Exception:
+                            prof_id = None
+                    # nombre y periodo
+                    nombre = getattr(e, "nombre", str(e))
+                    if hasattr(e, "periodo") and getattr(e, "periodo", None):
+                        per = str(getattr(e, "periodo")).upper()
+                    elif hasattr(e, "cuatrimestre") and getattr(e, "cuatrimestre", None) in (1, 2):
+                        per = "1C" if int(getattr(e, "cuatrimestre")) == 1 else "2C"
+                    else:
+                        per = "ANUAL"
+                    espacios.append({
+                        "id": e.id,
+                        "nombre": nombre,
+                        "profesorado_id": prof_id,
+                        "periodo": per,
+                    })
+                ctx["espacios"] = espacios
+            except Exception:
+                ctx["espacios"] = []
+
+            # Ciclos lectivos y períodos (para el formulario)
             anio = date.today().year
             ctx["ciclos"] = list(range(anio - 1, anio + 2))  # ej. 2024–2026
             ctx["periodos"] = [("ANUAL", "Anual"), ("1C", "1° cuatrimestre"), ("2C", "2° cuatrimestre")]
@@ -308,7 +493,6 @@ def panel(request: HttpRequest) -> HttpResponse:
 
     # =================== Estudiante (si lo usaras) ===================
     if role == "Estudiante":
-        # si tuvieras un panel específico de estudiante:
         return render(request, "panel_estudiante.html", {"action": request.GET.get("action") or "tray"})
 
     # =================== Docente (si lo usaras) ===================
@@ -318,36 +502,120 @@ def panel(request: HttpRequest) -> HttpResponse:
     # fallback
     return render(request, "academia_core/panel_inicio.html", {"action": "section_est"})
 
-# === STUBS / FALLBACKS PARA EVITAR ImportError (pegar AL FINAL de views_panel.py) ===
 
-# panel_correlatividades
+# ========= APIs =========
+
+@require_GET
+def api_espacios_habilitados(request):
+    est = int(request.GET["est"])
+    plan = int(request.GET["plan"])
+    para = request.GET.get("para", "PARA_CURSAR").upper()
+    ciclo = request.GET.get("ciclo")
+    ciclo = int(ciclo) if ciclo and ciclo.isdigit() else None
+    periodo = (request.GET.get("periodo") or "").upper()
+
+    qs = EspacioCurricular.objects.filter(plan_id=plan)
+    if periodo and hasattr(EspacioCurricular, "periodo"):
+        if periodo == "ANUAL":
+            qs = qs.filter(periodo="ANUAL")
+        else:
+            qs = qs.filter(Q(periodo=periodo) | Q(periodo="ANUAL"))
+
+    items = []
+    # ordenar robusto
+    order_fields = []
+    if _has_field(EspacioCurricular, "anio"): order_fields.append("anio")
+    if _has_field(EspacioCurricular, "nombre"): order_fields.append("nombre")
+    qs = qs.order_by(*order_fields) if order_fields else qs
+
+    for e in qs:
+        ok, info = _habilitado(est, plan, e, para, ciclo)
+        row = {"id": e.id, "nombre": getattr(e, "nombre", str(e)), "anio": getattr(e, "anio", None), "habilitado": ok}
+        if not ok:
+            row["bloqueo"] = info
+        items.append(row)
+
+    return JsonResponse({"items": items})
+
+
+@require_POST
+def post_inscribir_espacio(request):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método inválido"}, status=405)
+    if InscripcionEspacio is None or EstudianteProfesorado is None:
+        return JsonResponse({"ok": False, "error": "Modelo de inscripción no disponible."}, status=500)
+
+    estudiante_id  = int(request.POST["estudiante_id"])
+    plan_id        = int(request.POST["plan_id"])
+    espacio_id     = int(request.POST["espacio_id"])
+    anio_academico = int(request.POST.get("ciclo") or 0) or None
+
+    # Validar que el estudiante esté inscripto en ese plan (EstudianteProfesorado)
+    insc_prof = get_object_or_404(
+        EstudianteProfesorado,
+        estudiante__id=estudiante_id,
+        profesorado__planestudios__id=plan_id
+    )
+
+    e_obj = get_object_or_404(EspacioCurricular, id=espacio_id, plan_id=plan_id)
+    ok, info = _habilitado(estudiante_id, plan_id, e_obj, "PARA_CURSAR", anio_academico)
+    if not ok:
+        return JsonResponse({"ok": False, "error": info}, status=400)
+
+    # nombres de campos por introspección
+    fk_est  = _fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
+    fk_esp  = _fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
+    fk_plan = _fk_name_to(InscripcionEspacio, PlanEstudios) or _has_field(InscripcionEspacio, "plan", "plan_id")
+    f_ciclo = _has_field(InscripcionEspacio, "ciclo", "anio", "anio_lectivo", "anio_academico")
+
+    create_kwargs = {
+        "inscripcion": insc_prof,  # tu modelo usa FK 'inscripcion' a EstudianteProfesorado
+        f"{fk_esp}_id": espacio_id,
+    }
+    if f_ciclo and anio_academico:
+        create_kwargs[f_ciclo] = anio_academico
+    if fk_plan:
+        key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
+        create_kwargs[key] = plan_id
+
+    # evitar duplicado
+    exists = InscripcionEspacio.objects.filter(
+        inscripcion=insc_prof,
+        **{f"{fk_esp}_id": espacio_id}
+    )
+    if f_ciclo and anio_academico:
+        exists = exists.filter(**{f_ciclo: anio_academico})
+    if exists.exists():
+        return JsonResponse({"ok": False, "error": "ya_inscripto"}, status=400)
+
+    obj = InscripcionEspacio.objects.create(**create_kwargs)
+    return JsonResponse({"ok": True, "id": obj.id})
+
+
+# ========= STUBS (por si alguna URL los referencia y aún no existen) =========
+
 if "panel_correlatividades" not in globals():
     def panel_correlatividades(request):
         return HttpResponse("Correlatividades — en construcción.")
 
-# panel_horarios
 if "panel_horarios" not in globals():
     def panel_horarios(request):
         return HttpResponse("Horarios — en construcción.")
 
-# panel_docente
 if "panel_docente" not in globals():
     def panel_docente(request):
         return HttpResponse("Panel Docente — en construcción.")
 
-# API: espacios por inscripción (GET)
 if "get_espacios_por_inscripcion" not in globals():
     @require_GET
     def get_espacios_por_inscripcion(request, insc_id: int):
         return JsonResponse({"ok": True, "items": []})
 
-# API: correlatividades (GET)
 if "get_correlatividades" not in globals():
     @require_GET
     def get_correlatividades(request, espacio_id: int, insc_id: int = None):
         return JsonResponse({"ok": True, "rules": [], "puede_cursar": True})
 
-# Guardados (POST)
 if "crear_inscripcion_cursada" not in globals():
     @require_POST
     def crear_inscripcion_cursada(request, insc_prof_id: int):
@@ -358,7 +626,6 @@ if "crear_movimiento" not in globals():
     def crear_movimiento(request, insc_cursada_id: int):
         return JsonResponse({"ok": False, "error": "No implementado"}, status=501)
 
-# Redirecciones utilitarias
 if "redir_estudiante" not in globals():
     def redir_estudiante(request, dni: str):
         return redirect(f"/panel/?action=section_est&dni={dni}")

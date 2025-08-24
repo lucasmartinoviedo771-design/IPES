@@ -354,7 +354,7 @@
     </select>
   </div>
 
-  <!-- Profesorado (ideal: solo los donde el estudiante está inscripto; por ahora: todos) -->
+  <!-- Profesorado -->
   <div class="col-12 col-lg-6">
     <label class="form-label">Profesorado <span class="text-danger">*</span></label>
     <select id="esp_profesorado" name="profesorado_id" class="form-select" {% if not profesorados %}disabled{% endif %}>
@@ -363,7 +363,7 @@
         <option value="{{ p.id }}" data-tipo="{{ p.tipo|default:'profesorado' }}">{{ p.nombre }}</option>
       {% endfor %}
     </select>
-    <div class="form-text">Se filtran las materias según el profesorado y período.</div>
+    <div class="form-text">Las materias se filtran por profesorado y período.</div>
   </div>
 
   <!-- Ciclo lectivo -->
@@ -382,12 +382,12 @@
     </select>
   </div>
 
-  <!-- Materia (filtrada) -->
+  <!-- Espacio curricular (filtrado) -->
   <div class="col-12 col-md-4">
-    <label class="form-label">Materia <span class="text-danger">*</span></label>
-    <select id="esp_materia" name="materia_id" class="form-select" {% if not materias %}disabled{% endif %}>
-      <option value="">{{ materias|length|yesno:"Seleccioná…,No hay materias" }}</option>
-      {% for m in materias %}
+    <label class="form-label">Espacio curricular <span class="text-danger">*</span></label>
+    <select id="esp_materia" name="espacio_id" class="form-select" {% if not espacios %}disabled{% endif %}>
+      <option value="">{{ espacios|length|yesno:"Seleccioná…,No hay espacios" }}</option>
+      {% for m in espacios %}
         <option value="{{ m.id }}" data-prof="{{ m.profesorado_id }}" data-per="{{ m.periodo|default:'ANUAL' }}">{{ m.nombre }}</option>
       {% endfor %}
     </select>
@@ -420,7 +420,6 @@
 <script>
 (function(){
   const $ = (s) => document.querySelector(s);
-
   const selProf = $('#esp_profesorado');
   const selPer  = $('#esp_periodo');
   const selMat  = $('#esp_materia');
@@ -429,34 +428,28 @@
   function filtrarMaterias(){
     const prof = selProf?.value || '';
     const per  = (selPer?.value || 'ANUAL').toUpperCase();
-
     if (!selMat) return;
 
     let visibles = 0;
-    // Recorremos todas las opciones (salvo la primera “Seleccioná…”)
     Array.from(selMat.options).forEach((opt, idx) => {
       if (idx === 0) return; // placeholder
       const oProf = (opt.dataset.prof || '');
       const oPer  = (opt.dataset.per  || 'ANUAL').toUpperCase();
 
-      // Regla: debe coincidir el profesorado; para período, ANUAL aparece siempre,
-      // y si se elige 1C/2C solo mostramos las que coinciden o son ANUAL.
       const okProf = prof ? (oProf === prof) : true;
-      const okPer  = (per === 'ANUAL') ? true : (oPer === 'ANUAL' || oPer === per);
+      const okPer  = (per === 'ANUAL') ? true : (oPer === per || oPer === 'ANUAL');
 
       const show = !!(okProf && okPer);
       opt.hidden = !show;
       if (show) visibles += 1;
     });
 
-    // Ajustes de estado
     if (visibles === 0) {
       selMat.disabled = true;
       selMat.value = '';
-      if (helpMat) helpMat.textContent = 'No hay materias para el filtro seleccionado.';
+      if (helpMat) helpMat.textContent = 'No hay espacios para el filtro seleccionado.';
     } else {
       selMat.disabled = false;
-      // Si la opción seleccionada quedó oculta, seleccionamos la primera visible
       const cur = selMat.selectedOptions[0];
       if (!cur || cur.hidden) {
         const firstVisible = Array.from(selMat.options).find((o, i) => i>0 && !o.hidden);
@@ -468,9 +461,7 @@
 
   selProf?.addEventListener('change', filtrarMaterias);
   selPer ?.addEventListener('change', filtrarMaterias);
-
-  // init
-  filtrarMaterias();
+  filtrarMaterias(); // init
 })();
 </script>
 
