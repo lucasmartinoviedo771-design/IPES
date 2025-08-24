@@ -10,699 +10,513 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
-from django.views.decorators.http import require_GET, require_POST
+from django.template.loader import get_template
+from django.utils.text import slugify
+from django.db.models import Q
 
+from xhtml2pdf import pisa
 
-# ========= helpers generales =========
-
-
-def _norm(txt: str) -> str:
-    if not txt:
-        return ""
-    # quita acentos y pasa a minúscula
-    return "".join(
-        c for c in unicodedata.normalize("NFD", txt) if unicodedata.category(c) != "Mn"
-    ).lower()
-
-
-def _get_model(*names):
-    """Devuelve el primer modelo existente en academia_core con alguno de estos nombres."""
-    for n in names:
-        try:
-            return apps.get_model("academia_core", n)
-        except Exception:
-            continue
-    return None
-
-
-def _fk_name_to(model, related_model_cls) -> str | None:
-    for f in model._meta.get_fields():
-        if (
-            getattr(f, "is_relation", False)
-            and getattr(f, "many_to_one", False)
-            and f.related_model is related_model_cls
-        ):
-            return f.name
-    return None
-
-
-def _has_field(model, *names) -> str | None:
-    fields = {f.name for f in model._meta.get_fields()}
-    for n in names:
-        if n in fields:
-            return n
-    return None
-
-
-# ========= modelos (robustos) =========
-# estos existen en tu app
-Estudiante = _get_model("Estudiante")
-Profesorado = _get_model("Profesorado")
-PlanEstudios = _get_model("PlanEstudios")
-EspacioCurricular = _get_model("EspacioCurricular")
-Correlatividad = _get_model("Correlatividad")
-EstudianteProfesorado = _get_model("EstudianteProfesorado")
-
-# estos pueden no existir o llamarse distinto
-InscripcionEspacio = _get_model(
-    "InscripcionEspacio", "InscripcionCursada", "InscripcionMateria"
+from .models import (
+    Profesorado,
+    PlanEstudios,
+    Estudiante,
+    EstudianteProfesorado,
+    EspacioCurricular,
+    Movimiento,
+    Docente,
+    DocenteEspacio,
 )
-ResultadoFinal = _get_model(
-    "ResultadoFinal", "ActaFinal", "Aprobacion", "CalificacionFinal"
-)
-Regularidad = _get_model("Regularidad", "Cursada", "CondicionCursada")
-Movimiento = _get_model(
-    "Movimiento"
-)  # alternativa a Regularidad (con condicion.codigo)
-InscripcionFinal = _get_model("InscripcionFinal", "MesaInscripcion")
+
+from .forms_correlativas import CorrelatividadForm # Import the new form
 
 
-# ========= helpers de datos para selects =========
+# ---------- Helpers de formato ----------
+def _fmt_fecha(d):
+    return d.strftime("%d/%m/%Y") if d else ""
 
 
-def _get_estudiantes_activos():
-    fields = {f.name for f in Estudiante._meta.get_fields()}
-    qs = Estudiante.objects.all()
-    if "activo" in fields:
-        qs = qs.filter(activo=True)
-    return list(
-        qs.order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni")
-    )
+def _fmt_nota(m):
+    if m.nota_num is not None:
+        return str(m.nota_num).rstrip("0").rstrip(".")
+    return m.nota_texto or ""
 
 
-def _profesorados_para_select():
-    fields = {f.name for f in Profesorado._meta.get_fields()}
-    qs = Profesorado.objects.all()
-    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
-        if flag in fields:
-            qs = qs.filter(**{flag: True})
-            break
-    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
-
-    data = list(
-        qs.values("id", "nombre", "tipo")
-        if "tipo" in fields
-        else qs.values("id", "nombre")
-    )
-    # Normalizamos 'tipo' si viene vacío
-    for p in data:
-        nombre = p.get("nombre", "")
-        t = p.get("tipo") if "tipo" in p else None
-        if not t:
-            n = _norm(nombre)
-            p["tipo"] = (
-                "certificacion_docente"
-                if ("certificacion" in n and "docent" in n)
-                else "profesorado"
-            )
-    return data
+# Resolver rutas /media y /static cuando generamos PDF
+def _link_callback(uri):
+    if uri.startswith(settings.MEDIA_URL):
+        path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
+        return path
+    if uri.startswith(getattr(settings, "STATIC_URL", "/static/")):
+        static_root = getattr(settings, "STATIC_ROOT", "")
+        if static_root:
+            return os.path.join(static_root, uri.replace(settings.STATIC_URL, ""))
+    # Si es una URL absoluta http(s), xhtml2pdf suele bloquear; devolvemos tal cual.
+    return uri
 
 
-# ========= rol/contexto =========
+# ---------- Permisos ----------
+def _puede_ver_carton(user, prof, dni):
+    if not user.is_authenticated:
+        return False
+    # superuser / staff
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+
+    perfil = getattr(user, "perfil", None)
+    if not perfil:
+        return False
+
+    if perfil.rol == "SECRETARIA":
+        return True
+
+    if perfil.rol == "ESTUDIANTE":
+        return bool(perfil.estudiante) and perfil.estudiante.dni == dni
+
+    if perfil.rol in ("BEDEL", "TUTOR"):
+        return prof in perfil.profesorados_permitidos.all()
+
+    if perfil.rol == "DOCENTE" and perfil.docente:
+        # puede ver cartones del profesorado donde dicta algún espacio
+        return perfil.docente.espacios.filter(profesorado=prof).exists()
+
+    return False
 
 
-def _role_for(user) -> str:
-    if not getattr(user, "is_authenticated", False):
-        return "Invitado"
-    if getattr(user, "is_superuser", False):
-        return "Admin"
+# ---------- Helpers para slugs (sin necesitar campos en DB) ----------
+def _get_prof_by_slug(prof_slug: str) -> Profesorado:
+    for p in Profesorado.objects.all():
+        if slugify(p.nombre) == prof_slug:
+            return p
+    raise Profesorado.DoesNotExist
+
+
+def _get_plan_by_res_slug(prof: Profesorado, res_slug: str) -> PlanEstudios:
+    # "1935-14" -> "1935/14"
+    resol = (res_slug or "").replace("-", "/")
+    return PlanEstudios.objects.get(profesorado=prof, resolucion=resol)
+
+
+def _ensure_slug_attrs(prof: Profesorado, plan: PlanEstudios):
+    # Les agregamos atributos .slug y .resolucion_slug en runtime para los templates
     try:
-        if hasattr(user, "perfil") and user.perfil.rol:
-            return str(user.perfil.rol)
-        if user.groups.filter(name__iexact="Docente").exists():
-            return "Docente"
-        if user.groups.filter(name__iexact="Estudiante").exists():
-            return "Estudiante"
+        prof.slug = getattr(prof, "slug", slugify(prof.nombre))
     except Exception:
-        pass
-    return "Usuario"
-
-
-def _base_context(request: HttpRequest):
-    user = getattr(request, "user", None)
-    role = _role_for(user)
-    can_admin = role in ["Admin", "Secretaría", "Bedel"]
+        prof.slug = slugify(prof.nombre)
     try:
-        profesorados = list(Profesorado.objects.all().order_by("nombre"))
+        plan.resolucion_slug = getattr(
+            plan, "resolucion_slug", (plan.resolucion or "").replace("/", "-")
+        )
     except Exception:
-        profesorados = []
-    return {"rol": role, "can_admin": can_admin, "profesorados": profesorados}
+        plan.resolucion_slug = (plan.resolucion or "").replace("/", "-")
 
 
-# ========= ELEGIBILIDAD: estado académico del alumno =========
-
-
-def _estado_sets_para_estudiante(
-    estudiante_id: int, plan_id: int, ciclo: int | None = None
-):
+# ---------- Builder base (reutilizable) ----------
+def _build_carton_ctx_base(prof, plan, dni: str):
     """
-    Devuelve 4 sets de IDs de espacios (del plan):
-      - aprobadas_ids
-      - regularizadas_ids (incluye aprobadas)
-      - inscriptas_ids (cursada vigente; filtra por ciclo si se provee)
-      - inscriptas_final_ids (si existe el modelo)
-    Funciona aunque algunos modelos no existan o se llamen distinto.
+    Construye el contexto del cartón para un profesorado y plan dados.
+    Lo usan la vista fija de Primaria y la vista genérica por slugs.
     """
-    aprobadas_ids: set[int] = set()
-    regularizadas_ids: set[int] = set()
-    inscriptas_ids: set[int] = set()
-    inscriptas_final_ids: set[int] = set()
-
-    # --- Aprobadas (final/promoción) ---
-    if ResultadoFinal:
-        fk_est = _fk_name_to(ResultadoFinal, Estudiante)
-        fk_esp = _fk_name_to(ResultadoFinal, EspacioCurricular)
-        fk_plan = _fk_name_to(ResultadoFinal, PlanEstudios) or _has_field(
-            ResultadoFinal, "plan", "plan_id"
-        )
-        if fk_est and fk_esp:
-            qs = ResultadoFinal.objects.filter(**{f"{fk_est}_id": estudiante_id})
-            if fk_plan:
-                key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
-                qs = qs.filter(**{key: plan_id})
-            f_estado = _has_field(
-                ResultadoFinal, "estado", "situacion", "condicion", "resultado"
-            )
-            f_aprob = _has_field(ResultadoFinal, "aprobado", "is_aprobado", "ok")
-            f_nota = _has_field(ResultadoFinal, "nota", "calificacion", "puntaje")
-            if f_aprob:
-                qs = qs.filter(**{f_aprob: True})
-            elif f_estado:
-                qs = qs.filter(**{f"{f_estado}__in": ["APROBADO", "PROMOCIONADO"]})
-            elif f_nota:
-                qs = qs.filter(**{f"{f_nota}__gte": 4})
-            aprobadas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
-
-    # --- Regularizadas (incluye aprobadas) ---
-    if Regularidad:
-        fk_est = _fk_name_to(Regularidad, Estudiante)
-        fk_esp = _fk_name_to(Regularidad, EspacioCurricular)
-        fk_plan = _fk_name_to(Regularidad, PlanEstudios) or _has_field(
-            Regularidad, "plan", "plan_id"
-        )
-        if fk_est and fk_esp:
-            qs = Regularidad.objects.filter(**{f"{fk_est}_id": estudiante_id})
-            if fk_plan:
-                key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
-                qs = qs.filter(**{key: plan_id})
-            f_estado = _has_field(Regularidad, "estado", "situacion", "condicion")
-            f_reg = _has_field(Regularidad, "regular", "es_regular", "is_regular")
-            if f_reg:
-                qs = qs.filter(**{f_reg: True})
-            elif f_estado:
-                qs = qs.filter(
-                    **{f"{f_estado}__in": ["REGULAR", "PROMOCIONADO", "APROBADO"]}
-                )
-            regularizadas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
-
-    elif Movimiento:
-        # Alternativa: Movimiento -> inscripcion (FK) -> espacio, y Condicion con 'codigo'
-        f_insc = _has_field(Movimiento, "inscripcion")
-        if f_insc and InscripcionEspacio:
-            # nombres en InscripcionEspacio
-            fk_est_ie = _fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
-            fk_esp_ie = _fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
-            fk_plan_ie = _fk_name_to(InscripcionEspacio, PlanEstudios) or _has_field(
-                InscripcionEspacio, "plan", "plan_id"
-            )
-            qs = Movimiento.objects.filter(
-                **{f"{f_insc}__{fk_est_ie}_id": estudiante_id}
-            )
-            if fk_plan_ie:
-                key = fk_plan_ie if fk_plan_ie.endswith("_id") else f"{fk_plan_ie}_id"
-                qs = qs.filter(**{f"{f_insc}__{key}": plan_id})
-            # Condiciones válidas para “regular”
-            cond_field = _has_field(Movimiento, "condicion")
-            if cond_field:
-                qs = qs.filter(
-                    **{
-                        f"{cond_field}__codigo__in": [
-                            "REGULAR",
-                            "PROMOCIONADO",
-                            "APROBADO",
-                        ]
-                    }
-                )
-            regularizadas_ids = set(
-                qs.values_list(f"{f_insc}__{fk_esp_ie}_id", flat=True)
-            )
-
-    # incluir aprobadas dentro de regularizadas
-    regularizadas_ids |= aprobadas_ids
-
-    # --- Ya inscripto a cursada ---
-    if InscripcionEspacio:
-        fk_est = _fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
-        fk_esp = _fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
-        fk_plan = _fk_name_to(InscripcionEspacio, PlanEstudios) or _has_field(
-            InscripcionEspacio, "plan", "plan_id"
-        )
-        f_ciclo = _has_field(
-            InscripcionEspacio, "ciclo", "anio", "anio_lectivo", "anio_academico"
-        )
-        qs = InscripcionEspacio.objects.filter(**{f"{fk_est}_id": estudiante_id})
-        if fk_plan:
-            key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
-            qs = qs.filter(**{key: plan_id})
-        if ciclo and f_ciclo:
-            qs = qs.filter(**{f_ciclo: ciclo})
-        inscriptas_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
-
-    # --- Ya inscripto a final (opcional) ---
-    if InscripcionFinal:
-        fk_est = _fk_name_to(InscripcionFinal, Estudiante) or "estudiante"
-        fk_esp = _fk_name_to(InscripcionFinal, EspacioCurricular) or "espacio"
-        fk_plan = _fk_name_to(InscripcionFinal, PlanEstudios) or _has_field(
-            InscripcionFinal, "plan", "plan_id"
-        )
-        qs = InscripcionFinal.objects.filter(**{f"{fk_est}_id": estudiante_id})
-        if fk_plan:
-            key = fk_plan if fk_plan.endswith("_id") else f"{fk_plan}_id"
-            qs = qs.filter(**{key: plan_id})
-        inscriptas_final_ids = set(qs.values_list(f"{fk_esp}_id", flat=True))
-
-    return aprobadas_ids, regularizadas_ids, inscriptas_ids, inscriptas_final_ids
-
-
-def _correlativas_para(espacio_id: int, plan_id: int, para: str):
-    para = (para or "PARA_CURSAR").upper()
-    qs = Correlatividad.objects.filter(plan_id=plan_id, espacio_id=espacio_id)
-    if para == "PARA_CURSAR":
-        return qs.filter(Q(tipo__iexact="PARA_CURSAR") | Q(tipo__isnull=True))
-    return qs.filter(tipo__iexact="PARA_RENDIR")
-
-
-def _cumple_correlatividad(
-    c, aprobadas_ids: set[int], regularizadas_ids: set[int], plan_id: int
-) -> bool:
-    req = (c.requisito or "").upper()
-    objetivo = aprobadas_ids if req.startswith("APROB") else regularizadas_ids
-
-    if c.requiere_espacio_id:
-        return c.requiere_espacio_id in objetivo
-
-    if c.requiere_todos_hasta_anio:
-        hasta = int(c.requiere_todos_hasta_anio)
-        ids_hasta = set(
-            EspacioCurricular.objects.filter(
-                plan_id=plan_id, anio__lte=hasta
-            ).values_list("id", flat=True)
-        )
-        return ids_hasta.issubset(objetivo)
-
-    # sin requisito explícito -> no bloquea
-    return True
-
-
-def _habilitado(
-    estudiante_id: int, plan_id: int, espacio, para: str, ciclo: int | None = None
-):
-    aprobadas, regularizadas, inscriptas, insc_final = _estado_sets_para_estudiante(
-        estudiante_id, plan_id, ciclo
+    # Estudiante e inscripción
+    estudiante = get_object_or_404(Estudiante, dni=dni)
+    insc = get_object_or_404(
+        EstudianteProfesorado, estudiante=estudiante, profesorado=prof
     )
 
-    # vetos generales
-    if para == "PARA_CURSAR" and espacio.id in inscriptas:
-        return False, "ya_inscripto"
-    if para == "PARA_CURSAR" and espacio.id in regularizadas:
-        return False, "ya_regular"
-    if espacio.id in aprobadas:
-        return False, "ya_aprobado"
-    if para == "PARA_RENDIR" and espacio.id in insc_final:
-        return False, "ya_inscripto_final"
+    # Espacios del plan
+    espacios = EspacioCurricular.objects.filter(profesorado=prof, plan=plan).order_by(
+        "anio", "cuatrimestre", "nombre"
+    )
 
-    # correlativas
-    faltantes = []
-    for c in _correlativas_para(espacio.id, plan_id, para):
-        if not _cumple_correlatividad(c, aprobadas, regularizadas, plan_id):
-            if c.requiere_espacio_id:
-                faltantes.append(
-                    {
-                        "tipo": (c.tipo or para).upper(),
-                        "requisito": (c.requisito or "").upper(),
-                        "requiere_espacio_id": c.requiere_espacio_id,
-                    }
-                )
-            elif c.requiere_todos_hasta_anio:
-                faltantes.append(
-                    {
-                        "tipo": (c.tipo or para).upper(),
-                        "requisito": (c.requisito or "").upper(),
-                        "requiere_todos_hasta_anio": int(c.requiere_todos_hasta_anio),
-                    }
-                )
+    # Todos los movimientos del alumno en esos espacios (relación inversa)
+    movs_qs = insc.movimientos.filter(espacio__in=espacios).select_related("espacio")
 
-    if faltantes:
-        return False, {"motivo": "falta_correlativas", "faltantes": faltantes}
+    # Agrupar por espacio
+    por_espacio = defaultdict(list)
+    for m in movs_qs:
+        por_espacio[m.espacio_id].append(m)
 
-    return True, None
+    bloques = []
+    for e in espacios:
+        movs = por_espacio.get(e.id, [])
+
+        # Orden cronológico asc; si empatan fecha: REG antes que FIN; luego id asc.
+        movs.sort(
+            key=lambda m: (m.fecha or date.min, 0 if m.tipo == "REG" else 1, m.id)
+        )
+
+        filas = []
+        for m in movs:
+            row = {
+                "reg_fecha": "",
+                "reg_cond": "",
+                "reg_nota": "",
+                "fin_fecha": "",
+                "fin_cond": "",
+                "fin_nota": "",
+                "folio": "",
+                "libro": "",
+            }
+            if m.tipo == "REG":
+                row["reg_fecha"] = _fmt_fecha(m.fecha)
+                row["reg_cond"] = m.condicion
+                row["reg_nota"] = _fmt_nota(m)
+            else:  # FIN
+                row["fin_fecha"] = _fmt_fecha(m.fecha)
+                row["fin_cond"] = m.condicion
+                row["fin_nota"] = _fmt_nota(m)
+                row["folio"] = m.folio
+                row["libro"] = m.libro
+            filas.append(row)
+
+        if not filas:
+            filas = [
+                {
+                    "reg_fecha": "",
+                    "reg_cond": "",
+                    "reg_nota": "",
+                    "fin_fecha": "",
+                    "fin_cond": "",
+                    "fin_nota": "",
+                    "folio": "",
+                    "libro": "",
+                }
+            ]
+
+        bloques.append(
+            {
+                "anio": e.anio,
+                "cuatri": e.cuatrimestre,
+                "espacio": e.nombre,
+                "rows": filas,
+            }
+        )
+
+    # Slugs calculados (para templates que los usen)
+    _ensure_slug_attrs(prof, plan)
+
+    return {
+        "profesorado": prof,
+        "plan": plan,
+        "estudiante": estudiante,
+        "inscripcion": insc,
+        "bloques": bloques,
+    }
 
 
-# ========= Vistas del panel =========
+# ---------- Builder original: Primaria fija ----------
+def _build_carton_ctx(dni: str):
+    prof = get_object_or_404(Profesorado, nombre="Profesorado de Educación Primaria")
+    plan = get_object_or_404(PlanEstudios, profesorado=prof, resolucion="1935/14")
+    return _build_carton_ctx_base(prof, plan, dni)
+
+
+# ---------- Vistas HTML / PDF (Primaria) ----------
+@login_required
+def carton_primaria_por_dni(request, dni):
+    ctx = _build_carton_ctx(dni)
+    if not _puede_ver_carton(request.user, ctx["profesorado"], dni):
+        return HttpResponseForbidden("No tenés permiso para ver este cartón.")
+    return render(request, "carton_primaria.html", ctx)
 
 
 @login_required
-def panel(request: HttpRequest) -> HttpResponse:
+def carton_primaria_pdf(request, dni):
+    ctx = _build_carton_ctx(dni)
+    if not _puede_ver_carton(request.user, ctx["profesorado"], dni):
+        return HttpResponseForbidden("No tenés permiso para ver este cartón.")
+    html = get_template("carton_primaria.html").render(ctx)
+    out = io.BytesIO()
+    pisa.CreatePDF(html, dest=out, encoding="utf-8", link_callback=_link_callback)
+    resp = HttpResponse(out.getvalue(), content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="carton_{dni}.pdf"'
+    return resp
+
+
+# ---------- Vista GENÉRICA por slugs (HTML) ----------
+@login_required
+def carton_por_prof_y_plan(request, prof_slug, res_slug, dni):
     """
-    Panel unificado (Admin/Secretaría | Estudiante | Docente).
+    Ejemplo URL:
+    /carton/profesorado-de-educacion-primaria/1935-14/40000002/
     """
-    role = _role_for(request.user)
-    # --- definir permisos de administración una sola vez ---
-    user = request.user
-    can_admin = bool(
-        getattr(user, "is_superuser", False)
-        or getattr(user, "is_staff", False)
-        or user.has_perm("academia_core.change_profesorado")
-        or user.has_perm("academia_core.change_planestudios")
-        or user.has_perm("academia_core.change_espaciocurricular")
+    try:
+        prof = _get_prof_by_slug(prof_slug)
+        plan = _get_plan_by_res_slug(prof, res_slug)
+    except Exception:
+        return HttpResponseForbidden("Plan o profesorado inválido.")
+    if not _puede_ver_carton(request.user, prof, dni):
+        return HttpResponseForbidden("No tenés permiso para ver este cartón.")
+    ctx = _build_carton_ctx_base(prof, plan, dni)
+    return render(request, "carton_primaria.html", ctx)
+
+
+# ---------- PDF GENÉRICO por slugs ----------
+@login_required
+def carton_generico_pdf(request, prof_slug, res_slug, dni):
+    try:
+        prof = _get_prof_by_slug(prof_slug)
+        plan = _get_plan_by_res_slug(prof, res_slug)
+    except Exception:
+        return HttpResponseForbidden("Plan o profesorado inválido.")
+    if not _puede_ver_carton(request.user, prof, dni):
+        return HttpResponseForbidden("No tenés permiso para ver este cartón.")
+    ctx = _build_carton_ctx_base(prof, plan, dni)
+    html = get_template("carton_primaria.html").render(ctx)
+    out = io.BytesIO()
+    pisa.CreatePDF(html, dest=out, encoding="utf-8", link_callback=_link_callback)
+    resp = HttpResponse(out.getvalue(), content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="carton_{dni}.pdf"'
+    return resp
+
+
+# ---------- Buscador por DNI (opcional) ----------
+def buscar_carton_primaria(request):
+    dni = request.GET.get("dni")
+    if dni:
+        return redirect("carton_primaria", dni=dni)
+    return render(request, "buscar_carton.html")
+
+
+# ---------- Helpers de estado (Mi Cursada y Docente) ----------
+def _es_aprobada(m):
+    # Final aprobado por regularidad o libre (>=6) o equivalencia
+    if m.tipo == "FIN":
+        if m.condicion == "Equivalencia":
+            return True
+        if (
+            m.condicion in ("Regular", "Libre")
+            and m.nota_num is not None
+            and m.nota_num >= 6
+        ):
+            return True
+    # Aprobado/Promoción por REG con nota >=6 (numérica o en texto)
+    if m.tipo == "REG" and m.condicion in ("Promoción", "Aprobado"):
+        if m.nota_num is not None and m.nota_num >= 6:
+            return True
+        n = EstudianteProfesorado._parse_num(m.nota_texto)
+        if n is not None and n >= 6:
+            return True
+    return False
+
+
+def _es_desaprobada(m):
+    if m.tipo == "REG" and str(m.condicion).startswith("Desaprobado"):
+        return True
+    if m.nota_num is not None and m.nota_num < 6:
+        return True
+    return False
+
+
+# ---------- Router post-login (evita mandar Bedel/Tutor a /alumno/) ----------
+@login_required
+def home_router(request):
+    perfil = getattr(request.user, "perfil", None)
+    # Estudiante → Mi Cursada
+    if perfil and perfil.rol == "ESTUDIANTE" and perfil.estudiante:
+        return redirect("alumno_home")
+    # Staff/otros roles → Admin
+    if request.user.is_staff:
+        return redirect("/admin/")
+    # Fallback: login público
+    return redirect("login")
+
+
+# ---------- Vista "Mi Cursada" (solo alumno) ----------
+@login_required
+def alumno_home(request):
+    perfil = getattr(request.user, "perfil", None)
+    if not perfil or perfil.rol != "ESTUDIANTE" or not perfil.estudiante:
+        return HttpResponseForbidden("Solo para estudiantes.")
+
+    est = perfil.estudiante
+    inscs = EstudianteProfesorado.objects.filter(estudiante=est).select_related(
+        "profesorado"
     )
 
-    # =================== Admin / Secretaría ===================
-    if can_admin:
-        ctx = _base_context(request)
+    items = []
+    for ins in inscs:
+        plan = (
+            PlanEstudios.objects.filter(
+                profesorado=ins.profesorado, vigente=True
+            ).first()
+            or PlanEstudios.objects.filter(profesorado=ins.profesorado).first()
+        )
 
-        # leer 'action' (por defecto, estudiantes)
-        action = request.GET.get("action", "section_est")
-        ctx["action"] = action
-        ctx["form"] = None
-        ctx["action_title"] = "Inicio"
-        ctx["action_subtitle"] = "Bienvenido al panel de gestión."
+        aprobadas = 0
+        desaprobadas = 0
+        pendientes = 0
+        pendientes_list = []
+        todas = []
 
-        # Métricas para el dashboard
-        ctx["total_estudiantes"] = Estudiante.objects.count()
-        ctx["total_profesorados"] = Profesorado.objects.count()
-        ctx["total_espacios"] = EspacioCurricular.objects.count()
-        ctx["total_inscripciones_carrera"] = EstudianteProfesorado.objects.count()
-        ctx["total_inscripciones_materia"] = InscripcionEspacio.objects.count()
+        if plan:
+            # Slugs para templates (aunque no haya campos en DB)
+            ins.profesorado.slug = slugify(ins.profesorado.nombre)
+            plan.resolucion_slug = (plan.resolucion or "").replace("/", "-")
 
-        if action == "add_est":
-            ctx["action_title"] = "Nuevo estudiante"
-            # mostrar el formulario por defecto
-            ctx["form"] = True
+            espacios = EspacioCurricular.objects.filter(
+                profesorado=ins.profesorado, plan=plan
+            ).order_by("anio", "cuatrimestre", "nombre")
 
-            if request.method == "POST":
-                data = request.POST
-                files = request.FILES
-                errors = {}
+            for e in espacios:
+                movs = list(ins.movimientos.filter(espacio=e).order_by("fecha", "id"))
+                last = movs[-1] if movs else None
 
-                # campos obligatorios
-                dni = (data.get("dni") or "").strip()
-                apellido = (data.get("apellido") or "").strip()
-                nombre = (data.get("nombre") or "").strip()
+                # Estado por materia
+                if any(_es_aprobada(m) for m in movs):
+                    estado = "Aprobada"
+                elif last and _es_desaprobada(last):
+                    estado = "Desaprobada"
+                else:
+                    estado = "Pendiente"
 
-                if not dni:
-                    errors["dni"] = "El DNI es obligatorio."
-                if not apellido:
-                    errors["apellido"] = "El apellido es obligatorio."
-                if not nombre:
-                    errors["nombre"] = "El nombre es obligatorio."
-
-                # DNI duplicado
-                if dni and Estudiante.objects.filter(dni=dni).exists():
-                    errors["dni"] = "Ya existe un estudiante con ese DNI."
-
-                if errors:
-                    ctx["errors"] = errors
-                    ctx["post"] = data  # opcional: para re-pintar valores en el form
-                    # no redirect: volvemos a renderizar el formulario con los errores
-                    return render(request, "academia_core/panel_inicio.html", ctx)
-
-                # crear instancia
-                e = Estudiante(dni=dni, apellido=apellido, nombre=nombre)
-
-                # opcionales (si existen en el modelo)
-                if hasattr(e, "fecha_nacimiento"):
-                    fn = (data.get("fecha_nacimiento") or "").strip()
-                    if fn:
-                        e.fecha_nacimiento = fn  # Django parsea YYYY-MM-DD
-
-                for f in [
-                    "lugar_nacimiento",
-                    "email",
-                    "telefono",
-                    "localidad",
-                    "telefono_emergencia",
-                    "parentesco",
-                ]:
-                    if hasattr(e, f):
-                        setattr(e, f, (data.get(f) or "").strip())
-
-                if hasattr(e, "activo"):
-                    e.activo = bool(data.get("activo"))
-
-                if hasattr(e, "foto") and "foto" in files and files["foto"]:
-                    e.foto = files["foto"]
-
-                # guardar
-                e.save()
-                messages.success(request, "Estudiante guardado con éxito.")
-                # quedarse en el mismo formulario:
-                return redirect(f"{reverse('panel')}?action=add_est")
-
-        # --- INSCRIPCIÓN A CARRERA (alias insc_carrera / insc_prof) ---
-        elif action in ("insc_carrera", "insc_prof"):
-            ctx["action_title"] = "Inscripción a carrera"
-
-            try:
-                ctx["estudiantes"] = Estudiante.objects.filter(activo=True).order_by(
-                    "apellido", "nombre"
-                )
-            except Exception:
-                ctx["estudiantes"] = []
-
-            # Profesorados (activos si existe flag; si no hay, mostrar todos)
-            try:
-                ctx["profesorados"] = _profesorados_para_select()
-            except Exception:
-                # último fallback: al menos todos, con tipo por defecto
-                ctx["profesorados"] = [
-                    {
-                        "id": p.id,
-                        "nombre": getattr(p, "nombre", str(p)),
-                        "tipo": "profesorado",
-                    }
-                    for p in Profesorado.objects.all().order_by("nombre")
-                ]
-
-            # Cohortes 2010..año actual (desc)
-            anio_actual = date.today().year
-            ctx["cohortes"] = list(range(2010, anio_actual + 1))[::-1]
-
-            # Requisitos base para el template
-            ctx["base_checks"] = [
-                ("dni_legalizado", "DNI legalizado"),
-                ("certificado_medico", "Certificado médico"),
-                ("fotocarnet", "Foto carnet"),
-                ("folio_oficio", "Folio oficio"),
-            ]
-
-            if request.method == "POST":
-                est_id = int(request.POST.get("estudiante_id") or 0)
-                prof_id = int(request.POST.get("profesorado_id") or 0)
-                plan_id = int(request.POST.get("plan_id") or 0)
-                cohorte = int(request.POST.get("cohorte") or date.today().year)
-
-                try:
-                    insc = EstudianteProfesorado(
-                        estudiante_id=est_id,
-                        profesorado_id=prof_id,
-                        plan_id=plan_id or None,
-                        cohorte=cohorte,
-                    )
-                    insc.full_clean()
-                    insc.save()
-                    messages.success(
-                        request, "Inscripción a carrera guardada con éxito."
-                    )
-                    return redirect(request.path_info)  # Redirigir a la misma página
-                except ValidationError as e:
-                    messages.error(request, f"Error de validación: {e}")
-                except Exception as e:
-                    messages.error(request, f"Error al guardar la inscripción: {e}")
-
-            # planes por profesorado (id -> [{id, label}...])
-            planes_map = {}
-            try:
-                Plan = apps.get_model("academia_core", "PlanEstudios")
-                # label amigable: usa nombre si lo tenés; si no, resolucion o el ID
-                for p in (
-                    Plan.objects.select_related("profesorado")
-                    .all()
-                    .order_by("profesorado_id", "id")
-                ):
-                    label = (
-                        getattr(p, "nombre", None)
-                        or getattr(p, "resolucion", None)
-                        or f"Plan {p.id}"
-                    )
-                    planes_map.setdefault(p.profesorado_id, []).append(
-                        {"id": p.id, "label": label}
-                    )
-            except Exception:
-                pass
-            ctx["planes_map"] = planes_map
-
-        # --- INSCRIPCIÓN A MATERIA (cursada) ---
-        elif action == "insc_esp":
-            ctx["action_title"] = "Inscripción a materia (cursada)"
-            ctx["action_subtitle"] = (
-                "Inscribí a un estudiante en un espacio curricular."
-            )
-
-            # Estudiantes (activos si existe el flag)
-            try:
-                est_qs = Estudiante.objects.all()
-                if hasattr(Estudiante, "activo"):
-                    est_qs = est_qs.filter(activo=True)
-                ctx["estudiantes"] = list(
-                    est_qs.order_by("apellido", "nombre").values(
-                        "id", "apellido", "nombre", "dni"
-                    )
-                )
-            except Exception:
-                ctx["estudiantes"] = []
-
-            # Profesorados (activos si existe el flag; fallback a todos)
-            try:
-                prof_qs = Profesorado.objects.all()
-                if hasattr(Profesorado, "activa"):
-                    prof_qs = prof_qs.filter(activa=True)
-                elif hasattr(Profesorado, "activo"):
-                    prof_qs = prof_qs.filter(activo=True)
-                prof_qs = (
-                    prof_qs.order_by("nombre")
-                    if hasattr(Profesorado, "nombre")
-                    else prof_qs.order_by("id")
-                )
-                profesorados = list(
-                    prof_qs.values("id", "nombre", "tipo")
-                    if hasattr(Profesorado, "tipo")
-                    else prof_qs.values("id", "nombre")
-                )
-                for p in profesorados:
-                    p.setdefault("tipo", "profesorado")
-                ctx["profesorados"] = profesorados
-            except Exception:
-                ctx["profesorados"] = []
-
-            # Espacios curriculares (activos si existe el flag) -> id, nombre, profesorado_id, periodo
-            try:
-                ec_qs = EspacioCurricular.objects.all()
-                if hasattr(EspacioCurricular, "activa"):
-                    ec_qs = ec_qs.filter(activa=True)
-                elif hasattr(EspacioCurricular, "activo"):
-                    ec_qs = ec_qs.filter(activo=True)
-                ec_qs = (
-                    ec_qs.order_by("nombre")
-                    if hasattr(EspacioCurricular, "nombre")
-                    else ec_qs.order_by("id")
+                # Texto del último movimiento (si hubo)
+                ult = f"{last.tipo} • {last.condicion} • {_fmt_nota(last)} • {_fmt_fecha(last.fecha)}".strip(
+                    " •"
                 )
 
-                espacios = []
-                for e in ec_qs:
-                    # FK a profesorado
-                    prof_id = getattr(e, "profesorado_id", None)
-                    if (
-                        prof_id is None
-                        and hasattr(e, "profesorado")
-                        and getattr(e, "profesorado", None)
-                    ):
-                        try:
-                            prof_id = e.profesorado.id
-                        except Exception:
-                            prof_id = None
-                    # nombre y periodo
-                    nombre = getattr(e, "nombre", str(e))
-                    if hasattr(e, "periodo") and getattr(e, "periodo", None):
-                        per = str(getattr(e, "periodo")).upper()
-                    elif hasattr(e, "cuatrimestre") and getattr(
-                        e, "cuatrimestre", None
-                    ) in (1, 2):
-                        per = "1C" if int(getattr(e, "cuatrimestre")) == 1 else "2C"
-                    else:
-                        per = "ANUAL"
-                    espacios.append(
+                # Contadores
+                if estado == "Aprobada":
+                    aprobadas += 1
+                elif estado == "Desaprobada":
+                    desaprobadas += 1
+                else:
+                    pendientes += 1
+                    pendientes_list.append(
                         {
-                            "id": e.id,
-                            "nombre": nombre,
-                            "profesorado_id": prof_id,
-                            "periodo": per,
+                            "anio": e.anio,
+                            "cuatri": e.cuatrimestre,
+                            "espacio": e.nombre,
+                            "ultimo": ult or "—",
                         }
                     )
-                ctx["espacios"] = espacios
-            except Exception:
-                ctx["espacios"] = []
 
-            # Ciclos lectivos y períodos (para el formulario)
-            anio = date.today().year
-            ctx["ciclos"] = list(range(anio - 1, anio + 2))  # ej. 2024–2026
-            ctx["periodos"] = [
-                ("ANUAL", "Anual"),
-                ("1C", "1° cuatrimestre"),
-                ("2C", "2° cuatrimestre"),
-            ]
-
-        # --- SECCIONES ---
-        elif action == "section_est":
-            ctx["action_title"] = "Estudiantes"
-            ctx["action_subtitle"] = "Gestioná los estudiantes o creá uno nuevo."
-
-        elif action == "section_insc":
-            ctx["action_title"] = "Inscripciones"
-            ctx["action_subtitle"] = "Inscribí a carrera, materias y mesas."
-
-        elif action == "section_calif":
-            ctx["action_title"] = "Calificaciones"
-            ctx["action_subtitle"] = "Carga y gestión de calificaciones."
-
-        elif action == "section_admin":
-            ctx["action_title"] = "Administración"
-            ctx["action_subtitle"] = (
-                "Configuración de espacios, planes y correlatividades."
-            )
-
-        elif action == "section_help":
-            ctx["action_title"] = "Ayuda"
-            ctx["action_subtitle"] = "Información y soporte."
-
-        return render(request, "academia_core/panel_inicio.html", ctx)
-
-    # =================== Docente (si lo usaras) ===================
-    if role == "Docente":
-        return panel_docente(request)
-
-    # =================== Estudiante (si lo usaras) ===================
-    if role == "Estudiante":
-        try:
-            estudiante = Estudiante.objects.get(email=request.user.email)
-            inscripciones = EstudianteProfesorado.objects.filter(estudiante=estudiante)
-
-            ctx = {
-                "estudiante": estudiante,
-                "inscripciones": inscripciones,
-                "action": request.GET.get("action", "tray"),
-            }
-
-            if ctx["action"] == "tray":
-                ctx["cursadas"] = InscripcionEspacio.objects.filter(
-                    inscripcion__in=inscripciones
+                # Lista completa (para la tabla principal)
+                todas.append(
+                    {
+                        "id": e.id,
+                        "nombre": e.nombre,
+                        "anio": e.anio,
+                        "cuatri": e.cuatrimestre,
+                        "estado": estado,
+                        "ultimo": ult or "—",
+                    }
                 )
-            elif ctx["action"] == "hist":
-                ctx["movimientos"] = Movimiento.objects.filter(
-                    inscripcion__in=inscripciones
-                ).order_by("-fecha")
 
-            return render(request, "academia_core/panel_estudiante.html", ctx)
-        except Estudiante.DoesNotExist:
-            return HttpResponse(
-                "No se encontró un estudiante asociado a este usuario.", status=404
-            )
-        except Exception as e:
-            return HttpResponse(f"Ocurrió un error: {e}", status=500)
+        items.append(
+            {
+                "ins": ins,
+                "plan": plan,
+                "cuentas": {
+                    "aprobadas": aprobadas,
+                    "desaprobadas": desaprobadas,
+                    "pendientes": pendientes,
+                },
+                "pendientes": pendientes_list,
+                "todas": todas,
+            }
+        )
 
-    # fallback
-    return render(request, "academia_core/panel_inicio.html", {"action": "section_est"})
+    return render(request, "alumno_home.html", {"estudiante": est, "items": items})
+
+
+# ---------- Panel DOCENTE ----------
+
+
+@login_required
+def docente_espacio_detalle(request, espacio_id: int):
+    perfil = getattr(request.user, "perfil", None)
+    if not perfil or perfil.rol != "DOCENTE" or not perfil.docente:
+        return HttpResponseForbidden("Solo para docentes.")
+
+    # el docente debe tener asignado este espacio
+    de = get_object_or_404(
+        DocenteEspacio, docente=perfil.docente, espacio_id=espacio_id
+    )
+    esp = de.espacio
+    prof = esp.profesorado
+
+    q = (request.GET.get("q") or "").strip()
+
+    # movimientos del espacio (trae estudiante/inscripción)
+    movs_qs = (
+        Movimiento.objects.filter(espacio=esp)
+        .select_related("inscripcion__estudiante")
+        .order_by("inscripcion_id", "fecha", "id")
+    )
+
+    if q:
+        movs_qs = movs_qs.filter(
+            Q(inscripcion__estudiante__apellido__icontains=q)
+            | Q(inscripcion__estudiante__nombre__icontains=q)
+            | Q(inscripcion__estudiante__dni__icontains=q)
+        )
+
+    # agrupar por inscripción (alumno)
+    alumnos = []
+    cur_insc = None
+    cur_movs = []
+    for m in movs_qs:
+        if cur_insc is None:
+            cur_insc = m.inscripcion
+        if m.inscripcion_id != cur_insc.id:
+            alumnos.append((cur_insc, cur_movs))
+            cur_insc = m.inscripcion
+            cur_movs = []
+        cur_movs.append(m)
+    if cur_insc is not None:
+        alumnos.append((cur_insc, cur_movs))
+
+    # calcular estado por alumno en este espacio
+    filas = []
+    aprob, desa, pend = 0, 0, 0
+    for insc, movs in alumnos:
+        last = movs[-1] if movs else None
+        if any(_es_aprobada(m) for m in movs):
+            estado = "Aprobada"
+            aprob += 1
+        elif last and _es_desaprobada(last):
+            estado = "Desaprobada"
+            desa += 1
+        else:
+            estado = "Pendiente"
+            pend += 1
+
+        ult = f"{last.tipo} • {last.condicion} • {_fmt_nota(last)} • {_fmt_fecha(last.fecha)}".strip(
+            " •"
+        )
+
+        e = insc.estudiante
+        filas.append(
+            {
+                "apellido": e.apellido,
+                "nombre": e.nombre,
+                "dni": e.dni,
+                "cohorte": insc.cohorte or "—",
+                "estado": estado,
+                "ultimo": ult or "—",
+            }
+        )
+
+    # ordenar por estado (pendientes primero), luego apellido
+    order_key = {"Pendiente": 0, "Desaprobada": 1, "Aprobada": 2}
+    filas.sort(
+        key=lambda r: (order_key.get(r["estado"], 9), r["apellido"], r["nombre"])
+    )
+
+    ctx = {
+        "docente": perfil.docente,
+        "espacio": esp,
+        "profesorado": prof,
+        "resumen": {
+            "aprobadas": aprob,
+            "desaprobadas": desa,
+            "pendientes": pend,
+            "total": len(filas),
+        },
+        "filas": filas,
+        "q": q,
+    }
+    return render(request, "docente_espacio_detalle.html", ctx)
 
 
 # ========= APIs =========
@@ -926,6 +740,27 @@ def panel_docente(request: HttpRequest) -> HttpResponse:
         )
     except Exception as e:
         return HttpResponse(f"Ocurrió un error: {e}", status=500)
+
+
+@login_required
+def correlatividades_form_view(request):
+    if request.method == 'POST':
+        form = CorrelatividadForm(request.POST)
+        if form.is_valid():
+            form.save() # Call the custom save method on the form
+            messages.success(request, "Correlatividades guardadas con éxito.")
+            return redirect('correlatividades_form') # Redirect to a success page or back to the form
+        else:
+            messages.error(request, "Error al guardar las correlatividades. Por favor, revise los datos.")
+    else:
+        form = CorrelatividadForm()
+
+    ctx = {
+        "form": form,
+        "action_title": "Gestión de Correlatividades",
+        "action_subtitle": "Carga y administración de correlatividades.",
+    }
+    return render(request, "academia_core/panel_correlatividades_form.html", ctx)
 
 
 if "get_espacios_por_inscripcion" not in globals():

@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from academia_core.models import EspacioCurricular, PlanEstudios, Estudiante
+from academia_core.models import EspacioCurricular, PlanEstudios, Estudiante, Profesorado, Docente, Movimiento, Correlatividad # Added Correlatividad
 from academia_core.eligibilidad import habilitado
 from django.apps import apps
 
@@ -121,24 +121,21 @@ def api_get_espacio_curricular_detalle(request, pk):
     return JsonResponse(data)
 
 
+# NUEVO: API para listar espacios curriculares (filtrado por plan)
 @require_GET
-def api_get_movimientos_estudiante(request, estudiante_id):
-    movimientos = (
-        Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id)
-        .select_related("espacio", "condicion")
-        .order_by("-fecha")
-    )
+def api_listar_espacios_curriculares(request):
+    plan_id = request.GET.get("plan_id")
+    espacios = EspacioCurricular.objects.all().order_by("nombre")
+    if plan_id:
+        espacios = espacios.filter(plan_id=plan_id)
     data = [
         {
-            "id": m.id,
-            "espacio": m.espacio.nombre,
-            "tipo": m.get_tipo_display(),
-            "fecha": m.fecha,
-            "condicion": m.condicion.nombre,
-            "nota_num": m.nota_num,
-            "nota_texto": m.nota_texto,
+            "id": e.id,
+            "nombre": e.nombre,
+            "anio": e.anio,
+            "cuatrimestre": e.cuatrimestre,
         }
-        for m in movimientos
+        for e in espacios
     ]
     return JsonResponse({"items": data})
 
@@ -167,25 +164,22 @@ def api_get_movimientos_estudiante(request, estudiante_id):
 
 @require_GET
 def api_get_correlatividades(request, espacio_id, insc_id=None):
-    espacio = get_object_or_404(EspacioCurricular, pk=espacio_id)
-    correlatividades = Correlatividad.objects.filter(espacio=espacio).select_related(
-        "plan", "requiere_espacio"
-    )
+    # This endpoint will now return all other spaces in the same plan
+    # for the correlativas multi-select fields.
+    espacio_principal = get_object_or_404(EspacioCurricular, pk=espacio_id)
+    plan = espacio_principal.plan
+
+    # Get all other spaces in the same plan, excluding the principal space
+    all_other_spaces_in_plan = EspacioCurricular.objects.filter(plan=plan).exclude(pk=espacio_id).order_by("nombre")
 
     data = []
-    for corr in correlatividades:
-        item = {
-            "id": corr.id,
-            "plan": corr.plan.nombre,
-            "tipo": corr.get_tipo_display(),
-            "requisito": corr.get_requisito_display(),
-            "requiere_espacio": (
-                corr.requiere_espacio.nombre if corr.requiere_espacio else None
-            ),
-            "requiere_todos_hasta_anio": corr.requiere_todos_hasta_anio,
-            "observaciones": corr.observaciones,
-        }
-        data.append(item)
+    for esp in all_other_spaces_in_plan:
+        data.append({
+            "id": esp.id,
+            "nombre": esp.nombre,
+            "anio": esp.anio,
+            "cuatrimestre": esp.cuatrimestre,
+        })
 
     return JsonResponse({"items": data})
 

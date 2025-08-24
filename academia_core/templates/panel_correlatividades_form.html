@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action_title }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">{{ action_title }}</h1>
+    <p class="text-gray-600 mb-6">{{ action_subtitle }}</p>
+
+    {% if messages %}
+        <ul class="mb-4">
+            {% for message in messages %}
+                <li class="p-3 rounded {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% endif %}">
+                    {{ message }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <form method="post" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+        {% csrf_token %}
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_profesorado">
+                {{ form.profesorado.label }}
+            </label>
+            {{ form.profesorado }}
+            {% if form.profesorado.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.profesorado.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_plan">
+                {{ form.plan.label }}
+            </label>
+            {{ form.plan }}
+            {% if form.plan.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.plan.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2" for="id_materia_principal">
+                {{ form.materia_principal.label }}
+            </label>
+            {{ form.materia_principal }}
+            {% if form.materia_principal.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.materia_principal.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">
+                {{ form.correlativas_regulares.label }}
+            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {% for checkbox in form.correlativas_regulares %}
+                    <label class="inline-flex items-center">
+                        {{ checkbox.tag }}
+                        <span class="ml-2 text-gray-700">{{ checkbox.choice_label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            {% if form.correlativas_regulares.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.correlativas_regulares.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2">
+                {{ form.correlativas_aprobadas.label }}
+            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {% for checkbox in form.correlativas_aprobadas %}
+                    <label class="inline-flex items-center">
+                        {{ checkbox.tag }}
+                        <span class="ml-2 text-gray-700">{{ checkbox.choice_label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+            {% if form.correlativas_aprobadas.errors %}
+                <p class="text-red-500 text-xs italic">{{ form.correlativas_aprobadas.errors }}</p>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center justify-between">
+            <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
+                Guardar Correlatividades
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // JavaScript for dynamic filtering will go here
+    const profesoradoSelect = document.getElementById('id_profesorado');
+    const planSelect = document.getElementById('id_plan');
+    const materiaPrincipalSelect = document.getElementById('id_materia_principal');
+    const correlativasRegularesDiv = document.querySelector('div[for="id_correlativas_regulares"]');
+    const correlativasAprobadasDiv = document.querySelector('div[for="id_correlativas_aprobadas"]');
+
+    // Function to clear and disable a select element
+    function clearAndDisableSelect(selectElement) {
+        selectElement.innerHTML = '<option value="">-- Seleccione un Plan --</option>';
+        selectElement.disabled = true;
+    }
+
+    // Function to populate a select element
+    function populateSelect(selectElement, data, emptyLabel) {
+        selectElement.innerHTML = `<option value="">${emptyLabel}</option>`;
+        data.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.nombre || item.label; // Use 'nombre' or 'label'
+            selectElement.appendChild(option);
+        });
+        selectElement.disabled = false;
+    }
+
+    // Event listener for Profesorado select change
+    profesoradoSelect.addEventListener('change', function() {
+        const profesoradoId = this.value;
+        clearAndDisableSelect(planSelect);
+        clearAndDisableSelect(materiaPrincipalSelect);
+        // Hide correlativas checkboxes until materia is selected
+        correlativasRegularesDiv.style.display = 'none';
+        correlativasAprobadasDiv.style.display = 'none';
+
+        if (profesoradoId) {
+            // Fetch plans for the selected profesorado
+            fetch(`/api/planes-estudios/?profesorado_id=${profesoradoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    populateSelect(planSelect, data.items, '-- Seleccione un Plan --');
+                })
+                .catch(error => console.error('Error fetching plans:', error));
+        }
+    });
+
+    // Event listener for Plan select change
+    planSelect.addEventListener('change', function() {
+        const planId = this.value;
+        clearAndDisableSelect(materiaPrincipalSelect);
+        // Hide correlativas checkboxes until materia is selected
+        correlativasRegularesDiv.style.display = 'none';
+        correlativasAprobadasDiv.style.display = 'none';
+
+        if (planId) {
+            // Fetch materias for the selected plan
+            fetch(`/api/espacios-curriculares/?plan_id=${planId}`)
+                .then(response => response.json())
+                .then(data => {
+                    populateSelect(materiaPrincipalSelect, data.items, '-- Seleccione una Materia --');
+                })
+                .catch(error => console.error('Error fetching materias:', error));
+        }
+    });
+
+    // Event listener for Materia Principal select change
+    materiaPrincipalSelect.addEventListener('change', function() {
+        const materiaId = this.value;
+        const planId = planSelect.value;
+
+        // Clear and hide correlativas checkboxes
+        correlativasRegularesDiv.innerHTML = '';
+        correlativasAprobadasDiv.innerHTML = '';
+        correlativasRegularesDiv.style.display = 'none';
+        correlativasAprobadasDiv.style.display = 'none';
+
+        if (materiaId && planId) {
+            // Fetch correlativas for the selected materia and plan
+            fetch(`/api/correlatividades/${materiaId}/${planId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    // Populate correlativas regulares
+                    if (data.regularizadas && data.regularizadas.length > 0) {
+                        data.regularizadas.forEach(item => {
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.name = 'correlativas_regulares'; // Match form field name
+                            checkbox.value = item.id;
+                            checkbox.id = `id_correlativas_regulares_${item.id}`;
+
+                            const label = document.createElement('label');
+                            label.htmlFor = `id_correlativas_regulares_${item.id}`;
+                            label.textContent = item.nombre;
+
+                            const div = document.createElement('div');
+                            div.appendChild(checkbox);
+                            div.appendChild(label);
+                            correlativasRegularesDiv.appendChild(div);
+                        });
+                        correlativasRegularesDiv.style.display = 'grid'; // Show as grid
+                    }
+
+                    // Populate correlativas aprobadas
+                    if (data.aprobadas && data.aprobadas.length > 0) {
+                        data.aprobadas.forEach(item => {
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.name = 'correlativas_aprobadas'; // Match form field name
+                            checkbox.value = item.id;
+                            checkbox.id = `id_correlativas_aprobadas_${item.id}`;
+
+                            const label = document.createElement('label');
+                            label.htmlFor = `id_correlativas_aprobadas_${item.id}`;
+                            label.textContent = item.nombre;
+
+                            const div = document.createElement('div');
+                            div.appendChild(checkbox);
+                            div.appendChild(label);
+                            correlativasAprobadasDiv.appendChild(div);
+                        });
+                        correlativasAprobadasDiv.style.display = 'grid'; // Show as grid
+                    }
+                })
+                .catch(error => console.error('Error fetching correlativas:', error));
+        }
+    });
+
+    // Initial state: disable plan and materia selects
+    clearAndDisableSelect(planSelect);
+    clearAndDisableSelect(materiaPrincipalSelect);
+    // Hide correlativas checkboxes initially
+    correlativasRegularesDiv.style.display = 'none';
+    correlativasAprobadasDiv.style.display = 'none';
+
+</script>
+{% endblock %}

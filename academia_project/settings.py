@@ -1,6 +1,6 @@
-# academia_project/settings.py
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -38,46 +38,51 @@ try:
 except Exception:
     pass
 
-# --- Seguridad / Debug ---
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_",
-)
-if SECRET_KEY == "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_":
-    raise ImproperlyConfigured(
-        "The SECRET_KEY setting must not use the default value in production."
-    )
+# -----------------------------
+# Seguridad / Debug (dev-friendly)
+# -----------------------------
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+def getenv_bool(name: str, default: bool = False) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return str(v).lower() in {"1", "true", "t", "yes", "y"}
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"] # Add your production domains here, e.g., ["yourdomain.com"]
+# Por defecto arrancamos en desarrollo
+DEBUG = getenv_bool("DJANGO_DEBUG", default=True)
 
-# Security Headers (Recommended for Production)
-# SECURE_SSL_REDIRECT = True
-# SECURE_HSTS_SECONDS = 31536000  # 1 year
+# Clave por defecto SOLO para desarrollo (podés cambiarla si querés)
+DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_"
+
+if DEBUG:
+    # En desarrollo permitimos no tener variables de entorno
+    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
+    ALLOWED_HOSTS = []
+else:
+    # En producción exigimos variables de entorno correctas
+    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+    if not SECRET_KEY:
+        raise ImproperlyConfigured("Set the DJANGO_SECRET_KEY environment variable")
+
+    hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
+    if not hosts:
+        raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS (comma separated)")
+
+    ALLOWED_HOSTS = [h.strip() for h in hosts.split(",") if h.strip()]
+
+# Security headers (podés habilitarlas en prod)
+# SECURE_SSL_REDIRECT = not DEBUG
+# SECURE_HSTS_SECONDS = 31536000  # 1 año
 # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 # SECURE_HSTS_PRELOAD = True
 # SECURE_CONTENT_TYPE_NOSNIFF = True
 # SECURE_BROWSER_XSS_FILTER = True
-# X_FRAME_OPTIONS = "DENY" # Already set by XFrameOptionsMiddleware
+# X_FRAME_OPTIONS = "DENY"  # Ya lo setea XFrameOptionsMiddleware por defecto
 
-# Session Security (Recommended for Production)
-SESSION_COOKIE_SECURE = True
+# Cookies de sesión/CSRF: seguras en prod, flexibles en dev
+SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
-# SESSION_COOKIE_AGE = 3 * 60 * 60  # 3 hours in seconds
-# SESSION_SAVE_EVERY_REQUEST = True  # renews expiration with each request
-# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-
-# Import ImproperlyConfigured for the SECRET_KEY check
-from django.core.exceptions import ImproperlyConfigured
-
-# Ensure SecurityMiddleware is at the top of MIDDLEWARE
-# (It should already be there by default)
-# MIDDLEWARE = [
-#     "django.middleware.security.SecurityMiddleware",
-#     # ... rest of your middleware
-# ]
-
+CSRF_COOKIE_SECURE = not DEBUG
 
 # --- Apps ---
 INSTALLED_APPS = [
@@ -112,8 +117,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR
-            / "templates",  # <- carpeta de templates del proyecto (opcional, pero útil)
+            BASE_DIR / "templates",  # carpeta de templates del proyecto (opcional)
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -121,7 +125,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # <- NUEVO: expone login_url y logout_url en todos los templates
+                # expone login_url y logout_url en todos los templates
                 "academia_core.context_processors.auth_urls",
             ],
         },
@@ -148,9 +152,7 @@ DATABASES = {
 
 # --- Password validators ---
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -164,25 +166,15 @@ USE_TZ = True
 
 # --- Archivos estáticos y de medios ---
 STATIC_URL = "/static/"
-# Si tenés una carpeta global de estáticos (además de los de las apps), descomentá:
-# STATICFILES_DIRS = [BASE_DIR / "static"]
+# STATICFILES_DIRS = [BASE_DIR / "static"]  # si usás una carpeta global
 
-# Fotos / uploads (para Estudiante.foto)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # --- Login/Logout (para vistas protegidas) ---
-LOGIN_URL = "/accounts/login/"  # <- explícito
+LOGIN_URL = "/accounts/login/"  # explícito
 LOGIN_REDIRECT_URL = "/panel/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
-
-# --- Sesión (opcional) ---
-# Si querés que la sesión expire a las 3 horas:
-# SESSION_COOKIE_AGE = 3 * 60 * 60  # 3 horas en segundos
-# SESSION_SAVE_EVERY_REQUEST = True  # renueva vencimiento con cada request
-
-# Si querés que la sesión se pierda al cerrar el navegador:
-# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # --- DRF básico (opcional)
 REST_FRAMEWORK = {

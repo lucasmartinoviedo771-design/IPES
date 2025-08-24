@@ -1,0 +1,189 @@
+{
+  "profesorado": "Certificación Docente para la Educación Secundaria",
+  "plan_resolucion": "3151/21",
+  "years": [
+    {
+      "year_name": "Primer Año",
+      "espacios": [
+        {
+          "name": "Psicología Educacional",
+          "format": "M",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Historia Social Argentina y Latinoamericana",
+          "format": "A",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Marco Político Normativo en Educación Secundaria",
+          "format": "S",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Curriculum",
+          "format": "M",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Pedagogía",
+          "format": "A",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Didáctica General",
+          "format": "A",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Problemática de la Educación Secundaria",
+          "format": "S",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Sujeto de la Educación I",
+          "format": "M",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Práctica Profesional I",
+          "format": "T",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        }
+      ]
+    },
+    {
+      "year_name": "Segundo Año",
+      "espacios": [
+        {
+          "name": "Alfabetización Digital",
+          "format": "T",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Filosofía de la Educación",
+          "format": "M",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Educación Sexual Integral",
+          "format": "T",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": []
+          }
+        },
+        {
+          "name": "Procesos de Evaluación en la Educación Secundaria",
+          "format": "S",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": [
+              {
+                "name": "Problemática de la Educación Secundaria",
+                "format": "S"
+              },
+              {
+                "name": "Didáctica General",
+                "format": "A"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Sujeto de la Educación II",
+          "format": "M",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": [
+              {
+                "name": "Sujeto de la Educación I",
+                "format": "M"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Didáctica del Nivel Secundario",
+          "format": "A",
+          "correlativas_cursar": {
+            "aprobadas": [],
+            "regularizadas": [
+              {
+                "name": "Didáctica General",
+                "format": "A"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Práctica Profesional II",
+          "format": "T",
+          "correlativas_cursar": {
+            "aprobadas": [
+              {
+                "name": "Práctica Profesional I",
+                "format": "T"
+              }
+            ],
+            "regularizadas": [
+              {
+                "name": "Curriculum",
+                "format": "M"
+              },
+              {
+                "name": "Pedagogía",
+                "format": "A"
+              },
+              {
+                "name": "Práctica Profesional I",
+                "format": "T"
+              },
+              {
+                "name": "Didáctica General",
+                "format": "A"
+              },
+              {
+                "name": "Sujeto de la Educación Secundaria I",
+                "format": "M"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

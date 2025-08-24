@@ -1,5 +1,6 @@
 # academia_core/urls.py
-from django.urls import path
+from django.urls import path, include   # include por si lo usás
+from . import views                     # para vistas basadas en función
 
 # Vistas de "cartones" existentes
 from .views import (
@@ -28,6 +29,8 @@ from .views_panel import (
     # Redirecciones utilitarias
     redir_estudiante,
     redir_inscripcion,
+    # NUEVO: Vista para el formulario de correlatividades
+    correlatividades_form_view,
 )
 
 from .views_api import (
@@ -88,7 +91,7 @@ urlpatterns = [
         name="carton_generico_pdf",
     ),
     # ---------------- Panel -------------------
-    path("panel/"),
+    path("panel/", panel, name="panel"),
     path("panel/home/", panel, name="panel_home"),
     # Panel de Estudiante (cartón por inscripción)
     # Nota: el view espera <int:insc_id>
@@ -98,6 +101,8 @@ urlpatterns = [
     ),
     path("panel/horarios/", panel_horarios, name="panel_horarios"),
     path("panel/docente/", panel_docente, name="panel_docente"),
+    # NUEVO: Ruta para el formulario de correlatividades
+    path("panel/correlatividades/form/", correlatividades_form_view, name="correlatividades_form"),
     # ---------------- CBVs (Alumnos) ----------
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
     path("alumnos/agregar/", EstudianteCreateView.as_view(), name="agregar_alumno"),
@@ -143,9 +148,9 @@ urlpatterns = [
         api_espacios_habilitados,
         name="api_espacios_por_inscripcion",
     ),
-    path("api/estudiantes/", api_listar_estudiantes, name="api_listar_estudiantes"),
-    path("api/docentes/", api_listar_docentes, name="api_listar_docentes"),
-    path("api/profesorados/", api_listar_profesorados, name="api_listar_profesorados"),
+    path("api/estudiantes/"),
+    path("api/docentes/"),
+    path("api/profesorados/"),
     path(
         "api/planes-estudios/",
         api_listar_planes_estudios,
