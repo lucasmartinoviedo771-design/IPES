@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Cargar Nota{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ action_title }}</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Guardar</button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inscripcionSelect = document.getElementById("id_inscripcion");
+        const espacioSelect = document.getElementById("id_espacio");
+        const tipoSelect = document.getElementById("id_tipo");
+        const condicionSelect = document.getElementById("id_condicion");
+
+        inscripcionSelect.addEventListener("change", function() {
+            const inscripcionId = this.value;
+            if (inscripcionId) {
+                fetch(`/api/espacios-por-inscripcion/${inscripcionId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        espacioSelect.innerHTML = '<option value="">--------</option>';
+                        data.items.forEach(espacio => {
+                            espacioSelect.innerHTML += `<option value="${espacio.id}">${espacio.nombre}</option>`;
+                        });
+                    });
+            } else {
+                espacioSelect.innerHTML = '<option value="">--------</option>';
+            }
+        });
+
+        tipoSelect.addEventListener("change", function() {
+            const tipo = this.value;
+            if (tipo) {
+                // This is a simplified example. In a real application, you would
+                // probably want to fetch the conditions from the server based on the selected type.
+                condicionSelect.innerHTML = '<option value="">--------</option>';
+                if (tipo === 'REG') {
+                    condicionSelect.innerHTML += '<option value="REGULAR">Regular</option>';
+                    condicionSelect.innerHTML += '<option value="PROMOCION">Promoción</option>';
+                    condicionSelect.innerHTML += '<option value="LIBRE">Libre</option>';
+                } else if (tipo === 'FIN') {
+                    condicionSelect.innerHTML += '<option value="APROBADO">Aprobado</option>';
+                    condicionSelect.innerHTML += '<option value="DESAPROBADO">Desaprobado</option>';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

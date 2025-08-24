@@ -20,6 +20,7 @@ from .views_panel import (
     # Guardados (POST)
     crear_inscripcion_cursada,
     crear_movimiento,
+    cargar_nota,
     # Redirecciones utilitarias
     redir_estudiante,
     redir_inscripcion,
@@ -80,6 +81,14 @@ urlpatterns = [
     path("api/espacios-por-inscripcion/<int:insc_id>/",
          get_espacios_por_inscripcion,
          name="api_espacios_por_inscripcion"),
+    path("api/estudiantes/", api_listar_estudiantes, name="api_listar_estudiantes"),
+    path("api/docentes/", api_listar_docentes, name="api_listar_docentes"),
+    path("api/profesorados/", api_listar_profesorados, name="api_listar_profesorados"),
+    path("api/planes-estudios/", api_listar_planes_estudios, name="api_listar_planes_estudios"),
+    path("api/estudiantes/<int:pk>/", api_get_estudiante_detalle, name="api_get_estudiante_detalle"),
+    path("api/docentes/<int:pk>/", api_get_docente_detalle, name="api_get_docente_detalle"),
+    path("api/espacios-curriculares/<int:pk>/", api_get_espacio_curricular_detalle, name="api_get_espacio_curricular_detalle"),
+    path("api/movimientos/estudiante/<int:estudiante_id>/", api_get_movimientos_estudiante, name="api_get_movimientos_estudiante"),
 
     # Dos rutas para correlatividades:
     # - Solo espacio (sin inscripción -> devuelve requisitos)
@@ -98,6 +107,7 @@ urlpatterns = [
     path("panel/cursadas/<int:insc_cursada_id>/movimientos/crear/",
          crear_movimiento,
          name="crear_movimiento"),
+    path("panel/cargar-nota/", cargar_nota, name="cargar_nota"),
 
     # ---------------- Redirecciones utilitarias -----
     path("redir/estudiante/<int:est_id>/", redir_estudiante, name="redir_estudiante"),

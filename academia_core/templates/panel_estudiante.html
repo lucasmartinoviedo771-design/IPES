@@ -3,116 +3,87 @@
 {% block title %}Panel de Estudiante{% endblock %}
 
 {% block content %}
-  <div class="row">
-    <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar rounded-3 shadow-sm p-4">
-      <div class="position-sticky">
-        <h3 class="h5">Mi Panel</h3>
-        <ul class="nav flex-column nav-pills">
-          <li class="nav-item">
-            <a href="?action=tray" class="nav-link {% if action == 'tray' %}active{% endif %}">Mi Trayectoria</a>
-          </li>
-          <li class="nav-item">
-            <a href="?action=hist" class="nav-link {% if action == 'hist' %}active{% endif %}">Historial Académico</a>
-          </li>
-          <li class="nav-item">
-            <a href="?action=insc_esp" class="nav-link {% if action == 'insc_esp' %}active{% endif %}">Inscribirme a Materia</a>
-          </li>
-          <li class="nav-item">
-            <a href="?action=insc_final" class="nav-link {% if action == 'insc_final' %}active{% endif %}">Inscribirme a Final</a>
-          </li>
-          <li class="nav-item">
-            <a href="{% url 'panel_correlatividades' %}" class="nav-link {% if action == 'correl' %}active{% endif %}">Correlatividades</a>
-          </li>
-          <li class="nav-item">
-            <a href="?action=horarios" class="nav-link {% if action == 'horarios' %}active{% endif %}">Horarios</a>
-          </li>
-        </ul>
-      </div>
-    </nav>
+<div class="container mt-4">
+    <h1 class="mb-4">Panel del Estudiante: {{ estudiante.apellido }}, {{ estudiante.nombre }}</h1>
 
-    <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-      <div class="bg-white p-4 rounded-3 shadow-sm">
-        <h2 class="h4">{{ action_title }}</h2>
-        {% if action_subtitle %}<p class="text-muted">{{ action_subtitle|safe }}</p>{% endif %}
-
-        {% if action == 'tray' %}
-          <table class="table table-striped table-hover">
-            <thead>
-              <tr>
-                <th>Espacio Curricular</th>
-                <th>Año Académico</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for cursada in cursadas %}
-                <tr>
-                  <td>{{ cursada.espacio.nombre }}</td>
-                  <td>{{ cursada.anio_academico }}</td>
-                  <td><span class="badge bg-primary">{{ cursada.get_estado_display }}</span></td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="3" class="text-center text-muted">No tienes inscripciones a materias.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-        {% elif action == 'hist' %}
-          <table class="table table-bordered">
-            <thead>
-              <tr>
-                <th>Año</th>
-                <th>Cuatr.</th>
-                <th>Espacio</th>
-                <th>Regularidad</th>
-                <th>Final</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in carton_rows %}
-                <tr>
-                  <td>{{ row.anio }}</td>
-                  <td>{{ row.cuatri }}</td>
-                  <td>{{ row.espacio }}</td>
-                  <td>{{ row.reg_cond }} {{ row.reg_fecha|date:"d/m/Y" }}</td>
-                  <td>{{ row.fin_cond }} {{ row.fin_fecha|date:"d/m/Y" }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="5" class="text-center text-muted">No hay historial académico para mostrar.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-        {% elif form %}
-          <form method="post">
-            {% csrf_token %}
-            <div class="row g-3">
-              {% for field in form %}
-                <div class="col-md-6">
-                  <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                  {{ field.as_widget }}
-                  {% if field.help_text %}
-                    <div class="form-text">{{ field.help_text }}</div>
-                  {% endif %}
-                  {% for error in field.errors %}
-                    <div class="invalid-feedback d-block">{{ error }}</div>
-                  {% endfor %}
-                </div>
-              {% endfor %}
+    <div class="row">
+        <nav class="col-md-3 col-lg-2 d-md-block bg-white sidebar rounded-3 shadow-sm p-4">
+            <div class="position-sticky">
+                <h3 class="h5">Mi Panel</h3>
+                <ul class="nav flex-column nav-pills">
+                    <li class="nav-item">
+                        <a href="?action=tray" class="nav-link {% if action == 'tray' %}active{% endif %}">Mi Trayectoria</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="?action=hist" class="nav-link {% if action == 'hist' %}active{% endif %}">Historial Académico</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'panel' %}?action=insc_esp" class="nav-link {% if action == 'insc_esp' %}active{% endif %}">Inscribirme a Materia</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link disabled {% if action == 'insc_final' %}active{% endif %}">Inscribirme a Final</a>
+                    </li>
+                </ul>
             </div>
-            <div class="mt-4">
-              <button type="submit" class="btn btn-success">Inscribirme</button>
-            </div>
-          </form>
-        {% else %}
-          <div class="alert alert-info">{{ action_title }} (en construcción)</div>
-        {% endif %}
+        </nav>
 
-      </div>
-    </main>
-  </div>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="bg-white p-4 rounded-3 shadow-sm">
+                {% if action == 'tray' %}
+                    <h2 class="h4">Mi Trayectoria</h2>
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Espacio Curricular</th>
+                                <th>Año Académico</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cursada in cursadas %}
+                            <tr>
+                                <td>{{ cursada.espacio.nombre }}</td>
+                                <td>{{ cursada.anio_academico }}</td>
+                                <td><span class="badge bg-primary">{{ cursada.get_estado_display }}</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No tienes inscripciones a materias.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% elif action == 'hist' %}
+                    <h2 class="h4">Historial Académico</h2>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Espacio Curricular</th>
+                                <th>Tipo</th>
+                                <th>Condición</th>
+                                <th>Nota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for movimiento in movimientos %}
+                            <tr>
+                                <td>{{ movimiento.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ movimiento.espacio.nombre }}</td>
+                                <td>{{ movimiento.get_tipo_display }}</td>
+                                <td>{{ movimiento.condicion.nombre }}</td>
+                                <td>{{ movimiento.nota_num|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No hay historial académico para mostrar.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</div>
 {% endblock %}

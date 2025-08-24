@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Correlatividades{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ action_title }}</h1>
+    <p class="text-muted">{{ action_subtitle }}</p>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">Listado de Correlatividades</h4>
+        </div>
+        <div class="card-body">
+            {% if correlatividades %}
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Plan de Estudios</th>
+                        <th>Espacio Curricular</th>
+                        <th>Tipo</th>
+                        <th>Requisito</th>
+                        <th>Requiere Espacio</th>
+                        <th>Requiere hasta Año</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for corr in correlatividades %}
+                    <tr>
+                        <td>{{ corr.plan.nombre }} ({{ corr.plan.resolucion }})</td>
+                        <td>{{ corr.espacio.nombre }}</td>
+                        <td>{{ corr.get_tipo_display }}</td>
+                        <td>{{ corr.get_requisito_display }}</td>
+                        <td>{% if corr.requiere_espacio %}{{ corr.requiere_espacio.nombre }}{% else %}-{% endif %}</td>
+                        <td>{% if corr.requiere_todos_hasta_anio %}{{ corr.requiere_todos_hasta_anio }}°{% else %}-{% endif %}</td>
+                        <td>{{ corr.observaciones|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-info">
+                No hay correlatividades registradas.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

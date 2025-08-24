@@ -102,11 +102,9 @@ def _role_for(user) -> str:
         return "Invitado"
     if getattr(user, "is_superuser", False):
         return "Admin"
-    if getattr(user, "is_staff", False):
-        return "Secretaría"
     try:
-        if hasattr(user, "rol") and user.rol:
-            return str(user.rol)
+        if hasattr(user, "perfil") and user.perfil.rol:
+            return str(user.perfil.rol)
         if user.groups.filter(name__iexact="Docente").exists():
             return "Docente"
         if user.groups.filter(name__iexact="Estudiante").exists():
@@ -118,12 +116,13 @@ def _role_for(user) -> str:
 
 def _base_context(request: HttpRequest):
     user = getattr(request, "user", None)
-    can_admin = bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+    role = _role_for(user)
+    can_admin = role in ["Admin", "Secretaría", "Bedel"]
     try:
         profesorados = list(Profesorado.objects.all().order_by("nombre"))
     except Exception:
         profesorados = []
-    return {"rol": _role_for(user), "can_admin": can_admin, "profesorados": profesorados}
+    return {"rol": role, "can_admin": can_admin, "profesorados": profesorados}
 
 
 # ========= ELEGIBILIDAD: estado académico del alumno =========
@@ -302,7 +301,7 @@ def panel(request: HttpRequest) -> HttpResponse:
     role = _role_for(request.user)
 
     # =================== Admin / Secretaría ===================
-    if role in ["Admin", "Secretaría"]:
+    if can_admin:
         ctx = _base_context(request)
 
         # leer 'action' (por defecto, estudiantes)
@@ -311,6 +310,13 @@ def panel(request: HttpRequest) -> HttpResponse:
         ctx["form"] = None
         ctx["action_title"] = "Inicio"
         ctx["action_subtitle"] = "Bienvenido al panel de gestión."
+
+        # Métricas para el dashboard
+        ctx['total_estudiantes'] = Estudiante.objects.count()
+        ctx['total_profesorados'] = Profesorado.objects.count()
+        ctx['total_espacios'] = EspacioCurricular.objects.count()
+        ctx['total_inscripciones_carrera'] = EstudianteProfesorado.objects.count()
+        ctx['total_inscripciones_materia'] = InscripcionEspacio.objects.count()
 
         if action == "add_est":
             ctx["action_title"] = "Nuevo estudiante"
@@ -525,13 +531,32 @@ def panel(request: HttpRequest) -> HttpResponse:
 
         return render(request, "academia_core/panel_inicio.html", ctx)
 
-    # =================== Estudiante (si lo usaras) ===================
-    if role == "Estudiante":
-        return render(request, "panel_estudiante.html", {"action": request.GET.get("action") or "tray"})
-
     # =================== Docente (si lo usaras) ===================
     if role == "Docente":
-        return render(request, "panel_docente.html", {})
+        return panel_docente(request)
+
+    # =================== Estudiante (si lo usaras) ===================
+    if role == "Estudiante":
+        try:
+            estudiante = Estudiante.objects.get(email=request.user.email)
+            inscripciones = EstudianteProfesorado.objects.filter(estudiante=estudiante)
+            
+            ctx = {
+                'estudiante': estudiante,
+                'inscripciones': inscripciones,
+                'action': request.GET.get('action', 'tray'),
+            }
+
+            if ctx['action'] == 'tray':
+                ctx['cursadas'] = InscripcionEspacio.objects.filter(inscripcion__in=inscripciones)
+            elif ctx['action'] == 'hist':
+                ctx['movimientos'] = Movimiento.objects.filter(inscripcion__in=inscripciones).order_by('-fecha')
+
+            return render(request, "academia_core/panel_estudiante.html", ctx)
+        except Estudiante.DoesNotExist:
+            return HttpResponse("No se encontró un estudiante asociado a este usuario.", status=404)
+        except Exception as e:
+            return HttpResponse(f"Ocurrió un error: {e}", status=500)
 
     # fallback
     return render(request, "academia_core/panel_inicio.html", {"action": "section_est"})
@@ -626,19 +651,99 @@ def post_inscribir_espacio(request):
     return JsonResponse({"ok": True, "id": obj.id})
 
 
+from .forms_carga import CargaNotaForm
+
+@login_required
+def cargar_nota(request: HttpRequest) -> HttpResponse:
+    if _role_for(request.user) not in ["Admin", "Secretaría", "Bedel"]:
+        return HttpResponse("No tiene permisos para acceder a esta página.", status=403)
+
+    if request.method == 'POST':
+        form = CargaNotaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Nota guardada con éxito.")
+            return redirect('cargar_nota')
+        else:
+            messages.error(request, "Error al guardar la nota. Por favor, revise los datos.")
+    else:
+        form = CargaNotaForm()
+
+    ctx = {
+        'form': form,
+        'action_title': 'Cargar Nota',
+    }
+    return render(request, "academia_core/cargar_nota.html", ctx)
+
+
 # ========= STUBS (por si alguna URL los referencia y aún no existen) =========
 
-if "panel_correlatividades" not in globals():
-    def panel_correlatividades(request):
-        return HttpResponse("Correlatividades — en construcción.")
+from .models import Correlatividad, PlanEstudios, EspacioCurricular
 
-if "panel_horarios" not in globals():
-    def panel_horarios(request):
-        return HttpResponse("Horarios — en construcción.")
+@login_required
+def panel_correlatividades(request: HttpRequest) -> HttpResponse:
+    ctx = _base_context(request)
+    ctx['action_title'] = "Gestión de Correlatividades"
+    ctx['action_subtitle'] = "Visualizá y administrá las correlatividades entre espacios curriculares."
 
-if "panel_docente" not in globals():
-    def panel_docente(request):
-        return HttpResponse("Panel Docente — en construcción.")
+    correlatividades = Correlatividad.objects.all().select_related('plan', 'espacio', 'requiere_espacio').order_by('plan__nombre', 'espacio__nombre')
+
+    ctx['correlatividades'] = correlatividades
+
+    return render(request, "academia_core/panel_correlatividades.html", ctx)
+
+from .models import Horario, EspacioCurricular, Docente
+
+@login_required
+def panel_horarios(request: HttpRequest) -> HttpResponse:
+    ctx = _base_context(request)
+    ctx['action_title'] = "Gestión de Horarios"
+    ctx['action_subtitle'] = "Visualizá y administrá los horarios de los espacios curriculares."
+
+    horarios = Horario.objects.all().select_related('espacio', 'docente').order_by('dia_semana', 'hora_inicio')
+
+    # Filtros (ejemplo: por espacio, por docente)
+    espacio_id = request.GET.get('espacio')
+    docente_id = request.GET.get('docente')
+
+    if espacio_id:
+        horarios = horarios.filter(espacio_id=espacio_id)
+    if docente_id:
+        horarios = horarios.filter(docente_id=docente_id)
+
+    ctx['horarios'] = horarios
+    ctx['espacios_curriculares'] = EspacioCurricular.objects.all().order_by('nombre')
+    ctx['docentes'] = Docente.objects.all().order_by('apellido', 'nombre')
+
+    return render(request, "academia_core/panel_horarios.html", ctx)
+
+from .models import Docente, DocenteEspacio, InscripcionEspacio
+
+@login_required
+def panel_docente(request: HttpRequest) -> HttpResponse:
+    try:
+        docente = Docente.objects.get(email=request.user.email)
+        asignaciones = DocenteEspacio.objects.filter(docente=docente).select_related('espacio')
+        
+        espacios_con_alumnos = []
+        for asignacion in asignaciones:
+            espacio = asignacion.espacio
+            inscripciones = InscripcionEspacio.objects.filter(espacio=espacio).select_related('inscripcion__estudiante')
+            alumnos = [insc.inscripcion.estudiante for insc in inscripciones]
+            espacios_con_alumnos.append({
+                'espacio': espacio,
+                'alumnos': alumnos,
+            })
+
+        ctx = {
+            'docente': docente,
+            'espacios_con_alumnos': espacios_con_alumnos,
+        }
+        return render(request, "academia_core/panel_docente.html", ctx)
+    except Docente.DoesNotExist:
+        return HttpResponse("No se encontró un docente asociado a este usuario.", status=404)
+    except Exception as e:
+        return HttpResponse(f"Ocurrió un error: {e}", status=500)
 
 if "get_espacios_por_inscripcion" not in globals():
     @require_GET

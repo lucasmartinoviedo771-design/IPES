@@ -6,9 +6,120 @@ from academia_core.models import EspacioCurricular, PlanEstudios, Estudiante
 from academia_core.eligibilidad import habilitado
 from django.apps import apps
 
+Estudiante = apps.get_model("academia_core", "Estudiante")
+Docente = apps.get_model("academia_core", "Docente")
+Profesorado = apps.get_model("academia_core", "Profesorado")
+PlanEstudios = apps.get_model("academia_core", "PlanEstudios")
+
+@require_GET
+def api_listar_estudiantes(request):
+    estudiantes = Estudiante.objects.filter(activo=True).order_by("apellido", "nombre")
+    data = [{
+        "id": e.id,
+        "nombre_completo": f"{e.apellido}, {e.nombre}",
+        "dni": e.dni,
+        "email": e.email,
+    } for e in estudiantes]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_listar_docentes(request):
+    docentes = Docente.objects.filter(activo=True).order_by("apellido", "nombre")
+    data = [{
+        "id": d.id,
+        "nombre_completo": f"{d.apellido}, {d.nombre}",
+        "dni": d.dni,
+        "email": d.email,
+    } for d in docentes]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_listar_profesorados(request):
+    profesorados = Profesorado.objects.all().order_by("nombre")
+    data = [{
+        "id": p.id,
+        "nombre": p.nombre,
+    } for p in profesorados]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_listar_planes_estudios(request):
+    profesorado_id = request.GET.get("profesorado_id")
+    planes = PlanEstudios.objects.all().order_by("profesorado__nombre", "nombre")
+    if profesorado_id:
+        planes = planes.filter(profesorado_id=profesorado_id)
+    data = [{
+        "id": p.id,
+        "nombre": p.nombre,
+        "resolucion": p.resolucion,
+        "profesorado_id": p.profesorado_id,
+    } for p in planes]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_get_estudiante_detalle(request, pk):
+    estudiante = get_object_or_404(Estudiante, pk=pk)
+    data = {
+        "id": estudiante.id,
+        "dni": estudiante.dni,
+        "apellido": estudiante.apellido,
+        "nombre": estudiante.nombre,
+        "fecha_nacimiento": estudiante.fecha_nacimiento,
+        "lugar_nacimiento": estudiante.lugar_nacimiento,
+        "email": estudiante.email,
+        "telefono": estudiante.telefono,
+        "localidad": estudiante.localidad,
+        "activo": estudiante.activo,
+    }
+    return JsonResponse(data)
+
+@require_GET
+def api_get_docente_detalle(request, pk):
+    docente = get_object_or_404(Docente, pk=pk)
+    data = {
+        "id": docente.id,
+        "dni": docente.dni,
+        "apellido": docente.apellido,
+        "nombre": docente.nombre,
+        "email": docente.email,
+        "activo": docente.activo,
+    }
+    return JsonResponse(data)
+
+@require_GET
+def api_get_espacio_curricular_detalle(request, pk):
+    espacio = get_object_or_404(EspacioCurricular, pk=pk)
+    data = {
+        "id": espacio.id,
+        "plan_id": espacio.plan_id,
+        "nombre": espacio.nombre,
+        "anio": espacio.anio,
+        "cuatrimestre": espacio.cuatrimestre,
+        "horas": espacio.horas,
+        "formato": espacio.formato,
+        "libre_habilitado": espacio.libre_habilitado,
+    }
+    return JsonResponse(data)
+
+@require_GET
+def api_get_movimientos_estudiante(request, estudiante_id):
+    movimientos = Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id).select_related('espacio', 'condicion').order_by('-fecha')
+    data = [{
+        "id": m.id,
+        "espacio": m.espacio.nombre,
+        "tipo": m.get_tipo_display(),
+        "fecha": m.fecha,
+        "condicion": m.condicion.nombre,
+        "nota_num": m.nota_num,
+        "nota_texto": m.nota_texto,
+    } for m in movimientos]
+    return JsonResponse({"items": data})
+
 InscripcionEspacio = apps.get_model("academia_core", "InscripcionEspacio") or \
                      apps.get_model("academia_core", "InscripcionCursada") or \
                      apps.get_model("academia_core", "InscripcionMateria")
+
+
 
 @require_GET
 def api_espacios_habilitados(request):

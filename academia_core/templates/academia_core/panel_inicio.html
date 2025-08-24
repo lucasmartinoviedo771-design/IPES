@@ -9,6 +9,9 @@
         <h3 class="h5">Acciones</h3>
         <ul class="nav flex-column nav-pills">
           <li class="nav-item">
+            <a href="?action=section_home" class="nav-link {% if action == 'section_home' %}active{% endif %}">Dashboard</a>
+          </li>
+          <li class="nav-item">
             <a href="?action=section_est" class="nav-link {% if action == 'section_est' or action == 'add_est' %}active{% endif %}">Estudiantes</a>
           </li>
           <li class="nav-item">
@@ -50,13 +53,63 @@
             <li><a href="?action=add_est" class="btn btn-primary">➜ Nuevo estudiante</a></li>
           </ul>
 
-        {# ===================== INSCRIPCIONES (menu) ===================== #}
-        {% elif action == 'section_insc' %}
+        {# ===================== DASHBOARD ===================== #}
+        {% elif action == 'section_home' %}
+          <h2 class="h4">Resumen General</h2>
+          <div class="row row-cols-1 row-cols-md-3 g-4">
+            <div class="col">
+              <div class="card text-center h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Estudiantes</h5>
+                  <p class="card-text display-4">{{ total_estudiantes }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card text-center h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Profesorados</h5>
+                  <p class="card-text display-4">{{ total_profesorados }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card text-center h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Espacios Curriculares</h5>
+                  <p class="card-text display-4">{{ total_espacios }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card text-center h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Inscripciones a Carrera</h5>
+                  <p class="card-text display-4">{{ total_inscripciones_carrera }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="card text-center h-100">
+                <div class="card-body">
+                  <h5 class="card-title">Inscripciones a Materia</h5>
+                  <p class="card-text display-4">{{ total_inscripciones_materia }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <h2 class="h4 mt-4">Accesos Rápidos</h2>
           <ul class="list-unstyled">
-            <li class="nav-item">
-              <a href="{% url 'panel' %}?action=insc_carrera" class="nav-link">➜ Inscribir a carrera</a>
-            </li>
-            <li class="mt-2"><a href="?action=insc_esp" class="btn btn-primary">➜ Inscribir a materia (cursada)</a></li>
+            <li><a href="?action=add_est" class="btn btn-outline-primary mb-2">➜ Nuevo Estudiante</a></li>
+            <li><a href="?action=insc_carrera" class="btn btn-outline-primary mb-2">➜ Inscribir a Carrera</a></li>
+            <li><a href="?action=insc_esp" class="btn btn-outline-primary mb-2">➜ Inscribir a Materia</a></li>
+            <li><a href="{% url 'cargar_nota' %}" class="btn btn-outline-primary mb-2">➜ Cargar Nota</a></li>
+          </ul>
+
+        {# ===================== CALIFICACIONES ===================== #}
+        {% elif action == 'section_calif' %}
+          <ul class="list-unstyled">
+            <li><a href="{% url 'cargar_nota' %}" class="btn btn-primary">➜ Cargar Nota</a></li>
           </ul>
 
         {# ===================== INSCRIPCIÓN A CARRERA ===================== #}

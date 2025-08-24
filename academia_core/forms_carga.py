@@ -163,6 +163,37 @@ if InscripcionEspacio and EspacioCurricular:
             return obj
 
 
+class CargaNotaForm(forms.ModelForm):
+    class Meta:
+        model = Movimiento
+        fields = ["inscripcion", "espacio", "tipo", "fecha", "condicion", "nota_num"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['inscripcion'].queryset = EstudianteProfesorado.objects.all().select_related('estudiante', 'profesorado')
+        self.fields['espacio'].queryset = EspacioCurricular.objects.none()
+        self.fields['condicion'].queryset = Condicion.objects.none()
+
+        if 'inscripcion' in self.data:
+            try:
+                inscripcion_id = int(self.data.get('inscripcion'))
+                inscripcion = EstudianteProfesorado.objects.get(id=inscripcion_id)
+                self.fields['espacio'].queryset = EspacioCurricular.objects.filter(plan=inscripcion.plan).order_by('nombre')
+            except (ValueError, TypeError, EstudianteProfesorado.DoesNotExist):
+                pass
+        elif self.instance.pk and self.instance.inscripcion:
+            self.fields['espacio'].queryset = EspacioCurricular.objects.filter(plan=self.instance.inscripcion.plan).order_by('nombre')
+
+        if 'tipo' in self.data:
+            try:
+                tipo = self.data.get('tipo')
+                self.fields['condicion'].queryset = Condicion.objects.filter(tipo=tipo).order_by('nombre')
+            except (ValueError, TypeError):
+                pass
+        elif self.instance.pk and self.instance.tipo:
+            self.fields['condicion'].queryset = Condicion.objects.filter(tipo=self.instance.tipo).order_by('nombre')
+
+
 # --- FORMULARIO FALTANTE ---
 if Movimiento and Condicion:
     class MovimientoForm(forms.ModelForm):
