@@ -396,6 +396,40 @@ def panel(request: HttpRequest) -> HttpResponse:
                 ("folio_oficio", "Folio oficio"),
             ]
 
+            if request.method == "POST":
+                est_id = int(request.POST.get("estudiante_id") or 0)
+                prof_id = int(request.POST.get("profesorado_id") or 0)
+                plan_id = int(request.POST.get("plan_id") or 0)
+                cohorte = int(request.POST.get("cohorte") or date.today().year)
+
+                try:
+                    insc = EstudianteProfesorado(
+                        estudiante_id=est_id,
+                        profesorado_id=prof_id,
+                        plan_id=plan_id or None,
+                        cohorte=cohorte,
+                    )
+                    insc.full_clean()
+                    insc.save()
+                    messages.success(request, "Inscripción a carrera guardada con éxito.")
+                    return redirect(request.path_info)  # Redirigir a la misma página
+                except ValidationError as e:
+                    messages.error(request, f"Error de validación: {e}")
+                except Exception as e:
+                    messages.error(request, f"Error al guardar la inscripción: {e}")
+
+            # planes por profesorado (id -> [{id, label}...])
+            planes_map = {}
+            try:
+                Plan = apps.get_model("academia_core", "PlanEstudios")
+                # label amigable: usa nombre si lo tenés; si no, resolucion o el ID
+                for p in Plan.objects.select_related("profesorado").all().order_by("profesorado_id","id"):
+                    label = getattr(p, "nombre", None) or getattr(p, "resolucion", None) or f"Plan {p.id}"
+                    planes_map.setdefault(p.profesorado_id, []).append({"id": p.id, "label": label})
+            except Exception:
+                pass
+            ctx["planes_map"] = planes_map
+
         # --- INSCRIPCIÓN A MATERIA (cursada) ---
         elif action == "insc_esp":
             ctx["action_title"] = "Inscripción a materia (cursada)"
@@ -553,8 +587,8 @@ def post_inscribir_espacio(request):
     # Validar que el estudiante esté inscripto en ese plan (EstudianteProfesorado)
     insc_prof = get_object_or_404(
         EstudianteProfesorado,
-        estudiante__id=estudiante_id,
-        profesorado__planestudios__id=plan_id
+        estudiante_id=estudiante_id,
+        plan_id=plan_id
     )
 
     e_obj = get_object_or_404(EspacioCurricular, id=espacio_id, plan_id=plan_id)

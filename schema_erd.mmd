@@ -1,0 +1,208 @@
+erDiagram
+  Profesorado {
+    BigAutoField id [PK]
+    CharField nombre
+    CharField plan_vigente
+    SlugField slug
+  }
+  PlanEstudios {
+    BigAutoField id [PK]
+    ForeignKey profesorado [FK]
+    CharField resolucion
+    SlugField resolucion_slug
+    CharField nombre
+    BooleanField vigente
+    TextField observaciones
+  }
+  Estudiante {
+    BigAutoField id [PK]
+    CharField dni
+    CharField apellido
+    CharField nombre
+    DateField fecha_nacimiento
+    CharField lugar_nacimiento
+    CharField email
+    CharField telefono
+    CharField localidad
+    BooleanField activo
+    FileField foto
+    CharField contacto_emergencia_tel
+    CharField contacto_emergencia_parentesco
+  }
+  EstudianteProfesorado {
+    BigAutoField id [PK]
+    ForeignKey estudiante [FK]
+    ForeignKey profesorado [FK]
+    ForeignKey plan [FK]
+    PositiveSmallIntegerField cohorte
+    CharField libreta
+    CharField curso_introductorio
+    BooleanField legajo_entregado
+    BooleanField libreta_entregada
+    BooleanField doc_dni_legalizado
+    BooleanField doc_titulo_sec_legalizado
+    BooleanField doc_cert_medico
+    BooleanField doc_fotos_carnet
+    BooleanField doc_folios_oficio
+    BooleanField doc_titulo_terciario_legalizado
+    BooleanField doc_incumbencias
+    BooleanField nota_compromiso
+    BooleanField adeuda_materias
+    TextField adeuda_detalle
+    CharField colegio
+    BooleanField titulo_en_tramite
+    TextField materias_adeudadas
+    CharField institucion_origen
+    CharField legajo_estado
+    CharField condicion_admin
+    DecimalField promedio_general
+    CharField legajo
+  }
+  EspacioCurricular {
+    BigAutoField id [PK]
+    ForeignKey profesorado [FK]
+    ForeignKey plan [FK]
+    CharField anio
+    CharField cuatrimestre
+    CharField nombre
+    PositiveIntegerField horas
+    CharField formato
+    BooleanField libre_habilitado
+  }
+  Correlatividad {
+    BigAutoField id [PK]
+    ForeignKey plan [FK]
+    ForeignKey espacio [FK]
+    CharField tipo
+    CharField requisito
+    ForeignKey requiere_espacio [FK]
+    PositiveSmallIntegerField requiere_todos_hasta_anio
+    CharField observaciones
+  }
+  Condicion {
+    CharField codigo [PK]
+    CharField nombre
+    CharField tipo
+  }
+  EspacioCondicion {
+    BigAutoField id [PK]
+    ForeignKey espacio [FK]
+    ForeignKey condicion [FK]
+  }
+  Movimiento {
+    BigAutoField id [PK]
+    ForeignKey inscripcion [FK]
+    ForeignKey espacio [FK]
+    CharField tipo
+    DateField fecha
+    ForeignKey condicion [FK]
+    DecimalField nota_num
+    CharField nota_texto
+    CharField folio
+    CharField libro
+    CharField disposicion_interna
+    BooleanField ausente
+    BooleanField ausencia_justificada
+    DateTimeField creado
+  }
+  InscripcionEspacio {
+    BigAutoField id [PK]
+    ForeignKey inscripcion [FK]
+    ForeignKey espacio [FK]
+    PositiveIntegerField anio_academico
+    DateField fecha_inscripcion
+    CharField estado
+    DateField fecha_baja
+    TextField motivo_baja
+    DateTimeField created_at
+    DateTimeField updated_at
+  }
+  InscripcionEspacioEstadoLog {
+    BigAutoField id [PK]
+    ForeignKey insc_espacio [FK]
+    CharField estado
+    DateTimeField fecha
+    ForeignKey usuario [FK]
+    TextField nota
+  }
+  Docente {
+    BigAutoField id [PK]
+    CharField dni
+    CharField apellido
+    CharField nombre
+    CharField email
+    BooleanField activo
+    ManyToManyField espacios
+  }
+  DocenteEspacio {
+    BigAutoField id [PK]
+    ForeignKey docente [FK]
+    ForeignKey espacio [FK]
+    DateField desde
+    DateField hasta
+  }
+  UserProfile {
+    BigAutoField id [PK]
+    OneToOneField user [FK]
+    CharField rol
+    ForeignKey estudiante [FK]
+    ForeignKey docente [FK]
+    ManyToManyField profesorados_permitidos
+  }
+  Actividad {
+    BigAutoField id [PK]
+    ForeignKey user [FK]
+    CharField rol_cache
+    CharField accion
+    TextField detalle
+    DateTimeField creado
+  }
+  InscripcionFinal {
+    BigAutoField id [PK]
+    ForeignKey inscripcion_cursada [FK]
+    DateField fecha_examen
+    DateTimeField creado
+    CharField estado
+    PositiveSmallIntegerField nota_final
+    BooleanField ausente
+    BooleanField ausencia_justificada
+  }
+  Horario {
+    BigAutoField id [PK]
+    ForeignKey espacio [FK]
+    IntegerField dia_semana
+    TimeField hora_inicio
+    TimeField hora_fin
+    ForeignKey docente [FK]
+  }
+  Condicion ||--o{ EspacioCondicion : "condicion"
+  Condicion ||--o{ Movimiento : "condicion"
+  Docente ||--o{ DocenteEspacio : "docente"
+  Docente ||--o{ Horario : "docente"
+  Docente ||--o{ UserProfile : "docente"
+  Docente }o--o{ EspacioCurricular : "espacios"
+  EspacioCurricular ||--o{ Correlatividad : "espacio"
+  EspacioCurricular ||--o{ Correlatividad : "requiere_espacio"
+  EspacioCurricular ||--o{ DocenteEspacio : "espacio"
+  EspacioCurricular ||--o{ EspacioCondicion : "espacio"
+  EspacioCurricular ||--o{ Horario : "espacio"
+  EspacioCurricular ||--o{ InscripcionEspacio : "espacio"
+  EspacioCurricular ||--o{ Movimiento : "espacio"
+  EspacioCurricular }o--o{ Docente : "docentes"
+  Estudiante ||--o{ EstudianteProfesorado : "estudiante"
+  Estudiante ||--o{ UserProfile : "estudiante"
+  EstudianteProfesorado ||--o{ InscripcionEspacio : "inscripcion"
+  EstudianteProfesorado ||--o{ Movimiento : "inscripcion"
+  InscripcionEspacio ||--o{ InscripcionEspacioEstadoLog : "insc_espacio"
+  InscripcionEspacio ||--o{ InscripcionFinal : "inscripcion_cursada"
+  PlanEstudios ||--o{ Correlatividad : "plan"
+  PlanEstudios ||--o{ EspacioCurricular : "plan"
+  PlanEstudios ||--o{ EstudianteProfesorado : "plan"
+  Profesorado ||--o{ EspacioCurricular : "profesorado"
+  Profesorado ||--o{ EstudianteProfesorado : "profesorado"
+  Profesorado ||--o{ PlanEstudios : "profesorado"
+  Profesorado }o--o{ UserProfile : "usuarios_habilitados"
+  User ||--o{ Actividad : "user"
+  User ||--o{ InscripcionEspacioEstadoLog : "usuario"
+  UserProfile ||--|| User : "user"
+  UserProfile }o--o{ Profesorado : "profesorados_permitidos"

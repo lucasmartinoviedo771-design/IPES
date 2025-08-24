@@ -80,7 +80,7 @@
   <!-- Profesorado -->
   <div class="col-12 col-lg-6">
     <label class="form-label">Profesorado <span class="text-danger">*</span></label>
-    <select id="profesorado" name="profesorado" class="form-select">
+    <select id="cmb-prof" name="profesorado" class="form-select">
       {% if profesorados %}
         {% for p in profesorados %}
           <option value="{{ p.id }}" data-tipo="{{ p.tipo|default:'profesorado' }}">{{ p.nombre }}</option>
@@ -90,6 +90,14 @@
       {% endif %}
     </select>
     <div class="form-text">Si es “Certificación Docente”, cambian los requisitos.</div>
+  </div>
+
+  <!-- Plan (dependiente de profesorado) -->
+  <div class="col-12 col-lg-6">
+      <label class="form-label">Plan de Estudios <span class="text-danger">*</span></label>
+      <select id="cmb-plan" name="plan_id" class="form-select">
+          <option value="">Seleccioná un plan</option>
+      </select>
   </div>
 
   <!-- Cohorte / Curso introductorio -->
@@ -335,6 +343,32 @@
   togglePorTipo();
   calcularEstado();
 })();
+</script>
+
+<script>
+  const PLANES_MAP = {{ planes_map|safe }}; // { prof_id: [{id,label}, ...], ... }
+
+  const cmbProf = document.getElementById('profesorado');
+  const cmbPlan = document.getElementById('cmb-plan');
+
+  function renderPlanes() {
+    const profId = parseInt(cmbProf.value || 0);
+    cmbPlan.innerHTML = '<option value="">Seleccioná un plan</option>';
+    (PLANES_MAP[profId] || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      cmbPlan.appendChild(opt);
+    });
+    // Si hay un solo plan, auto-seleccionar
+    if ((PLANES_MAP[profId] || []).length === 1) {
+      cmbPlan.value = PLANES_MAP[profId][0].id;
+    }
+    cmbPlan.dispatchEvent(new Event('change'));
+  }
+
+  cmbProf?.addEventListener('change', renderPlanes);
+  document.addEventListener('DOMContentLoaded', renderPlanes);
 </script>
 
         {% elif action == 'insc_esp' %}

@@ -57,25 +57,22 @@ def _solo_lectura(request):
 # ===================== Espacios =====================
 
 class EspacioAdmin(admin.ModelAdmin):
-    list_display = ("profesorado", "plan_en_dos_lineas", "anio", "cuatrimestre", "nombre", "horas", "formato")
-    list_filter = ("profesorado", "plan__resolucion", "anio", "cuatrimestre", "formato")
+    list_display = ("plan_en_dos_lineas", "anio", "cuatrimestre", "nombre", "horas", "formato")
+    list_filter = ("plan__profesorado", "plan__resolucion", "anio", "cuatrimestre", "formato")
     search_fields = ("nombre", "plan__resolucion", "plan__nombre")
-    autocomplete_fields = ("profesorado", "plan")
-    ordering = ("profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
+    autocomplete_fields = ("plan",)
+    ordering = ("plan__profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
     list_per_page = 50
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         profs = _profesorados_permitidos(request)
         if not request.user.is_superuser and profs.exists():
-            qs = qs.filter(profesorado__in=profs)
+            qs = qs.filter(plan__profesorado__in=profs)
         return qs
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         profs = _profesorados_permitidos(request)
-        if db_field.name == "profesorado":
-            if not request.user.is_superuser and profs.exists():
-                kwargs["queryset"] = profs
         if db_field.name == "plan":
             if not request.user.is_superuser and profs.exists():
                 kwargs["queryset"] = (kwargs.get("queryset") or PlanEstudios.objects).filter(profesorado__in=profs)
@@ -109,7 +106,7 @@ class MovimientoInline(admin.TabularInline):
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "espacio" and hasattr(request, "_insc_obj") and request._insc_obj:
             kwargs["queryset"] = EspacioCurricular.objects.filter(
-                profesorado=request._insc_obj.profesorado
+                plan=request._insc_obj.plan
             ).order_by("anio", "cuatrimestre", "nombre")
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -215,14 +212,14 @@ class PlanEstudiosAdmin(admin.ModelAdmin):
 
 class InscripcionEspacioAdmin(admin.ModelAdmin):
     list_display = ["inscripcion", "espacio", "anio_academico", "fecha_inscripcion", "estado"]
-    list_filter = ["anio_academico", "estado", "espacio__profesorado"]
+    list_filter = ["anio_academico", "estado", "espacio__plan__profesorado"]
     search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
     raw_id_fields = ["inscripcion", "espacio"]
 
 
 class MovimientoAdmin(admin.ModelAdmin):
     list_display = ["inscripcion", "espacio", "tipo", "fecha", "condicion", "nota_num"]
-    list_filter = ["tipo", "condicion", "espacio__profesorado"]
+    list_filter = ["tipo", "condicion", "espacio__plan__profesorado"]
     search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
     raw_id_fields = ["inscripcion", "espacio", "condicion"]
 
@@ -241,7 +238,7 @@ class DocenteAdmin(admin.ModelAdmin):
 
 class DocenteEspacioAdmin(admin.ModelAdmin):
     list_display = ["docente", "espacio", "desde", "hasta"]
-    list_filter = ["espacio__profesorado"]
+    list_filter = ["espacio__plan__profesorado"]
     search_fields = ["docente__apellido", "espacio__nombre"]
     raw_id_fields = ["docente", "espacio"]
 
@@ -255,7 +252,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 class HorarioAdmin(admin.ModelAdmin):
     list_display = ["espacio", "dia_semana", "hora_inicio", "hora_fin", "docente"]
-    list_filter = ["dia_semana", "espacio__profesorado", "docente"]
+    list_filter = ["dia_semana", "espacio__plan__profesorado", "docente"]
     search_fields = ["espacio__nombre", "docente__apellido"]
     raw_id_fields = ["espacio", "docente"]
 

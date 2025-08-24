@@ -6,7 +6,6 @@ class EspacioForm(forms.ModelForm):
     class Meta:
         model = EspacioCurricular
         fields = [
-            "profesorado",
             "plan",
             "anio",
             "cuatrimestre",

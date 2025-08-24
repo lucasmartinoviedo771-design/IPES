@@ -139,16 +139,16 @@ class Estudiante(models.Model):
         return self.espacios_qs.filter(cursadas__anio_academico=anio_academico)
 
 # --- EstudianteProfesorado --------------------------------------------------
+from django.core.exceptions import ValidationError
+
 class EstudianteProfesorado(models.Model):
-    estudiante = models.ForeignKey(
-        "Estudiante", on_delete=models.CASCADE, related_name="inscripciones"
-    )
-    profesorado = models.ForeignKey(
-        "Profesorado", on_delete=models.CASCADE, related_name="inscripciones"
-    )
+    estudiante   = models.ForeignKey("Estudiante", on_delete=models.CASCADE, related_name="inscripciones_carrera")
+    profesorado  = models.ForeignKey("Profesorado", on_delete=models.PROTECT, related_name="inscripciones")
+    plan         = models.ForeignKey("PlanEstudios", on_delete=models.PROTECT, related_name="inscripciones", null=True, blank=True)
+    cohorte      = models.PositiveSmallIntegerField(default=2025)
+    # ... (resto de campos/documentación)
 
     # Datos del trayecto
-    cohorte = models.CharField(max_length=20, blank=True)
     libreta = models.CharField("Libreta", max_length=50, blank=True, default="")
 
     # Curso introductorio
@@ -191,7 +191,7 @@ class EstudianteProfesorado(models.Model):
     institucion_origen = models.CharField(
         "Escuela / Institución", max_length=200, blank=True, default=""
     )
-    # ==============
+    # =============
 
     # Estado cacheado
     legajo_estado = models.CharField(
@@ -215,12 +215,23 @@ class EstudianteProfesorado(models.Model):
     # Observaciones opcionales
     legajo = models.CharField(max_length=50, blank=True)
 
+    def clean(self):
+        # si hay plan, debe pertenecer al profesorado elegido
+        if self.plan_id and self.profesorado_id and getattr(self.plan, "profesorado_id", None) and self.plan.profesorado_id != self.profesorado_id:
+            raise ValidationError("El plan seleccionado no pertenece al profesorado.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        # No llamar a super() aquí si recalcular_promedio ya lo hace
+        if 'update_fields' not in kwargs:
+            self.legajo_estado = self.calcular_legajo_estado()
+            self.condicion_admin = self.calcular_condicion_admin()
+        super().save(*args, **kwargs)
+
     class Meta:
+        # un mismo estudiante no debería tener dos inscripciones al MISMO plan
         constraints = [
-            models.UniqueConstraint(
-                fields=["estudiante", "profesorado"],
-                name="uniq_estudiante_profesorado",
-            )
+            models.UniqueConstraint(fields=["estudiante", "plan"], name="uniq_estudiante_plan")
         ]
         ordering = ["estudiante__apellido", "estudiante__nombre", "profesorado__nombre"]
 
@@ -353,9 +364,7 @@ class EspacioCurricular(models.Model):
         ("2", "2º Cuatr."),
         ("A", "Anual"),
     ]
-    profesorado = models.ForeignKey(Profesorado, on_delete=models.CASCADE, related_name="espacios")
-    plan = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="espacios",
-                             null=True, blank=True)
+    plan = models.ForeignKey(PlanEstudios, on_delete=models.CASCADE, related_name="espacios")
     anio = models.CharField(max_length=10)  # ej: "1°", "2°"
     cuatrimestre = models.CharField(max_length=1, choices=CUATRIS)
     nombre = models.CharField(max_length=160)
@@ -367,8 +376,8 @@ class EspacioCurricular(models.Model):
         ordering = ["anio", "cuatrimestre", "nombre"]
         constraints = [
             models.UniqueConstraint(
-                fields=["profesorado", "plan", "nombre"],
-                name="uq_espacio_prof_plan_nombre",
+                fields=["plan", "nombre"],
+                name="uq_espacio_plan_nombre",
             ),
             models.CheckConstraint(
                 name="anio_valido_1a4",
@@ -479,7 +488,7 @@ def _cumple_correlativas(insc: EstudianteProfesorado, esp: EspacioCurricular, ti
         else:
             reqs = list(
                 EspacioCurricular.objects
-                .filter(plan=esp.plan, profesorado=esp.profesorado)
+                .filter(plan=esp.plan)
                 .filter(anio__in=[f"{i}°" for i in range(1, (r.requiere_todos_hasta_anio or 0) + 1)])
             )
         for req in reqs:
@@ -607,7 +616,7 @@ class Movimiento(models.Model):
             if len(prev) >= 3:
                 raise ValidationError("Alcanzó las tres posibilidades de final: debe recursar el espacio.")
 
-        if self.inscripcion.profesorado_id != self.espacio.profesorado_id:
+        if self.inscripcion.profesorado_id != self.espacio.plan.profesorado_id:
             raise ValidationError("El espacio no pertenece al mismo profesorado de la inscripción del estudiante.")
 
         if self.tipo == "REG":
@@ -679,7 +688,7 @@ class InscripcionEspacio(models.Model):
     def clean(self):
         # mismo profesorado
         if self.inscripcion and self.espacio and \
-           self.inscripcion.profesorado_id != self.espacio.profesorado_id:
+           self.inscripcion.profesorado_id != self.espacio.plan.profesorado_id:
             raise ValidationError("El espacio pertenece a otro profesorado.")
 
         # coherencia estado/fecha_baja (además de constraints)
@@ -876,4 +885,3 @@ class Horario(models.Model):
 
     def __str__(self):
         return f"{self.espacio.nombre} - {self.get_dia_semana_display()} ({self.hora_inicio} - {self.hora_fin})"
-
