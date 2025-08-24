@@ -12,8 +12,12 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AlterField(
-            model_name='espaciocurricular',
-            name='plan',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='espacios', to='academia_core.planestudios'),
+            model_name="espaciocurricular",
+            name="plan",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="espacios",
+                to="academia_core.planestudios",
+            ),
         ),
     ]

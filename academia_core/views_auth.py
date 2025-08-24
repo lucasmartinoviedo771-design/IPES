@@ -14,9 +14,11 @@ def _redirect_por_rol(user) -> str:
       - Staff/Superuser o grupos SECRETARIA/ADMIN -> /panel/
       - Resto (estudiante/docente) -> /panel/estudiante/
     """
-    if user.is_staff or user.is_superuser or user.groups.filter(
-        name__in=["SECRETARIA", "ADMIN"]
-    ).exists():
+    if (
+        user.is_staff
+        or user.is_superuser
+        or user.groups.filter(name__in=["SECRETARIA", "ADMIN"]).exists()
+    ):
         return str(reverse_lazy("panel"))
     return str(reverse_lazy("panel_estudiante"))
 
@@ -25,7 +27,7 @@ class RememberAuthenticationForm(AuthenticationForm):
     remember_me = forms.BooleanField(
         required=False,
         label="Recordarme",
-        help_text="Mantener la sesión abierta en este navegador."
+        help_text="Mantener la sesión abierta en este navegador.",
     )
 
 
@@ -37,7 +39,8 @@ class RoleAwareRememberLoginView(LoginView):
       * Marcado  -> expira por inactividad según SESSION_COOKIE_AGE (2h en settings)
       * Desmarcado -> expira al cerrar el navegador
     """
-    template_name = "registration/login.html"   # Ajustá si tu template está en otro path
+
+    template_name = "registration/login.html"  # Ajustá si tu template está en otro path
     redirect_authenticated_user = True
     authentication_form = RememberAuthenticationForm
 
@@ -47,7 +50,9 @@ class RoleAwareRememberLoginView(LoginView):
 
         if form.cleaned_data.get("remember_me"):
             # 2 horas de INACTIVIDAD (sliding window con SESSION_SAVE_EVERY_REQUEST=True)
-            self.request.session.set_expiry(getattr(settings, "SESSION_COOKIE_AGE", 7200))
+            self.request.session.set_expiry(
+                getattr(settings, "SESSION_COOKIE_AGE", 7200)
+            )
         else:
             # Expira al cerrar el navegador
             self.request.session.set_expiry(0)

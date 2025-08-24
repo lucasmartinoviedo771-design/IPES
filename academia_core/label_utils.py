@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 
+
 # Conversión a ordinal con "º" (1 -> "1º")
 def _to_ordinal(n: int | None) -> str:
     if not n:
@@ -11,8 +12,10 @@ def _to_ordinal(n: int | None) -> str:
     except Exception:
         return ""
 
+
 _ROMAN = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
 _WORDS = {"PRIM": 1, "SEG": 2, "TERC": 3, "CUART": 4, "QUINT": 5}
+
 
 def _extract_year(*candidates: str) -> int | None:
     """Busca año en campos o en el nombre: dígitos, romanos o 'prim/seg/terc...'."""
@@ -36,6 +39,7 @@ def _extract_year(*candidates: str) -> int | None:
             if k in u:
                 return n
     return None
+
 
 def _cuatrimestre_label(val: str | None, nombre_fallback: str | None = None) -> str:
     """Devuelve 'Anual', '1º C', '2º C' o una letra (A/B/...)."""
@@ -61,6 +65,7 @@ def _cuatrimestre_label(val: str | None, nombre_fallback: str | None = None) -> 
         return s
     # 4) Último recurso
     return s
+
 
 def espacio_etiqueta(e) -> str:
     """

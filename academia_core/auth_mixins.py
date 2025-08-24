@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
+
 class StaffOrGroupsRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     """
     Permite acceso a staff/superuser o a usuarios que pertenezcan a alguno
     de los grupos indicados en `allowed_groups`.
     """
+
     allowed_groups: tuple[str, ...] = ()
 
     def test_func(self):

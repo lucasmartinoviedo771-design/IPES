@@ -18,7 +18,7 @@ LOGGING = {
         # Apaga por completo los logs del form de inscripción a espacio
         "academia_core.forms_carga": {
             "handlers": ["null"],
-            "level": "CRITICAL",   # nada va a pasar por acá
+            "level": "CRITICAL",  # nada va a pasar por acá
             "propagate": False,
         },
         # Si alguna vez querés ver SQL, podés habilitar esto:
@@ -33,18 +33,51 @@ LOGGING = {
 # (Opcional) .env para credenciales sin hardcodear
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except Exception:
     pass
 
 # --- Seguridad / Debug ---
-SECRET_KEY = os.getenv(
+SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_",
 )
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+if SECRET_KEY == "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_":
+    raise ImproperlyConfigured(
+        "The SECRET_KEY setting must not use the default value in production."
+    )
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"] # Add your production domains here, e.g., ["yourdomain.com"]
+
+# Security Headers (Recommended for Production)
+# SECURE_SSL_REDIRECT = True
+# SECURE_HSTS_SECONDS = 31536000  # 1 year
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+# SECURE_CONTENT_TYPE_NOSNIFF = True
+# SECURE_BROWSER_XSS_FILTER = True
+# X_FRAME_OPTIONS = "DENY" # Already set by XFrameOptionsMiddleware
+
+# Session Security (Recommended for Production)
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+# SESSION_COOKIE_AGE = 3 * 60 * 60  # 3 hours in seconds
+# SESSION_SAVE_EVERY_REQUEST = True  # renews expiration with each request
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Import ImproperlyConfigured for the SECRET_KEY check
+from django.core.exceptions import ImproperlyConfigured
+
+# Ensure SecurityMiddleware is at the top of MIDDLEWARE
+# (It should already be there by default)
+# MIDDLEWARE = [
+#     "django.middleware.security.SecurityMiddleware",
+#     # ... rest of your middleware
+# ]
+
 
 # --- Apps ---
 INSTALLED_APPS = [
@@ -55,10 +88,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     # Terceros
     "rest_framework",
-
     # App propia (usar AppConfig para cargar signals en ready())
     "academia_core.apps.AcademiaCoreConfig",
 ]
@@ -81,7 +112,8 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
-            BASE_DIR / "templates",  # <- carpeta de templates del proyecto (opcional, pero útil)
+            BASE_DIR
+            / "templates",  # <- carpeta de templates del proyecto (opcional, pero útil)
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -116,7 +148,9 @@ DATABASES = {
 
 # --- Password validators ---
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -138,7 +172,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # --- Login/Logout (para vistas protegidas) ---
-LOGIN_URL = "/accounts/login/"          # <- explícito
+LOGIN_URL = "/accounts/login/"  # <- explícito
 LOGIN_REDIRECT_URL = "/panel/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 

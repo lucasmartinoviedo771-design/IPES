@@ -7,19 +7,31 @@ from django.utils.html import format_html
 from django.db.models import Q
 
 from .models import (
-    Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
-    EspacioCurricular, Movimiento, InscripcionEspacio,
-    Docente, DocenteEspacio, UserProfile, EstadoInscripcion,
-    Correlatividad, Horario, Condicion,
+    Profesorado,
+    PlanEstudios,
+    Estudiante,
+    EstudianteProfesorado,
+    EspacioCurricular,
+    Movimiento,
+    InscripcionEspacio,
+    Docente,
+    DocenteEspacio,
+    UserProfile,
+    EstadoInscripcion,
+    Correlatividad,
+    Horario,
+    Condicion,
 )
 
 # ===================== Helpers de rol/alcance =====================
+
 
 def _rol(request):
     try:
         return request.user.perfil.rol
     except Exception:
         return None
+
 
 def _profesorados_permitidos(request):
     """
@@ -43,6 +55,7 @@ def _profesorados_permitidos(request):
     # Para DOCENTE/ESTUDIANTE dejamos sin alcance en admin
     return Profesorado.objects.none()
 
+
 def _solo_lectura(request):
     """
     En admin: TUTOR es solo-lectura.
@@ -51,17 +64,34 @@ def _solo_lectura(request):
     return _rol(request) in ("TUTOR", "DOCENTE", "ESTUDIANTE")
 
 
-
-
-
 # ===================== Espacios =====================
 
+
 class EspacioAdmin(admin.ModelAdmin):
-    list_display = ("plan_en_dos_lineas", "anio", "cuatrimestre", "nombre", "horas", "formato")
-    list_filter = ("plan__profesorado", "plan__resolucion", "anio", "cuatrimestre", "formato")
+    list_display = (
+        "plan_en_dos_lineas",
+        "anio",
+        "cuatrimestre",
+        "nombre",
+        "horas",
+        "formato",
+    )
+    list_filter = (
+        "plan__profesorado",
+        "plan__resolucion",
+        "anio",
+        "cuatrimestre",
+        "formato",
+    )
     search_fields = ("nombre", "plan__resolucion", "plan__nombre")
     autocomplete_fields = ("plan",)
-    ordering = ("plan__profesorado__nombre", "plan__resolucion", "anio", "cuatrimestre", "nombre")
+    ordering = (
+        "plan__profesorado__nombre",
+        "plan__resolucion",
+        "anio",
+        "cuatrimestre",
+        "nombre",
+    )
     list_per_page = 50
 
     def get_queryset(self, request):
@@ -75,7 +105,9 @@ class EspacioAdmin(admin.ModelAdmin):
         profs = _profesorados_permitidos(request)
         if db_field.name == "plan":
             if not request.user.is_superuser and profs.exists():
-                kwargs["queryset"] = (kwargs.get("queryset") or PlanEstudios.objects).filter(profesorado__in=profs)
+                kwargs["queryset"] = (
+                    kwargs.get("queryset") or PlanEstudios.objects
+                ).filter(profesorado__in=profs)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def plan_en_dos_lineas(self, obj):
@@ -83,17 +115,31 @@ class EspacioAdmin(admin.ModelAdmin):
             return "-"
         linea1 = f"Res. {obj.plan.resolucion}"
         linea2 = obj.plan.nombre or ""
-        return format_html('{}<br><small style="color:#6b7280;">{}</small>', linea1, linea2)
+        return format_html(
+            '{}<br><small style="color:#6b7280;">{}</small>', linea1, linea2
+        )
+
     plan_en_dos_lineas.short_description = "Plan"
     plan_en_dos_lineas.admin_order_field = "plan__resolucion"
 
 
 # ===================== Movimientos inline (en inscripción) =====================
 
+
 class MovimientoInline(admin.TabularInline):
     model = Movimiento
     extra = 0
-    fields = ("tipo", "fecha", "espacio", "condicion", "nota_num", "nota_texto", "folio", "libro", "disposicion_interna")
+    fields = (
+        "tipo",
+        "fecha",
+        "espacio",
+        "condicion",
+        "nota_num",
+        "nota_texto",
+        "folio",
+        "libro",
+        "disposicion_interna",
+    )
     autocomplete_fields = ("espacio",)
     ordering = ("-fecha", "-id")
     show_change_link = True
@@ -104,7 +150,11 @@ class MovimientoInline(admin.TabularInline):
         return super().get_formset(request, obj, **kwargs)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "espacio" and hasattr(request, "_insc_obj") and request._insc_obj:
+        if (
+            db_field.name == "espacio"
+            and hasattr(request, "_insc_obj")
+            and request._insc_obj
+        ):
             kwargs["queryset"] = EspacioCurricular.objects.filter(
                 plan=request._insc_obj.plan
             ).order_by("anio", "cuatrimestre", "nombre")
@@ -113,10 +163,16 @@ class MovimientoInline(admin.TabularInline):
 
 # ===================== Inscripciones (Estudiante ↔ Profesorado) =====================
 
+
 class EPAdmin(admin.ModelAdmin):
     list_display = (
-        "estudiante", "profesorado", "cohorte", "libreta",
-        "curso_introductorio", "legajo_estado", "promedio_general",
+        "estudiante",
+        "profesorado",
+        "cohorte",
+        "libreta",
+        "curso_introductorio",
+        "legajo_estado",
+        "promedio_general",
     )
     list_filter = ("profesorado", "cohorte", "curso_introductorio", "legajo_estado")
     search_fields = ("estudiante__apellido", "estudiante__dni", "profesorado__nombre")
@@ -147,10 +203,18 @@ class EPAdmin(admin.ModelAdmin):
         return False if _solo_lectura(request) else super().has_add_permission(request)
 
     def has_change_permission(self, request, obj=None):
-        return False if _solo_lectura(request) else super().has_change_permission(request, obj)
+        return (
+            False
+            if _solo_lectura(request)
+            else super().has_change_permission(request, obj)
+        )
 
     def has_delete_permission(self, request, obj=None):
-        return False if _solo_lectura(request) else super().has_delete_permission(request, obj)
+        return (
+            False
+            if _solo_lectura(request)
+            else super().has_delete_permission(request, obj)
+        )
 
     def save_model(self, request, obj, form, change):
         obj.legajo_estado = obj.calcular_legajo_estado()
@@ -162,6 +226,7 @@ class EPAdmin(admin.ModelAdmin):
             ins.recalcular_promedio()
             n += 1
         self.message_user(request, f"Promedio recalculado para {n} inscripciones.")
+
     recalcular_promedios.short_description = "Recalcular promedio"
 
     def recalcular_legajo_estado(self, request, queryset):
@@ -171,29 +236,16 @@ class EPAdmin(admin.ModelAdmin):
             ins.save(update_fields=["legajo_estado"])
             n += 1
         self.message_user(request, f"Legajo recalculado para {n} inscripciones.")
+
     recalcular_legajo_estado.short_description = "Recalcular estado de legajo"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- Admin Models ---
 class EstudianteAdmin(admin.ModelAdmin):
     list_display = ["apellido", "nombre", "dni", "email"]
     search_fields = ["apellido", "nombre", "dni", "email"]
+
+
 class ProfesoradoAdmin(admin.ModelAdmin):
     list_display = ["nombre", "plan_vigente", "slug"]
     search_fields = ["nombre", "plan_vigente"]
@@ -207,20 +259,31 @@ class PlanEstudiosAdmin(admin.ModelAdmin):
     prepopulated_fields = {"resolucion_slug": ["resolucion"]}
 
 
-
-
-
 class InscripcionEspacioAdmin(admin.ModelAdmin):
-    list_display = ["inscripcion", "espacio", "anio_academico", "fecha_inscripcion", "estado"]
+    list_display = [
+        "inscripcion",
+        "espacio",
+        "anio_academico",
+        "fecha_inscripcion",
+        "estado",
+    ]
     list_filter = ["anio_academico", "estado", "espacio__plan__profesorado"]
-    search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
+    search_fields = [
+        "inscripcion__estudiante__apellido",
+        "inscripcion__estudiante__dni",
+        "espacio__nombre",
+    ]
     raw_id_fields = ["inscripcion", "espacio"]
 
 
 class MovimientoAdmin(admin.ModelAdmin):
     list_display = ["inscripcion", "espacio", "tipo", "fecha", "condicion", "nota_num"]
     list_filter = ["tipo", "condicion", "espacio__plan__profesorado"]
-    search_fields = ["inscripcion__estudiante__apellido", "inscripcion__estudiante__dni", "espacio__nombre"]
+    search_fields = [
+        "inscripcion__estudiante__apellido",
+        "inscripcion__estudiante__dni",
+        "espacio__nombre",
+    ]
     raw_id_fields = ["inscripcion", "espacio", "condicion"]
 
 

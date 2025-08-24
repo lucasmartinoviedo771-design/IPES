@@ -11,36 +11,49 @@ Docente = apps.get_model("academia_core", "Docente")
 Profesorado = apps.get_model("academia_core", "Profesorado")
 PlanEstudios = apps.get_model("academia_core", "PlanEstudios")
 
+
 @require_GET
 def api_listar_estudiantes(request):
     estudiantes = Estudiante.objects.filter(activo=True).order_by("apellido", "nombre")
-    data = [{
-        "id": e.id,
-        "nombre_completo": f"{e.apellido}, {e.nombre}",
-        "dni": e.dni,
-        "email": e.email,
-    } for e in estudiantes]
+    data = [
+        {
+            "id": e.id,
+            "nombre_completo": f"{e.apellido}, {e.nombre}",
+            "dni": e.dni,
+            "email": e.email,
+        }
+        for e in estudiantes
+    ]
     return JsonResponse({"items": data})
+
 
 @require_GET
 def api_listar_docentes(request):
     docentes = Docente.objects.filter(activo=True).order_by("apellido", "nombre")
-    data = [{
-        "id": d.id,
-        "nombre_completo": f"{d.apellido}, {d.nombre}",
-        "dni": d.dni,
-        "email": d.email,
-    } for d in docentes]
+    data = [
+        {
+            "id": d.id,
+            "nombre_completo": f"{d.apellido}, {d.nombre}",
+            "dni": d.dni,
+            "email": d.email,
+        }
+        for d in docentes
+    ]
     return JsonResponse({"items": data})
+
 
 @require_GET
 def api_listar_profesorados(request):
     profesorados = Profesorado.objects.all().order_by("nombre")
-    data = [{
-        "id": p.id,
-        "nombre": p.nombre,
-    } for p in profesorados]
+    data = [
+        {
+            "id": p.id,
+            "nombre": p.nombre,
+        }
+        for p in profesorados
+    ]
     return JsonResponse({"items": data})
+
 
 @require_GET
 def api_listar_planes_estudios(request):
@@ -48,13 +61,17 @@ def api_listar_planes_estudios(request):
     planes = PlanEstudios.objects.all().order_by("profesorado__nombre", "nombre")
     if profesorado_id:
         planes = planes.filter(profesorado_id=profesorado_id)
-    data = [{
-        "id": p.id,
-        "nombre": p.nombre,
-        "resolucion": p.resolucion,
-        "profesorado_id": p.profesorado_id,
-    } for p in planes]
+    data = [
+        {
+            "id": p.id,
+            "nombre": p.nombre,
+            "resolucion": p.resolucion,
+            "profesorado_id": p.profesorado_id,
+        }
+        for p in planes
+    ]
     return JsonResponse({"items": data})
+
 
 @require_GET
 def api_get_estudiante_detalle(request, pk):
@@ -73,6 +90,7 @@ def api_get_estudiante_detalle(request, pk):
     }
     return JsonResponse(data)
 
+
 @require_GET
 def api_get_docente_detalle(request, pk):
     docente = get_object_or_404(Docente, pk=pk)
@@ -85,6 +103,7 @@ def api_get_docente_detalle(request, pk):
         "activo": docente.activo,
     }
     return JsonResponse(data)
+
 
 @require_GET
 def api_get_espacio_curricular_detalle(request, pk):
@@ -101,39 +120,58 @@ def api_get_espacio_curricular_detalle(request, pk):
     }
     return JsonResponse(data)
 
-@require_GET
-def api_get_movimientos_estudiante(request, estudiante_id):
-    movimientos = Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id).select_related('espacio', 'condicion').order_by('-fecha')
-    data = [{
-        "id": m.id,
-        "espacio": m.espacio.nombre,
-        "tipo": m.get_tipo_display(),
-        "fecha": m.fecha,
-        "condicion": m.condicion.nombre,
-        "nota_num": m.nota_num,
-        "nota_texto": m.nota_texto,
-    } for m in movimientos]
-    return JsonResponse({"items": data})
 
 @require_GET
 def api_get_movimientos_estudiante(request, estudiante_id):
-    movimientos = Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id).select_related('espacio', 'condicion').order_by('-fecha')
-    data = [{
-        "id": m.id,
-        "espacio": m.espacio.nombre,
-        "tipo": m.get_tipo_display(),
-        "fecha": m.fecha,
-        "condicion": m.condicion.nombre,
-        "nota_num": m.nota_num,
-        "nota_texto": m.nota_texto,
-    } for m in movimientos]
+    movimientos = (
+        Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id)
+        .select_related("espacio", "condicion")
+        .order_by("-fecha")
+    )
+    data = [
+        {
+            "id": m.id,
+            "espacio": m.espacio.nombre,
+            "tipo": m.get_tipo_display(),
+            "fecha": m.fecha,
+            "condicion": m.condicion.nombre,
+            "nota_num": m.nota_num,
+            "nota_texto": m.nota_texto,
+        }
+        for m in movimientos
+    ]
     return JsonResponse({"items": data})
+
+
+@require_GET
+def api_get_movimientos_estudiante(request, estudiante_id):
+    movimientos = (
+        Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id)
+        .select_related("espacio", "condicion")
+        .order_by("-fecha")
+    )
+    data = [
+        {
+            "id": m.id,
+            "espacio": m.espacio.nombre,
+            "tipo": m.get_tipo_display(),
+            "fecha": m.fecha,
+            "condicion": m.condicion.nombre,
+            "nota_num": m.nota_num,
+            "nota_texto": m.nota_texto,
+        }
+        for m in movimientos
+    ]
+    return JsonResponse({"items": data})
+
 
 @require_GET
 def api_get_correlatividades(request, espacio_id, insc_id=None):
     espacio = get_object_or_404(EspacioCurricular, pk=espacio_id)
-    correlatividades = Correlatividad.objects.filter(espacio=espacio).select_related('plan', 'requiere_espacio')
-    
+    correlatividades = Correlatividad.objects.filter(espacio=espacio).select_related(
+        "plan", "requiere_espacio"
+    )
+
     data = []
     for corr in correlatividades:
         item = {
@@ -141,18 +179,22 @@ def api_get_correlatividades(request, espacio_id, insc_id=None):
             "plan": corr.plan.nombre,
             "tipo": corr.get_tipo_display(),
             "requisito": corr.get_requisito_display(),
-            "requiere_espacio": corr.requiere_espacio.nombre if corr.requiere_espacio else None,
+            "requiere_espacio": (
+                corr.requiere_espacio.nombre if corr.requiere_espacio else None
+            ),
             "requiere_todos_hasta_anio": corr.requiere_todos_hasta_anio,
             "observaciones": corr.observaciones,
         }
         data.append(item)
-    
+
     return JsonResponse({"items": data})
 
-InscripcionEspacio = apps.get_model("academia_core", "InscripcionEspacio") or \
-                     apps.get_model("academia_core", "InscripcionCursada") or \
-                     apps.get_model("academia_core", "InscripcionMateria")
 
+InscripcionEspacio = (
+    apps.get_model("academia_core", "InscripcionEspacio")
+    or apps.get_model("academia_core", "InscripcionCursada")
+    or apps.get_model("academia_core", "InscripcionMateria")
+)
 
 
 @require_GET
@@ -174,20 +216,29 @@ def api_espacios_habilitados(request):
     items = []
     for e in qs.order_by("anio", "nombre"):
         ok, info = habilitado(est, plan, e, para, ciclo)
-        row = {"id": e.id, "nombre": e.nombre, "anio": getattr(e, "anio", None), "habilitado": ok}
+        row = {
+            "id": e.id,
+            "nombre": e.nombre,
+            "anio": getattr(e, "anio", None),
+            "habilitado": ok,
+        }
         if not ok:
             row["bloqueo"] = info
         items.append(row)
     return JsonResponse({"items": items})
 
+
 @require_POST
 def api_inscribir_espacio(request):
     if InscripcionEspacio is None:
-        return JsonResponse({"ok": False, "error": "No existe el modelo de inscripción a cursada."}, status=500)
+        return JsonResponse(
+            {"ok": False, "error": "No existe el modelo de inscripción a cursada."},
+            status=500,
+        )
 
     est = int(request.POST["estudiante_id"])
     plan = int(request.POST["plan_id"])
-    esp  = int(request.POST["espacio_id"])
+    esp = int(request.POST["espacio_id"])
     ciclo = request.POST.get("ciclo")
     ciclo = int(ciclo) if (ciclo and ciclo.isdigit()) else None
 
@@ -199,14 +250,22 @@ def api_inscribir_espacio(request):
     # obtener nombres de campos por introspección (estudiante/espacio/plan/ciclo)
     def fk_name_to(model, related):
         for f in model._meta.get_fields():
-            if getattr(f, "is_relation", False) and getattr(f, "many_to_one", False) and f.related_model is related:
+            if (
+                getattr(f, "is_relation", False)
+                and getattr(f, "many_to_one", False)
+                and f.related_model is related
+            ):
                 return f.name
         return None
 
     fk_est = fk_name_to(InscripcionEspacio, Estudiante) or "estudiante"
     fk_esp = fk_name_to(InscripcionEspacio, EspacioCurricular) or "espacio"
     fk_plan = fk_name_to(InscripcionEspacio, PlanEstudios) or "plan"
-    f_ciclo = "ciclo" if "ciclo" in {f.name for f in InscripcionEspacio._meta.get_fields()} else None
+    f_ciclo = (
+        "ciclo"
+        if "ciclo" in {f.name for f in InscripcionEspacio._meta.get_fields()}
+        else None
+    )
 
     # evitar duplicado por servidor
     create_kwargs = {

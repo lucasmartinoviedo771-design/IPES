@@ -2,6 +2,7 @@
 from django import forms
 from .models import EspacioCurricular, Profesorado, PlanEstudios
 
+
 class EspacioForm(forms.ModelForm):
     class Meta:
         model = EspacioCurricular
@@ -17,4 +18,3 @@ class EspacioForm(forms.ModelForm):
             "nombre": forms.TextInput(attrs={"placeholder": "Nombre del espacio"}),
             "anio": forms.TextInput(attrs={"placeholder": "1° / 2° / 3° / 4°"}),
         }
-

@@ -1,5 +1,6 @@
 from django.urls import reverse
 
+
 def auth_urls(request):
     def safe_reverse(name, default):
         try:

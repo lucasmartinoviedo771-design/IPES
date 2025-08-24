@@ -29,7 +29,9 @@ def _q_inscripciones_del_usuario(user: User):
     qs = EstudianteProfesorado.objects.none()
     try:
         if user.email:
-            qs = EstudianteProfesorado.objects.filter(estudiante__email__iexact=user.email)
+            qs = EstudianteProfesorado.objects.filter(
+                estudiante__email__iexact=user.email
+            )
         if not qs.exists() and user.username:
             qs = EstudianteProfesorado.objects.filter(estudiante__dni=user.username)
     except Exception:
@@ -43,6 +45,7 @@ class StudentInscripcionEspacioForm(forms.ModelForm):
     - La lista de 'inscripcion' se restringe a sus legajos (EstudianteProfesorado).
     - El select de 'espacio' se filtra por profesorado/plan y usa la ETIQUETA normalizada.
     """
+
     class Meta:
         model = InscripcionEspacio
         fields = ["inscripcion", "anio_academico", "espacio"]
@@ -64,22 +67,36 @@ class StudentInscripcionEspacioForm(forms.ModelForm):
             self.fields["espacio"].label_from_instance = espacio_etiqueta
 
         # 3) si ya hay inscripción elegida, filtramos los espacios
-        insc_id = self.data.get(self.add_prefix("inscripcion")) or self.initial.get("inscripcion")
+        insc_id = self.data.get(self.add_prefix("inscripcion")) or self.initial.get(
+            "inscripcion"
+        )
         if insc_id:
             try:
-                insc = EstudianteProfesorado.objects.select_related("profesorado").get(pk=insc_id)
+                insc = EstudianteProfesorado.objects.select_related("profesorado").get(
+                    pk=insc_id
+                )
             except EstudianteProfesorado.DoesNotExist:
                 insc = None
         else:
-            insc = self.fields["inscripcion"].initial if self.fields["inscripcion"].initial else None
+            insc = (
+                self.fields["inscripcion"].initial
+                if self.fields["inscripcion"].initial
+                else None
+            )
 
         if insc:
             qs = EspacioCurricular.objects.filter(profesorado=insc.profesorado)
             # Excluir ya inscriptos por esta inscripción
-            ya_ids = list(InscripcionEspacio.objects.filter(inscripcion=insc).values_list("espacio_id", flat=True))
+            ya_ids = list(
+                InscripcionEspacio.objects.filter(inscripcion=insc).values_list(
+                    "espacio_id", flat=True
+                )
+            )
             if ya_ids:
                 qs = qs.exclude(pk__in=ya_ids)
-            self.fields["espacio"].queryset = qs.order_by("anio", "cuatrimestre", "nombre")
+            self.fields["espacio"].queryset = qs.order_by(
+                "anio", "cuatrimestre", "nombre"
+            )
         else:
             self.fields["espacio"].queryset = EspacioCurricular.objects.none()
             self.fields["espacio"].help_text = "Elegí primero una inscripción (legajo)."
@@ -90,6 +107,7 @@ class StudentInscripcionFinalForm(forms.ModelForm):
     El propio estudiante se anota a mesa de final.
     Buscamos un FK hacia InscripcionEspacio con tolerancia al nombre del campo (igual que en tu flujo).
     """
+
     class Meta:
         model = InscripcionFinal
         fields = "__all__"
@@ -101,16 +119,20 @@ class StudentInscripcionFinalForm(forms.ModelForm):
         # Encontrar el FK a InscripcionEspacio
         fk = None
         for f in InscripcionFinal._meta.get_fields():
-            if getattr(getattr(f, "related_model", None), "__name__", "") == "InscripcionEspacio":
+            if (
+                getattr(getattr(f, "related_model", None), "__name__", "")
+                == "InscripcionEspacio"
+            ):
                 fk = f.name
                 break
         self._fk = fk
 
         if fk and fk in self.fields:
             # Mostrar por el "espacio" con etiqueta normalizada
-            self.fields[fk].label_from_instance = (
-                lambda ie: espacio_etiqueta(getattr(ie, "espacio", None))
-                if getattr(ie, "espacio", None) else str(ie)
+            self.fields[fk].label_from_instance = lambda ie: (
+                espacio_etiqueta(getattr(ie, "espacio", None))
+                if getattr(ie, "espacio", None)
+                else str(ie)
             )
 
             # Restringimos cursadas al estudiante logueado

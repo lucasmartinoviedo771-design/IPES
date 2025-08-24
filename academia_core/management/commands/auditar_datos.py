@@ -2,8 +2,11 @@ from django.core.management.base import BaseCommand
 from decimal import Decimal
 from academia_core.models import EstudianteProfesorado, Movimiento
 
+
 class Command(BaseCommand):
-    help = "Audita notas textuales, promedios cacheados y regularidades vencidas (2 años)."
+    help = (
+        "Audita notas textuales, promedios cacheados y regularidades vencidas (2 años)."
+    )
 
     def handle(self, *args, **opts):
         # 1) Normaliza nota_texto -> nota_num cuando sea convertible

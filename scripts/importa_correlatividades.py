@@ -1,20 +1,23 @@
 import csv, re
 
 from academia_core.models import (
-    Profesorado, PlanEstudios, EspacioCurricular, Correlatividad
+    Profesorado,
+    PlanEstudios,
+    EspacioCurricular,
+    Correlatividad,
 )
 
 # === CONFIGURACIÓN ===
 PROF_SLUG = "profesorado-de-educacion-primaria"
-PLAN_RES  = "1935/14"
-CSV_PATH  = r"C:\proyectos\academia\correlatividades_primaria_1935-14.csv"
-SEP       = ";"   # cambia a "," si tu CSV usa coma
+PLAN_RES = "1935/14"
+CSV_PATH = r"C:\proyectos\academia\correlatividades_primaria_1935-14.csv"
+SEP = ";"  # cambia a "," si tu CSV usa coma
 
 
 def split_reqs(s: str):
     """Convierte el texto de requisitos del CSV en una lista de tuplas:
-       ('ESP', 'Pedagogía')  -> requisito por espacio
-       ('TODOS', 2)          -> 'todos hasta 2°'
+    ('ESP', 'Pedagogía')  -> requisito por espacio
+    ('TODOS', 2)          -> 'todos hasta 2°'
     """
     if not s:
         return []
@@ -35,14 +38,17 @@ def split_reqs(s: str):
 
 
 def importar_correlatividades(prof_slug, plan_res, csv_path, sep=";"):
-    p    = Profesorado.objects.get(slug=prof_slug)
+    p = Profesorado.objects.get(slug=prof_slug)
     plan = PlanEstudios.objects.get(profesorado=p, resolucion=plan_res)
 
     def add_rule(espacio, tipo, requisito, req_tuple):
         if req_tuple[0] == "TODOS":
             n = req_tuple[1]
             obj, created = Correlatividad.objects.update_or_create(
-                plan=plan, espacio=espacio, tipo=tipo, requisito=requisito,
+                plan=plan,
+                espacio=espacio,
+                tipo=tipo,
+                requisito=requisito,
                 requiere_todos_hasta_anio=n,
                 defaults={"requiere_espacio": None, "observaciones": ""},
             )
@@ -57,8 +63,12 @@ def importar_correlatividades(prof_slug, plan_res, csv_path, sep=";"):
                 print(f"!! No existe REQUERIDO '{req_name}' para {espacio.nombre}")
                 return None
             obj, created = Correlatividad.objects.update_or_create(
-                plan=plan, espacio=espacio, tipo=tipo, requisito=requisito,
-                requiere_espacio=req_esp, requiere_todos_hasta_anio=None,
+                plan=plan,
+                espacio=espacio,
+                tipo=tipo,
+                requisito=requisito,
+                requiere_espacio=req_esp,
+                requiere_todos_hasta_anio=None,
                 defaults={"observaciones": ""},
             )
             return created
@@ -67,7 +77,7 @@ def importar_correlatividades(prof_slug, plan_res, csv_path, sep=";"):
 
     with open(csv_path, encoding="utf-8-sig", newline="") as f:
         rdr = csv.DictReader(f, delimiter=sep)
-        for i, row in enumerate(rdr, start=2):   # encabezado = fila 1
+        for i, row in enumerate(rdr, start=2):  # encabezado = fila 1
             nombre = (row.get("Espacio Curricular") or row.get("Espacio") or "").strip()
             if not nombre:
                 continue
@@ -82,18 +92,27 @@ def importar_correlatividades(prof_slug, plan_res, csv_path, sep=";"):
 
             for req in split_reqs(row.get("Para cursar debe tener Regular", "")):
                 res = add_rule(esp, "CURSAR", "REGULARIZADA", req)
-                if res is None: errors += 1
-                else: created += int(res); updated += int(not res)
+                if res is None:
+                    errors += 1
+                else:
+                    created += int(res)
+                    updated += int(not res)
 
             for req in split_reqs(row.get("Para cursar debe Aprobar", "")):
                 res = add_rule(esp, "CURSAR", "APROBADA", req)
-                if res is None: errors += 1
-                else: created += int(res); updated += int(not res)
+                if res is None:
+                    errors += 1
+                else:
+                    created += int(res)
+                    updated += int(not res)
 
             for req in split_reqs(row.get("Para rendir debe tener aprobada", "")):
                 res = add_rule(esp, "RENDIR", "APROBADA", req)
-                if res is None: errors += 1
-                else: created += int(res); updated += int(not res)
+                if res is None:
+                    errors += 1
+                else:
+                    created += int(res)
+                    updated += int(not res)
 
     print(f"OK - Creadas: {created} | Actualizadas: {updated} | Errores: {errors}")
 

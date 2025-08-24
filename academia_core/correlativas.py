@@ -22,6 +22,7 @@ RANK_ESTADO: Dict[str, int] = {
     "LIBRE_ABANDONO_TEMPRANO": 0,
 }
 
+
 def _rank(estado: Optional[str]) -> int:
     if not estado:
         return -1
@@ -36,6 +37,7 @@ class Requisito:
     - tipo: 'CURSAR' o 'RENDIR_FINAL' (por ahora usamos 'CURSAR')
     - minimo: 'APROBADO' | 'PROMOCION' | 'REGULAR'
     """
+
     espacio_id: int
     etiqueta: str
     tipo: str = "CURSAR"
@@ -58,11 +60,14 @@ def _requisitos_desde_modelo(espacio) -> List[Requisito]:
         return []
     # Campos tolerantes
     fields = {f.name for f in Model._meta.fields}
-    target_fk = "espacio_objetivo" if "espacio_objetivo" in fields else \
-                "espacio" if "espacio" in fields else None
+    target_fk = (
+        "espacio_objetivo"
+        if "espacio_objetivo" in fields
+        else "espacio" if "espacio" in fields else None
+    )
     req_fk = "espacio_requerido" if "espacio_requerido" in fields else None
     tipo_f = "tipo" if "tipo" in fields else None
-    min_f  = "minimo" if "minimo" in fields else None
+    min_f = "minimo" if "minimo" in fields else None
     if not target_fk or not req_fk:
         return []
     qs = Model.objects.filter(**{target_fk: espacio})
@@ -73,7 +78,14 @@ def _requisitos_desde_modelo(espacio) -> List[Requisito]:
             continue
         tipo = getattr(row, tipo_f, "CURSAR") if tipo_f else "CURSAR"
         minimo = (getattr(row, min_f, "REGULAR") if min_f else "REGULAR") or "REGULAR"
-        out.append(Requisito(espacio_id=req.id, etiqueta=getattr(req, "nombre", str(req)), tipo=tipo, minimo=minimo))
+        out.append(
+            Requisito(
+                espacio_id=req.id,
+                etiqueta=getattr(req, "nombre", str(req)),
+                tipo=tipo,
+                minimo=minimo,
+            )
+        )
     return out
 
 
@@ -87,7 +99,9 @@ MAPA_REQUISITOS: Dict[int, List[Tuple[int, str, str, str]]] = {
 
 def _requisitos_desde_mapa(espacio) -> List[Requisito]:
     arr = MAPA_REQUISITOS.get(getattr(espacio, "id", None), [])
-    return [Requisito(eid, etiqueta, tipo, minimo) for (eid, etiqueta, tipo, minimo) in arr]
+    return [
+        Requisito(eid, etiqueta, tipo, minimo) for (eid, etiqueta, tipo, minimo) in arr
+    ]
 
 
 def obtener_requisitos_para(espacio) -> List[Requisito]:
@@ -122,7 +136,9 @@ def evaluar_correlatividades(inscripcion, espacio) -> Tuple[bool, List[Dict[str,
 
     target_ids = [r.espacio_id for r in reqs]
     cursadas = _buscar_cursadas_de(inscripcion, target_ids)
-    estado_por_espacio: Dict[int, Optional[str]] = {row["espacio_id"]: row["estado"] for row in cursadas}
+    estado_por_espacio: Dict[int, Optional[str]] = {
+        row["espacio_id"]: row["estado"] for row in cursadas
+    }
 
     detalles: List[Dict[str, Any]] = []
     ok_global = True
@@ -135,18 +151,21 @@ def evaluar_correlatividades(inscripcion, espacio) -> Tuple[bool, List[Dict[str,
         cumple = actual_rank >= minimo_rank
         if not cumple:
             ok_global = False
-        motivo = "" if cumple else (
-            f"Requiere {requerido} en «{r.etiqueta}»"
-            + (f" (actual: {estado})" if estado else " (sin cursada previa)")
+        motivo = (
+            ""
+            if cumple
+            else (
+                f"Requiere {requerido} en «{r.etiqueta}»"
+                + (f" (actual: {estado})" if estado else " (sin cursada previa)")
+            )
         )
-        detalles.append({
-            "requisito": r,
-            "cumplido": cumple,
-            "estado_encontrado": estado,
-            "motivo": motivo,
-        })
+        detalles.append(
+            {
+                "requisito": r,
+                "cumplido": cumple,
+                "estado_encontrado": estado,
+                "motivo": motivo,
+            }
+        )
 
     return ok_global, detalles
-
-
-

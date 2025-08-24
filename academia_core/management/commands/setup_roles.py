@@ -2,9 +2,17 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from academia_core.models import (
-    Profesorado, PlanEstudios, Estudiante, EstudianteProfesorado,
-    EspacioCurricular, Movimiento, Docente, DocenteEspacio, UserProfile
+    Profesorado,
+    PlanEstudios,
+    Estudiante,
+    EstudianteProfesorado,
+    EspacioCurricular,
+    Movimiento,
+    Docente,
+    DocenteEspacio,
+    UserProfile,
 )
+
 
 def perms_for(model, kinds=("view",)):
     ct = ContentType.objects.get_for_model(model)
@@ -18,13 +26,20 @@ def perms_for(model, kinds=("view",)):
             pass
     return out
 
+
 class Command(BaseCommand):
     help = "Crea grupos y asigna permisos base para roles."
 
     def handle(self, *args, **kwargs):
-        modelos_catalogo = [Profesorado, PlanEstudios, EspacioCurricular, Docente, DocenteEspacio]
-        modelos_alumnos  = [Estudiante, EstudianteProfesorado, Movimiento]
-        perfil           = [UserProfile]
+        modelos_catalogo = [
+            Profesorado,
+            PlanEstudios,
+            EspacioCurricular,
+            Docente,
+            DocenteEspacio,
+        ]
+        modelos_alumnos = [Estudiante, EstudianteProfesorado, Movimiento]
+        perfil = [UserProfile]
 
         # Grupos
         g_est, _ = Group.objects.get_or_create(name="ESTUDIANTE")
