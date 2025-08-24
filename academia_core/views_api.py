@@ -115,6 +115,40 @@ def api_get_movimientos_estudiante(request, estudiante_id):
     } for m in movimientos]
     return JsonResponse({"items": data})
 
+@require_GET
+def api_get_movimientos_estudiante(request, estudiante_id):
+    movimientos = Movimiento.objects.filter(inscripcion__estudiante_id=estudiante_id).select_related('espacio', 'condicion').order_by('-fecha')
+    data = [{
+        "id": m.id,
+        "espacio": m.espacio.nombre,
+        "tipo": m.get_tipo_display(),
+        "fecha": m.fecha,
+        "condicion": m.condicion.nombre,
+        "nota_num": m.nota_num,
+        "nota_texto": m.nota_texto,
+    } for m in movimientos]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_get_correlatividades(request, espacio_id, insc_id=None):
+    espacio = get_object_or_404(EspacioCurricular, pk=espacio_id)
+    correlatividades = Correlatividad.objects.filter(espacio=espacio).select_related('plan', 'requiere_espacio')
+    
+    data = []
+    for corr in correlatividades:
+        item = {
+            "id": corr.id,
+            "plan": corr.plan.nombre,
+            "tipo": corr.get_tipo_display(),
+            "requisito": corr.get_requisito_display(),
+            "requiere_espacio": corr.requiere_espacio.nombre if corr.requiere_espacio else None,
+            "requiere_todos_hasta_anio": corr.requiere_todos_hasta_anio,
+            "observaciones": corr.observaciones,
+        }
+        data.append(item)
+    
+    return JsonResponse({"items": data})
+
 InscripcionEspacio = apps.get_model("academia_core", "InscripcionEspacio") or \
                      apps.get_model("academia_core", "InscripcionCursada") or \
                      apps.get_model("academia_core", "InscripcionMateria")

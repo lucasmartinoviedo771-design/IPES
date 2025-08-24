@@ -14,9 +14,6 @@ from .views_panel import (
     panel_correlatividades,
     panel_horarios,
     panel_docente,
-    # APIs (AJAX)
-    get_espacios_por_inscripcion,
-    get_correlatividades,
     # Guardados (POST)
     crear_inscripcion_cursada,
     crear_movimiento,
@@ -24,6 +21,13 @@ from .views_panel import (
     # Redirecciones utilitarias
     redir_estudiante,
     redir_inscripcion,
+)
+
+from .views_api import (
+    api_listar_estudiantes, api_listar_docentes, api_listar_profesorados,
+    api_listar_planes_estudios, api_get_estudiante_detalle, api_get_docente_detalle,
+    api_get_espacio_curricular_detalle, api_get_movimientos_estudiante,
+    api_espacios_habilitados, api_inscribir_espacio, api_get_correlatividades
 )
 
 # CBVs ya existentes
@@ -79,7 +83,7 @@ urlpatterns = [
 
     # ---------------- APIs para el panel (AJAX) ----
     path("api/espacios-por-inscripcion/<int:insc_id>/",
-         get_espacios_por_inscripcion,
+         api_espacios_habilitados,
          name="api_espacios_por_inscripcion"),
     path("api/estudiantes/", api_listar_estudiantes, name="api_listar_estudiantes"),
     path("api/docentes/", api_listar_docentes, name="api_listar_docentes"),
@@ -93,12 +97,14 @@ urlpatterns = [
     # Dos rutas para correlatividades:
     # - Solo espacio (sin inscripción -> devuelve requisitos)
     path("api/correlatividades/<int:espacio_id>/",
-         get_correlatividades,
+         api_get_correlatividades,
          name="api_correlatividades"),
     # - Espacio + inscripción (evalúa si puede cursar)
     path("api/correlatividades/<int:espacio_id>/<int:insc_id>/",
-         get_correlatividades,
+         api_get_correlatividades,
          name="api_correlatividades_con_insc"),
+
+    
 
     # ---------------- Guardados (POST) --------------
     path("panel/inscripciones/<int:insc_prof_id>/cursadas/crear/",
