@@ -3,6 +3,7 @@ from datetime import date
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.urls import reverse
+from django.contrib import messages
 
 import unicodedata
 
@@ -15,6 +16,78 @@ def _norm(txt: str) -> str:
         return ""
     # quita acentos y pasa a minúscula
     return "".join(c for c in unicodedata.normalize("NFD", txt) if unicodedata.category(c) != "Mn").lower()
+
+# ---- helpers (poner junto a los demás) ----
+
+def _get_estudiantes_activos():
+    from .models import Estudiante
+    fields = {f.name for f in Estudiante._meta.get_fields()}
+    qs = Estudiante.objects.all()
+    if "activo" in fields:
+        qs = qs.filter(activo=True)
+    return list(qs.order_by("apellido", "nombre").values("id", "apellido", "nombre", "dni"))
+
+def _get_profesorados_activos():
+    from .models import Profesorado
+    fields = {f.name for f in Profesorado._meta.get_fields()}
+    qs = Profesorado.objects.all()
+    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
+        if flag in fields:
+            qs = qs.filter(**{flag: True})
+            break
+    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
+    data = list(qs.values("id", "nombre", "tipo") if "tipo" in fields else qs.values("id", "nombre"))
+    # Tipo por defecto
+    for p in data:
+        if "tipo" not in p or not p["tipo"]:
+            name = p.get("nombre", "")
+            n = unicodedata.normalize("NFD", name).encode("ascii", "ignore").decode().lower()
+            p["tipo"] = "certificacion_docente" if ("certificacion" in n and "docent" in n) else "profesorado"
+    return data
+
+def _get_materias_para_select():
+    """
+    Devuelve materias activas con: id, nombre, profesorado_id, periodo (ANUAL/1C/2C).
+    Soporta nombres de campos frecuentes y cae con defaults si no existen.
+    """
+    try:
+        from .models import Materia
+    except Exception:
+        return []
+
+    fields = {f.name for f in Materia._meta.get_fields()}
+    qs = Materia.objects.all()
+
+    # activo/activa/habilitado
+    for flag in ("activa", "activo", "habilitado", "is_active", "enabled"):
+        if flag in fields:
+            qs = qs.filter(**{flag: True})
+            break
+
+    qs = qs.order_by("nombre") if "nombre" in fields else qs.order_by("id")
+
+    data = []
+    for m in qs:
+        # id de profesorados (FK)
+        pid = getattr(m, "profesorado_id", None)
+        if pid is None and hasattr(m, "profesorado") and getattr(m, "profesorado", None):
+            try:
+                pid = m.profesorado.id
+            except Exception:
+                pid = None
+
+        nombre = getattr(m, "nombre", str(m))
+        # período
+        if "periodo" in fields:
+            per = getattr(m, "periodo", None) or "ANUAL"
+        elif "cuatrimestre" in fields:
+            c = getattr(m, "cuatrimestre", None)
+            per = "1C" if c == 1 else ("2C" if c == 2 else "ANUAL")
+        else:
+            per = "ANUAL"
+
+        data.append({"id": m.id, "nombre": nombre, "profesorado_id": pid, "periodo": per})
+    return data
 
 from .models import (
     Estudiante, Profesorado,
@@ -99,10 +172,63 @@ def panel(request: HttpRequest) -> HttpResponse:
         ctx["action_title"] = "Inicio"
         ctx["action_subtitle"] = "Bienvenido al panel de gestión."
 
-        # --- ALTA DE ESTUDIANTE ---
         if action == "add_est":
             ctx["action_title"] = "Nuevo estudiante"
-            ctx["form"] = True  # solo aquí se usa el bloque {% elif form %} del template
+            # mostrar el formulario por defecto
+            ctx["form"] = True
+
+            if request.method == "POST":
+                data = request.POST
+                files = request.FILES
+                errors = {}
+
+                # campos obligatorios
+                dni = (data.get("dni") or "").strip()
+                apellido = (data.get("apellido") or "").strip()
+                nombre = (data.get("nombre") or "").strip()
+
+                if not dni: errors["dni"] = "El DNI es obligatorio."
+                if not apellido: errors["apellido"] = "El apellido es obligatorio."
+                if not nombre: errors["nombre"] = "El nombre es obligatorio."
+
+                # DNI duplicado
+                if dni and Estudiante.objects.filter(dni=dni).exists():
+                    errors["dni"] = "Ya existe un estudiante con ese DNI."
+
+                if errors:
+                    ctx["errors"] = errors
+                    ctx["post"] = data  # opcional: para re-pintar valores en el form
+                    # no redirect: volvemos a renderizar el formulario con los errores
+                    return render(request, "academia_core/panel_inicio.html", ctx)
+
+                # crear instancia
+                e = Estudiante(
+                    dni=dni,
+                    apellido=apellido,
+                    nombre=nombre,
+                )
+
+                # opcionales (si existen en el modelo)
+                if hasattr(e, "fecha_nacimiento"):
+                    fn = (data.get("fecha_nacimiento") or "").strip()
+                    if fn:
+                        e.fecha_nacimiento = fn  # Django parsea YYYY-MM-DD
+
+                for f in ["lugar_nacimiento", "email", "telefono", "localidad",
+                          "telefono_emergencia", "parentesco"]:
+                    if hasattr(e, f):
+                        setattr(e, f, (data.get(f) or "").strip())
+
+                if hasattr(e, "activo"):
+                    e.activo = bool(data.get("activo"))
+
+                if hasattr(e, "foto") and "foto" in files and files["foto"]:
+                    e.foto = files["foto"]
+
+                # guardar
+                e.save()
+                messages.success(request, "Estudiante guardado con éxito.")
+                return redirect(f"{reverse('panel')}?action=add_est")
 
         # --- INSCRIPCIÓN A CARRERA (alias insc_carrera / insc_prof) ---
         elif action in ("insc_carrera", "insc_prof"):
@@ -135,9 +261,27 @@ def panel(request: HttpRequest) -> HttpResponse:
 
         # --- INSCRIPCIÓN A MATERIA (cursada) ---
         elif action == "insc_esp":
-            ctx["action_title"] = "Inscribir a Espacio Curricular"
-            ctx["action_subtitle"] = "Inscribe a un estudiante en una materia para el ciclo académico actual."
-            # si más adelante querés un form Django, preparalo y ponelo en ctx["form"]
+            ctx["action_title"] = "Inscripción a materia (cursada)"
+
+            try:
+                ctx["estudiantes"] = _get_estudiantes_activos()
+            except Exception:
+                ctx["estudiantes"] = []
+
+            try:
+                ctx["profesorados"] = _get_profesorados_activos()
+            except Exception:
+                ctx["profesorados"] = []
+
+            try:
+                ctx["materias"] = _get_materias_para_select()
+            except Exception:
+                ctx["materias"] = []
+
+            # Ciclo lectivo (año) y períodos
+            anio = date.today().year
+            ctx["ciclos"] = list(range(anio - 1, anio + 2))  # ej. 2024–2026
+            ctx["periodos"] = [("ANUAL", "Anual"), ("1C", "1° cuatrimestre"), ("2C", "2° cuatrimestre")]
 
         # --- SECCIONES ---
         elif action == "section_est":

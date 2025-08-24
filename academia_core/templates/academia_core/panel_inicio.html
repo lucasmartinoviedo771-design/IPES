@@ -33,6 +33,14 @@
     </nav>
 
     <main class="col-md-10 col-lg-10 px-3">
+      {% if messages %}
+        {% for m in messages %}
+          <div class="alert alert-{{ m.tags }} alert-dismissible fade show" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
       <div class="bg-white rounded-3 shadow-sm compact main-scroll p-2 form-surface">
         {% if action_subtitle %}<p class="text-muted">{{ action_subtitle|safe }}</p>{% endif %}
 
@@ -329,9 +337,147 @@
 })();
 </script>
 
+        {% elif action == 'insc_esp' %}
+<form id="form-insc-materia" class="row g-2 gy-1 compact" novalidate>
+  <div class="col-12"><h6 class="text-uppercase text-muted mb-2">INSCRIPCIÓN A MATERIA (CURSADA)</h6></div>
+
+  <!-- Estudiante -->
+  <div class="col-12 col-lg-6">
+    <label class="form-label">Estudiante <span class="text-danger">*</span></label>
+    <select id="esp_estudiante" name="estudiante_id" class="form-select">
+      <option value="">Seleccioná…</option>
+      {% for e in estudiantes %}
+        <option value="{{ e.id }}">{{ e.apellido }}, {{ e.nombre }} — DNI {{ e.dni }}</option>
+      {% empty %}
+        <option disabled>No hay estudiantes activos</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Profesorado (ideal: solo los donde el estudiante está inscripto; por ahora: todos) -->
+  <div class="col-12 col-lg-6">
+    <label class="form-label">Profesorado <span class="text-danger">*</span></label>
+    <select id="esp_profesorado" name="profesorado_id" class="form-select" {% if not profesorados %}disabled{% endif %}>
+      <option value="">{{ profesorados|length|yesno:"Seleccioná…,No hay profesorados" }}</option>
+      {% for p in profesorados %}
+        <option value="{{ p.id }}" data-tipo="{{ p.tipo|default:'profesorado' }}">{{ p.nombre }}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text">Se filtran las materias según el profesorado y período.</div>
+  </div>
+
+  <!-- Ciclo lectivo -->
+  <div class="col-12 col-md-4">
+    <label class="form-label">Ciclo lectivo <span class="text-danger">*</span></label>
+    <select id="esp_ciclo" name="ciclo" class="form-select">
+      {% for a in ciclos %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+    </select>
+  </div>
+
+  <!-- Período -->
+  <div class="col-12 col-md-4">
+    <label class="form-label">Período</label>
+    <select id="esp_periodo" name="periodo" class="form-select">
+      {% for v,txt in periodos %}<option value="{{ v }}">{{ txt }}</option>{% endfor %}
+    </select>
+  </div>
+
+  <!-- Materia (filtrada) -->
+  <div class="col-12 col-md-4">
+    <label class="form-label">Materia <span class="text-danger">*</span></label>
+    <select id="esp_materia" name="materia_id" class="form-select" {% if not materias %}disabled{% endif %}>
+      <option value="">{{ materias|length|yesno:"Seleccioná…,No hay materias" }}</option>
+      {% for m in materias %}
+        <option value="{{ m.id }}" data-prof="{{ m.profesorado_id }}" data-per="{{ m.periodo|default:'ANUAL' }}">{{ m.nombre }}</option>
+      {% endfor %}
+    </select>
+    <div id="esp_materia_help" class="form-text text-muted"></div>
+  </div>
+
+  <!-- Opcionales -->
+  <div class="col-12 col-md-4">
+    <label class="form-label">Comisión (opcional)</label>
+    <input type="text" id="esp_comision" name="comision" class="form-control" placeholder="Ej: A / B / Única">
+  </div>
+  <div class="col-12 col-md-4">
+    <label class="form-label">Turno (opcional)</label>
+    <select id="esp_turno" name="turno" class="form-select">
+      <option value="">—</option>
+      <option>Mañana</option>
+      <option>Tarde</option>
+      <option>Noche</option>
+    </select>
+  </div>
+
+  <div class="col-12">
+    <div class="d-flex justify-content-start gap-2 pt-2 mt-1 border-top">
+      <a href="{% url 'panel' %}?action=section_insc" class="btn btn-outline-secondary">Volver</a>
+      <button type="submit" class="btn btn-success px-4">Guardar</button>
+    </div>
+  </div>
+</form>
+
+<script>
+(function(){
+  const $ = (s) => document.querySelector(s);
+
+  const selProf = $('#esp_profesorado');
+  const selPer  = $('#esp_periodo');
+  const selMat  = $('#esp_materia');
+  const helpMat = $('#esp_materia_help');
+
+  function filtrarMaterias(){
+    const prof = selProf?.value || '';
+    const per  = (selPer?.value || 'ANUAL').toUpperCase();
+
+    if (!selMat) return;
+
+    let visibles = 0;
+    // Recorremos todas las opciones (salvo la primera “Seleccioná…”)
+    Array.from(selMat.options).forEach((opt, idx) => {
+      if (idx === 0) return; // placeholder
+      const oProf = (opt.dataset.prof || '');
+      const oPer  = (opt.dataset.per  || 'ANUAL').toUpperCase();
+
+      // Regla: debe coincidir el profesorado; para período, ANUAL aparece siempre,
+      // y si se elige 1C/2C solo mostramos las que coinciden o son ANUAL.
+      const okProf = prof ? (oProf === prof) : true;
+      const okPer  = (per === 'ANUAL') ? true : (oPer === 'ANUAL' || oPer === per);
+
+      const show = !!(okProf && okPer);
+      opt.hidden = !show;
+      if (show) visibles += 1;
+    });
+
+    // Ajustes de estado
+    if (visibles === 0) {
+      selMat.disabled = true;
+      selMat.value = '';
+      if (helpMat) helpMat.textContent = 'No hay materias para el filtro seleccionado.';
+    } else {
+      selMat.disabled = false;
+      // Si la opción seleccionada quedó oculta, seleccionamos la primera visible
+      const cur = selMat.selectedOptions[0];
+      if (!cur || cur.hidden) {
+        const firstVisible = Array.from(selMat.options).find((o, i) => i>0 && !o.hidden);
+        if (firstVisible) selMat.value = firstVisible.value;
+      }
+      if (helpMat) helpMat.textContent = '';
+    }
+  }
+
+  selProf?.addEventListener('change', filtrarMaterias);
+  selPer ?.addEventListener('change', filtrarMaterias);
+
+  // init
+  filtrarMaterias();
+})();
+</script>
+
         {# ===================== NUEVO ESTUDIANTE ===================== #}
         {% elif form %}
-          <form class="row g-2 gy-1 compact" novalidate>
+          <form method="post" action="{% url 'panel' %}?action=add_est" enctype="multipart/form-data" class="row g-2 gy-1 compact" novalidate>
+  {% csrf_token %}
 
   <!-- ===== DATOS PERSONALES ===== -->
   <div class="col-12"><h6 class="text-uppercase text-muted mb-2">Datos personales</h6></div>
