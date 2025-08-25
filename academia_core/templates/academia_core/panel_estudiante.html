@@ -1,0 +1,19 @@
+<!-- academia_core/templates/academia_core/panel_estudiante.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Panel de Estudiante</title>
+</head>
+<body>
+  <h1>Panel de Estudiante</h1>
+  <p>Hola {{ request.user.get_username }}.</p>
+
+  <ul>
+    <li>Plan: {{ plan }}</li>
+    <li>Profesorado: {{ profesorado }}</li>
+    <li>Cohorte: {{ cohorte }}</li>
+    <!-- usa las claves reales que estés mandando en el context `ctx` -->
+  </ul>
+</body>
+</html>

@@ -35,18 +35,21 @@ class CorrelatividadForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Get data from either self.data (POST) or initial (GET)
+        data_source = self.data if self.data else self.initial
+
         # If a profesorado is selected, filter plans
-        if 'profesorado' in self.data:
+        if 'profesorado' in data_source:
             try:
-                profesorado_id = int(self.data.get('profesorado'))
+                profesorado_id = int(data_source.get('profesorado'))
                 self.fields['plan'].queryset = PlanEstudios.objects.filter(profesorado_id=profesorado_id).order_by('resolucion')
             except (ValueError, TypeError):
                 pass # Invalid input, leave queryset empty
 
         # If a plan is selected, filter materias and correlativas
-        if 'plan' in self.data:
+        if 'plan' in data_source:
             try:
-                plan_id = int(self.data.get('plan'))
+                plan_id = int(data_source.get('plan'))
                 # Filter materias for the main selection
                 self.fields['materia_principal'].queryset = EspacioCurricular.objects.filter(plan_id=plan_id).order_by('nombre')
 

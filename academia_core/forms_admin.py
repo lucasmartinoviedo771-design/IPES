@@ -1,7 +1,7 @@
 # academia_core/forms_admin.py
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Profesorado, PlanEstudios, EspacioCurricular
+from .models import Profesorado, PlanEstudios, EspacioCurricular, Estudiante
 
 # === Helpers ===============================
 # Ajustá este orden según tus modelos. Se usa para "renombrar"
@@ -31,6 +31,12 @@ class ProfesoradoCreateForm(forms.ModelForm):
 class PlanCreateForm(forms.ModelForm):
     class Meta:
         model = PlanEstudios
+        fields = "__all__"
+
+
+class EstudianteCreateForm(forms.ModelForm):
+    class Meta:
+        model = Estudiante
         fields = "__all__"
 
 

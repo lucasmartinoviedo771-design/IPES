@@ -276,3 +276,69 @@ def api_inscribir_espacio(request):
 
     obj = InscripcionEspacio.objects.create(**create_kwargs)
     return JsonResponse({"ok": True, "id": obj.id})
+
+@require_GET
+def api_get_planes_for_profesorado(request):
+    profesorado_id = request.GET.get("profesorado_id")
+    if not profesorado_id:
+        return JsonResponse({"items": []})
+    
+    planes = PlanEstudios.objects.filter(profesorado_id=profesorado_id).order_by("resolucion")
+    data = [
+        {
+            "id": p.id,
+            "nombre": str(p),
+            "resolucion": p.resolucion,
+        }
+        for p in planes
+    ]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_get_espacios_for_plan(request):
+    plan_id = request.GET.get("plan_id")
+    if not plan_id:
+        return JsonResponse({"items": []})
+    
+    espacios = EspacioCurricular.objects.filter(plan_id=plan_id).order_by("anio", "cuatrimestre", "nombre")
+    data = [
+        {
+            "id": e.id,
+            "nombre": str(e),
+            "anio": e.anio,
+            "cuatrimestre": e.cuatrimestre,
+        }
+        for e in espacios
+    ]
+    return JsonResponse({"items": data})
+
+@require_GET
+def api_correlatividades_por_materia(request):
+    materia_id = request.GET.get('materia_id')
+    plan_id = request.GET.get('plan_id')
+
+    if not materia_id or not plan_id:
+        return JsonResponse({'error': 'materia_id and plan_id are required'}, status=400)
+
+    try:
+        materia_principal = EspacioCurricular.objects.get(id=materia_id)
+        plan = PlanEstudios.objects.get(id=plan_id)
+    except (EspacioCurricular.DoesNotExist, PlanEstudios.DoesNotExist):
+        return JsonResponse({'error': 'Materia or Plan not found'}, status=404)
+
+    regulares_ids = Correlatividad.objects.filter(
+        plan=plan,
+        espacio=materia_principal,
+        requisito='REGULARIZADA'
+    ).values_list('requiere_espacio__id', flat=True)
+
+    aprobadas_ids = Correlatividad.objects.filter(
+        plan=plan,
+        espacio=materia_principal,
+        requisito='APROBADA'
+    ).values_list('requiere_espacio__id', flat=True)
+
+    return JsonResponse({
+        'regulares': list(regulares_ids),
+        'aprobadas': list(aprobadas_ids)
+    })

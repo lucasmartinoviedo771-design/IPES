@@ -1,23 +1,17 @@
 # academia_core/urls.py
-from django.urls import path, include   # include por si lo usás
-from . import views                     # para vistas basadas en función
+from django.urls import path, include
 
-# Vistas de "cartones" existentes
 from .views import (
     carton_primaria_por_dni,
     carton_primaria_pdf,
     buscar_carton_primaria,
     carton_por_prof_y_plan,
     carton_generico_pdf,
-    # NUEVO: Vistas que estaban sin URL
     home_router,
     alumno_home,
     docente_espacio_detalle,
 )
-
-# Panel y APIs (ajustado a views_panel.py actualizado)
 from .views_panel import (
-    # Paneles
     panel,
     panel_correlatividades,
     panel_horarios,
@@ -45,6 +39,9 @@ from .views_api import (
     api_espacios_habilitados,
     api_inscribir_espacio,
     api_get_correlatividades,
+    api_get_planes_for_profesorado,
+    api_get_espacios_for_plan,
+    api_correlatividades_por_materia, # NEW IMPORT
 )
 
 # CBVs ya existentes
@@ -148,9 +145,9 @@ urlpatterns = [
         api_espacios_habilitados,
         name="api_espacios_por_inscripcion",
     ),
-    path("api/estudiantes/"),
-    path("api/docentes/"),
-    path("api/profesorados/"),
+    path("api/estudiantes/", api_listar_estudiantes, name="api_listar_estudiantes"),
+    path("api/docentes/", api_listar_docentes, name="api_listar_docentes"),
+    path("api/profesorados/", api_listar_profesorados, name="api_listar_profesorados"),
     path(
         "api/planes-estudios/",
         api_listar_planes_estudios,
@@ -189,6 +186,8 @@ urlpatterns = [
         api_get_correlatividades,
         name="api_correlatividades_con_insc",
     ),
+    path("api/planes-por-profesorado/", api_get_planes_for_profesorado, name="api_get_planes_for_profesorado"),
+    path("api/espacios-por-plan/", api_get_espacios_for_plan, name="api_get_espacios_for_plan"),
     # ---------------- Guardados (POST) --------------
     path(
         "panel/inscripciones/<int:insc_prof_id>/cursadas/crear/",
@@ -205,5 +204,10 @@ urlpatterns = [
     path("redir/estudiante/<int:est_id>/", redir_estudiante, name="redir_estudiante"),
     path(
         "redir/inscripcion/<int:insc_id>/", redir_inscripcion, name="redir_inscripcion"
+    ),
+    path(
+    "api/correlatividades-por-materia/",
+    api_correlatividades_por_materia,
+    name="api_correlatividades_por_materia",
     ),
 ]
