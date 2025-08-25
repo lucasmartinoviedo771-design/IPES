@@ -250,8 +250,8 @@
     const initialMateriaPrincipal = getUrlParameter('materia_principal');
 
     // Get initial selected checkbox IDs from Django context
-    const initialCorrelativasRegulares = {{ form.correlativas_regulares.value|safe }} || [];
-    const initialCorrelativasAprobadas = {{ form.correlativas_aprobadas.value|safe }} || [];
+    const initialCorrelativasRegulares = {{ form.correlativas_regulares.value|default:"[]"|safe }};
+    const initialCorrelativasAprobadas = {{ form.correlativas_aprobadas.value|default:"[]"|safe }};
 
 
     // Event listeners for cascading dropdowns
@@ -769,7 +769,7 @@
 </script>
 
         {# ===================== NUEVO ESTUDIANTE ===================== #}
-        {% elif form %}
+        {% elif action == 'add_est' %}
           <form method="post" action="{% url 'panel' %}?action=add_est" enctype="multipart/form-data" class="row g-2 gy-1 compact" novalidate>
   {% csrf_token %}
 
