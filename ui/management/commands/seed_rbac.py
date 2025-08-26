@@ -59,6 +59,38 @@ GROUPS = {
     ],
 }
 
+ALIAS = {
+    # Calificaciones / Notas / Evaluaciones
+    "view_calificacion": ["view_calificacion", "view_nota", "view_evaluacion", "view_acta", "view_detallecalificacion"],
+    "add_calificacion":  ["add_calificacion",  "add_nota",  "add_evaluacion",  "add_acta",  "add_detallecalificacion"],
+    "change_calificacion":["change_calificacion","change_nota","change_evaluacion","change_acta","change_detallecalificacion"],
+
+    # Comisiones / Cursos / Secciones
+    "view_comision": ["view_comision", "view_comisioncursada", "view_curso", "view_seccion"],
+    "add_comision":  ["add_comision",  "add_comisioncursada",  "add_curso",  "add_seccion"],
+    "change_comision":["change_comision","change_comisioncursada","change_curso","change_seccion"],
+
+    # Inscripción a Materia / Cursada
+    "view_inscripcionmateria":   ["view_inscripcionmateria", "view_inscripcioncursada", "view_inscripcion"],
+    "add_inscripcionmateria":    ["add_inscripcionmateria",  "add_inscripcioncursada",  "add_inscripcion"],
+    "change_inscripcionmateria": ["change_inscripcionmateria","change_inscripcioncursada","change_inscripcion"],
+
+    # Periodo / Ciclo / PeriodoLectivo / Term
+    "view_periodo":  ["view_periodo", "view_periodolectivo", "view_ciclo", "view_term"],
+    "add_periodo":   ["add_periodo",  "add_periodolectivo",  "add_ciclo",  "add_term"],
+    "change_periodo":["change_periodo","change_periodolectivo","change_ciclo","change_term"],
+
+    # Ventana / VentanaInscripcion
+    "view_ventana":  ["view_ventana", "view_ventanainscripcion"],
+    "add_ventana":   ["add_ventana",  "add_ventanainscripcion"],
+    "change_ventana":["change_ventana","change_ventanainscripcion"],
+
+    # Inscripción a Carrera / Programa
+    "view_inscripcioncarrera":  ["view_inscripcioncarrera", "view_inscripcionprograma"],
+    "add_inscripcioncarrera":   ["add_inscripcioncarrera",  "add_inscripcionprograma"],
+    "change_inscripcioncarrera":["change_inscripcioncarrera","change_inscripcionprograma"],
+}
+
 
 class Command(BaseCommand):
     help = "Crea grupos y asigna permisos por codename (independiente del app_label)."
@@ -86,12 +118,21 @@ class Command(BaseCommand):
     def _apply(self, group: Group, codenames: list[str]):
         resolved = []
         for code in codenames:
-            found = list(Permission.objects.filter(codename=code))
-            if not found:
-                self.stdout.write(self.style.WARNING(f"Permiso no encontrado (codename): {code}"))
-                continue
-            resolved.extend(found)
-            for p in found:
-                self.stdout.write(f"  OK {group.name} + {p.content_type.app_label}.{p.codename}")
-        group.permissions.set(resolved)
-        self.stdout.write(self.style.SUCCESS(f"Asignados {len(resolved)} permisos a {group.name}"))
+            # Resolve alias
+            real_codenames = ALIAS.get(code, [code])
+            for real_code in real_codenames:
+                found = list(Permission.objects.filter(codename=real_code))
+                if not found:
+                    # This is not a fatal error, just a warning if an alias is not found
+                    pass
+                resolved.extend(found)
+        
+        # Use a set to remove duplicates
+        unique_resolved = sorted(list(set(resolved)), key=lambda p: p.codename)
+
+        group.permissions.set(unique_resolved)
+
+        for p in unique_resolved:
+            self.stdout.write(f"  OK {group.name} + {p.content_type.app_label}.{p.codename}")
+
+        self.stdout.write(self.style.SUCCESS(f"Asignados {len(unique_resolved)} permisos a {group.name}"))

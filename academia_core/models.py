@@ -147,7 +147,6 @@ class Estudiante(models.Model):
 
 
 # --- EstudianteProfesorado --------------------------------------------------
-from django.core.exceptions import ValidationError
 
 
 class EstudianteProfesorado(models.Model):
@@ -384,13 +383,7 @@ class EstudianteProfesorado(models.Model):
             self.promedio_general = None
         self.save(update_fields=["promedio_general"])
 
-    # Recalcula estados por seguridad (tu Form igual los setea)
-    def save(self, *args, **kwargs):
-        # No llamar a super() aquí si recalcular_promedio ya lo hace
-        if "update_fields" not in kwargs:
-            self.legajo_estado = self.calcular_legajo_estado()
-            self.condicion_admin = self.calcular_condicion_admin()
-        super().save(*args, **kwargs)
+    
 
 
 try:
@@ -1107,3 +1100,26 @@ class Horario(models.Model):
 
     def __str__(self):
         return f"{self.espacio.nombre} - {self.get_dia_semana_display()} ({self.hora_inicio} - {self.hora_fin})"
+
+
+class CorePerms(models.Model):
+    """
+    Modelo NO gestionado, solo para colgar permisos custom.
+    No crea tablas; sirve para que existan los Permission en la BD.
+    """
+    class Meta:
+        managed = False          # ← CAMBIO CLAVE (en lugar de proxy=True)
+        default_permissions = () # no crear add/change/delete/view
+        app_label = "academia_core"
+        permissions = [
+            ("open_close_windows", "Puede abrir/cerrar ventanas de inscripción"),
+            ("enroll_self", "Puede inscribirse a sí mismo"),
+            ("enroll_others", "Puede inscribir a terceros"),
+            ("manage_correlatives", "Puede gestionar correlatividades"),
+            ("publish_grades", "Puede publicar calificaciones"),
+            ("view_any_student_record", "Puede ver ficha/cartón de cualquier estudiante"),
+            ("edit_student_record", "Puede editar ficha/cartón de estudiantes"),
+            ("view_inscripcioncarrera", "Puede ver inscripciones a carrera"),
+            ("add_inscripcioncarrera", "Puede crear inscripciones a carrera"),
+            ("change_inscripcioncarrera", "Puede editar inscripciones a carrera"),
+        ]
