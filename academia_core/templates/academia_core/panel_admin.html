@@ -481,7 +481,7 @@
   const $ = (s) => document.querySelector(s);
 
   // ---- elementos
-  const profSel = $('#profesorado');
+  const profSel = $('#cmb-prof');
   const grpProf = $('#grp-profesorado');
   const grpCert = $('#grp-certificacion');
 
@@ -496,7 +496,7 @@
   const chkTer = $('#titulo_terciario_legalizado');
   const chkInc = $('#incumbencias_presentadas');
 
-  const base = { dni:$('#dni_legalizado'), med:$('#certificado_medico'), fot:$('#fotocarnet'), fol:$('#folio_oficio') };
+  const base = { dni:$('#doc_dni_legalizado'), med:$('#doc_cert_medico'), fot:$('#doc_fotos_carnet'), fol:$('#doc_folios_oficio') };
   const chip = $('#chip-estado');
   const chkNota = $('#nota_compromiso');
 
@@ -617,7 +617,7 @@
 <script>
   const PLANES_MAP = {{ planes_map|safe }}; // { prof_id: [{id,label}, ...], ... }
 
-  const cmbProf = document.getElementById('profesorado');
+  const cmbProf = document.getElementById('cmb-prof');
   const cmbPlan = document.getElementById('cmb-plan');
 
   function renderPlanes() {

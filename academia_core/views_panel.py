@@ -128,6 +128,23 @@ def panel(request: HttpRequest, **kwargs) -> HttpResponse:
         
         ctx["form"] = form
 
+    elif action in ('insc_carrera', 'insc_prof'):
+        ctx.update({
+            'estudiantes': Estudiante.objects.filter(activo=True).order_by('apellido', 'nombre'),
+            'profesorados': Profesorado.objects.all().order_by('nombre'),
+            'planes_map': json.dumps({
+                p.id: [{"id": plan.id, "label": plan.resolucion} for plan in p.planes.all()]
+                for p in Profesorado.objects.prefetch_related('planes')
+            }),
+            'base_checks': [
+                ('doc_dni_legalizado', 'DNI legalizado'),
+                ('doc_cert_medico', 'Certificado médico'),
+                ('doc_fotos_carnet', 'Fotos carnet'),
+                ('doc_folios_oficio', 'Folios oficio'),
+            ],
+            'cohortes': list(range(date.today().year + 1, 2010, -1)),
+        })
+
     return render(request, "academia_core/panel_admin.html", ctx)
 
 @login_required
