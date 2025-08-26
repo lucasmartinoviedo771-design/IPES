@@ -1,161 +1,110 @@
-{# ui/templates/ui/inscripciones/inscripcion_profesorado_form.html #}
 {% extends "ui/base.html" %}
 {% load static %}
 
 {% block content %}
-<div class="rounded-3xl border border-slate-200 bg-white/80 p-6 md:p-8">
-  <div class="mb-6">
-    <h1 class="text-xl font-semibold">Inscripción en Profesorado</h1>
-    <p class="text-sm text-slate-600">
-      Podés preseleccionar el estudiante usando <code>?est=&lt;ID&gt;</code>.
-    </p>
+<div class="card">
+  <div class="card-body">
+    <h5 class="mb-2">Inscripción en Profesorado</h5>
+    <p class="text-muted">Podés preseleccionar el estudiante usando <code>?est=&lt;ID&gt;</code>.</p>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          {{ form.estudiante.label_tag }} {{ form.estudiante }}
+        </div>
+        <div class="col-12 col-md-6">
+          {{ form.profesorado.label_tag }} {{ form.profesorado }}
+        </div>
+        <div class="col-12 col-md-6">
+          {{ form.plan.label_tag }} {{ form.plan }}
+        </div>
+        <div class="col-12 col-md-6">
+          {{ form.cohorte.label_tag }} {{ form.cohorte }}
+        </div>
+      </div>
+
+      <hr class="my-3">
+
+      <div class="row g-3">
+        <div class="col-12 col-lg-8">
+          <h6 class="mb-2">Requisitos de Ingreso</h6>
+
+          {# --- Otros checks (los "base") que te faltan --- #}
+          <div class="row g-2 mb-2">
+            {% for id,label in base_checks %}
+              <div class="col-6 col-md-4 col-xl-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="{{ id }}" name="{{ id }}">
+                  <label class="form-check-label" for="{{ id }}">{{ label }}</label>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          {# --- Grupo de profesorados común --- #}
+          <div class="row g-2">
+            <div class="col-6 col-md-4 col-xl-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                       id="titulo_secundario_legalizado" name="titulo_secundario_legalizado">
+                <label class="form-check-label" for="titulo_secundario_legalizado">
+                  Doc título sec legalizado
+                </label>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-4 col-xl-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                       id="titulo_en_tramite" name="titulo_en_tramite">
+                <label class="form-check-label" for="titulo_en_tramite">Título en trámite</label>
+              </div>
+            </div>
+
+            <div class="col-6 col-md-4 col-xl-3">
+              <div class="form-check">
+                {# IMPORTANTE: el id debe ser EXACTAMENTE "adeuda_materia" #}
+                <input class="form-check-input" type="checkbox"
+                       id="adeuda_materia" name="adeuda_materia">
+                <label class="form-check-label" for="adeuda_materia">Adeuda materias</label>
+              </div>
+            </div>
+          </div>
+
+          {# --- Campos dependientes de "Adeuda..." --- #}
+          <div id="adeuda_fields" class="row g-2 mt-1 d-none">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Materias adeudadas</label>
+              <input type="text" class="form-control" id="materias_adeudadas"
+                     name="materias_adeudadas" disabled>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Escuela / Institución</label>
+              <input type="text" class="form-control" id="institucion_adeuda"
+                     name="institucion_adeuda" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <h6 class="mb-2">Condición</h6>
+          <input type="hidden" id="id_condicion" name="condicion" value="Libre">
+          <span id="condicion_badge"
+                class="badge rounded-pill text-bg-secondary"
+                data-condicion="libre">Libre</span>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Inscribir</button>
+        <a class="btn btn-light" href="{{ cancel_url|default:'/' }}">Cancelar</a>
+      </div>
+    </form>
   </div>
-
-  <form method="post" class="space-y-5">
-    {% csrf_token %}
-
-    {# Fila 1: Estudiante y Profesorado #}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.estudiante.id_for_label }}">{{ form.estudiante.label }}</label>
-        {{ form.estudiante }}
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.profesorado.id_for_label }}">{{ form.profesorado.label }}</label>
-        {{ form.profesorado }}
-      </div>
-    </div>
-
-    {# Fila 2: Plan y Cohorte/Fecha #}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.plan.id_for_label }}">{{ form.plan.label }}</label>
-            {{ form.plan }}
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.cohorte.id_for_label }}">{{ form.cohorte.label }}</label>
-            {{ form.cohorte }}
-        </div>
-    </div>
-
-    <hr class="my-4">
-
-    {# Fila 3: Requisitos y Condición #}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="md:col-span-2">
-        <p class="text-sm font-medium text-slate-800 mb-2">Requisitos de Ingreso</p>
-        <div class="space-y-3">
-          <div class="flex items-center gap-3">
-            {{ form.doc_titulo_sec_legalizado }}
-            <label for="{{ form.doc_titulo_sec_legalizado.id_for_label }}" class="text-sm text-slate-700">{{ form.doc_titulo_sec_legalizado.label }}</label>
-          </div>
-          <div class="flex items-center gap-3">
-            {{ form.titulo_en_tramite }}
-            <label for="{{ form.titulo_en_tramite.id_for_label }}" class="text-sm text-slate-700">{{ form.titulo_en_tramite.label }}</label>
-          </div>
-          <div class="flex items-center gap-3">
-            {{ form.adeuda_materias }}
-            <label for="{{ form.adeuda_materias.id_for_label }}" class="text-sm text-slate-700">{{ form.adeuda_materias.label }}</label>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <p class="text-sm font-medium text-slate-800 mb-2">Condición</p>
-        <input type="hidden" name="{{ form.condicion_admin.name }}" id="id_condicion" value="{{ form.condicion_admin.value|default:'' }}">
-        <span id="condicion_badge" class="inline-block text-sm font-semibold px-3 py-1 rounded-full bg-slate-200 text-slate-800">Calculando...</span>
-      </div>
-    </div>
-
-    {# Bloque condicional para materias adeudadas #}
-    <div id="adeuda_fields" class="hidden space-y-4 p-4 bg-slate-50 rounded-xl">
-        <p class="text-sm font-medium text-slate-800">Detalle de materias adeudadas</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.materias_adeudadas.id_for_label }}">{{ form.materias_adeudadas.label }}</label>
-                {{ form.materias_adeudadas }}
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1" for="{{ form.institucion_origen.id_for_label }}">{{ form.institucion_origen.label }}</label>
-                {{ form.institucion_origen }}
-            </div>
-        </div>
-    </div>
-
-    {# Acciones #}
-    <div class="pt-4">
-      <button type="submit"
-        class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
-        Inscribir
-      </button>
-      <a href="{% url 'ui:dashboard' %}"
-         class="ml-2 inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
-         Cancelar
-      </a>
-    </div>
-  </form>
 </div>
 
-{# Scripts específicos para esta página #}
+{# Carga el JS #}
 <script src="{% static 'ui/js/inscripcion_profesorado.js' %}"></script>
-<script>
-  // Renombrar IDs para que el script genérico funcione sin cambios
-  // Esto es un puente entre los nombres de campo del modelo de Django y los IDs que espera el JS.
-  document.addEventListener('DOMContentLoaded', function() {
-    const idMap = {
-      "{{ form.adeuda_materias.id_for_label }}": "adeuda_materia",
-      "{{ form.doc_titulo_sec_legalizado.id_for_label }}": "titulo_secundario_legalizado",
-      "{{ form.titulo_en_tramite.id_for_label }}": "titulo_en_tramite"
-    };
-
-    for (const oldId in idMap) {
-      const el = document.getElementById(oldId);
-      if (el) {
-        el.id = idMap[oldId];
-      }
-    }
-
-    // Script para la carga dinámica de planes (lo dejamos por si acaso)
-    const profesoradoSelect = document.getElementById("id_profesorado");
-    const planSelect = document.getElementById("id_plan");
-
-    if (profesoradoSelect && planSelect) {
-        const actualizarPlanes = () => {
-            const profesoradoId = profesoradoSelect.value;
-            planSelect.innerHTML = '<option value="">Cargando...</option>';
-            planSelect.disabled = true;
-
-            if (!profesoradoId) {
-                planSelect.innerHTML = '<option value="">Seleccioná un profesorado</option>';
-                return;
-            }
-
-            fetch(`/api/planes-por-profesorado/?profesorado_id=${profesoradoId}`)
-                .then(response => response.json())
-                .then(data => {
-                    planSelect.innerHTML = '';
-                    planSelect.disabled = false;
-                    if (data.items && data.items.length > 0) {
-                        planSelect.innerHTML += '<option value="">---------</option>';
-                        data.items.forEach(plan => {
-                            const option = new Option(plan.nombre, plan.id);
-                            planSelect.add(option);
-                        });
-                    } else {
-                        planSelect.innerHTML = '<option value="">No hay planes</option>';
-                    }
-                })
-                .catch(error => {
-                    console.error("Error al cargar los planes:", error);
-                    planSelect.innerHTML = '<option value="">Error al cargar</option>';
-                });
-        };
-
-        profesoradoSelect.addEventListener("change", actualizarPlanes);
-        if (profesoradoSelect.value) {
-            actualizarPlanes();
-        }
-    }
-  });
-</script>
 {% endblock %}

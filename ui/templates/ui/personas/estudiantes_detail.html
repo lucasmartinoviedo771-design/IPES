@@ -1,0 +1,47 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <h5 class="mb-0">Estudiante: {{ obj.apellido }}, {{ obj.nombre }}</h5>
+      <a href="{% url 'ui:estudiantes_list' %}" class="btn btn-light">Volver</a>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-12 col-md-3">
+        <div class="text-center">
+          <img
+            src="{% if obj.foto %}{{ obj.foto.url }}{% else %}{% static 'ui/img/avatar-default.png' %}{% endif %}"
+            alt="Foto"
+            class="img-fluid rounded-3 border"
+            onerror="this.onerror=null;this.src='{% static 'ui/img/avatar-default.png' %}';"
+          />
+        </div>
+      </div>
+
+      <div class="col-12 col-md-9">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <tbody>
+              <tr><th style="width:220px">Apellido</th><td>{{ obj.apellido }}</td></tr>
+              <tr><th>Nombre</th><td>{{ obj.nombre }}</td></tr>
+              <tr><th>DNI</th><td>{{ obj.dni }}</td></tr>
+              <tr><th>Email</th><td>{{ obj.email }}</td></tr>
+              <tr><th>Teléfono</th><td>{{ obj.telefono }}</td></tr>
+              <tr><th>Fecha nacimiento</th><td>{{ obj.fecha_nacimiento|date:"d/m/Y" }}</td></tr>
+              <tr><th>Lugar nacimiento</th><td>{{ obj.lugar_nacimiento }}</td></tr>
+              <tr><th>Tel. de emergencia</th><td>{{ obj.telefono_emergencia }}</td></tr>
+              <tr><th>Parentesco (emergencia)</th><td>{{ obj.parentesco_emergencia }}</td></tr>
+              <tr><th>Localidad</th><td>{{ obj.localidad }}</td></tr>
+              <tr><th>Activo</th><td>{% if obj.activo %}Sí{% else %}No{% endif %}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -55,7 +55,7 @@ def build_menu(role: str):
                     "roles": ["Secretaría", "Admin", "Bedel"],
                 },
                 { "label": "Inscribir a Carrera", "path": "/inscripciones/carrera", "icon": "check", "roles": ["Secretaría","Admin","Bedel"] },
-                { "label": "Inscribir a Materias", "path": "/inscripciones/materias", "icon": "book-plus", "roles": ["Secretaría","Admin","Bedel","Estudiante"] },
+                                                { "label": "Inscribir a Materia", "path": "/inscripciones/materia", "icon": "book-check", "roles": ["Secretaría","Admin","Bedel"] }
                 {
                     "label": "Inscribir a Mesa de Final",
                     "path": "/inscripciones/mesa-final",
@@ -114,7 +114,7 @@ def build_menu(role: str):
             "items": [
                 {"label": "Estudiantes", "path": "/estudiantes", "icon": "users", "roles": ["Secretaría","Admin","Bedel"]},
                 {"label": "Docentes", "path": "/docentes", "icon": "user", "roles": ["Secretaría","Admin"]},
-                {"label": "Nuevo Docente", "path": "/personas/docentes/nuevo", "icon": "plus", "roles": ["Secretaría","Admin"]},
+                {"label": "Nuevo Docente", "path": "/personas/docentes/nuevo", "icon": "user-plus", "roles": ["Secretaría","Admin"]},
             ],
         },
 

@@ -1,0 +1,52 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}Inscribir a Mesa de Final{% endblock %}
+
+{% block content %}
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold tracking-tight">Inscribir a Mesa de Final</h1>
+      <p class="text-sm text-slate-500">Pantalla en construcción. Acá vamos a buscar estudiante, elegir espacio y mesa/llamado.</p>
+    </div>
+    <a href="javascript:history.back()"
+       class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+      Volver
+    </a>
+  </div>
+
+  <div class="rounded-2xl border border-dashed border-slate-300 p-6 bg-white space-y-6">
+    <div class="flex items-center gap-3 text-slate-600">
+      {# {% icon "hammer" "w-5 h-5" %} #}
+      <div>
+        <div class="font-medium">Próximamente</div>
+        <div class="text-sm text-slate-500">
+          Buscar estudiante, validar correlativas y confirmar la inscripción al final.
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="rounded-xl border border-slate-200 p-4">
+        <div class="text-sm font-medium mb-2">Búsqueda de estudiante</div>
+        <input type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2"
+               placeholder="DNI, Legajo o Apellido…">
+      </div>
+
+      <div class="rounded-xl border border-slate-200 p-4">
+        <div class="text-sm font-medium mb-2">Seleccionar Final</div>
+        <div class="grid grid-cols-2 gap-2">
+          <select class="rounded-lg border border-slate-300 px-3 py-2">
+            <option>Profesorado…</option>
+          </select>
+          <select class="rounded-lg border border-slate-300 px-3 py-2">
+            <option>Espacio curricular…</option>
+          </select>
+          <select class="rounded-lg border border-slate-300 px-3 py-2 col-span-2">
+            <option>Mesa / Llamado…</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

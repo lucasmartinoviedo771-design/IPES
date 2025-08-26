@@ -1,0 +1,29 @@
+{% extends "ui/base.html" %}
+{% load static %}
+
+{% block title %}Inscribir a Carrera{% endblock %}
+
+{% block content %}
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-xl md:text-2xl font-semibold tracking-tight">Inscribir a Carrera</h1>
+      <p class="text-sm text-slate-500">Pantalla en construcción. Aquí va el formulario de inscripción a carrera.</p>
+    </div>
+    <a href="javascript:history.back()"
+       class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50">
+      Volver
+    </a>
+  </div>
+
+  <div class="rounded-2xl border border-dashed border-slate-300 p-6 bg-white">
+    <div class="flex items-center gap-3 text-slate-600">
+      {# {% icon "hammer" "w-5 h-5" %} #}
+      <div>
+        <div class="font-medium">Próximamente</div>
+        <div class="text-sm text-slate-500">
+          Esta vista se convertirá en un formulario (CreateView) que creará <code>InscripcionCarrera</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

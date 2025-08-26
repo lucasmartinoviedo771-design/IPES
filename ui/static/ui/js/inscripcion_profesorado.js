@@ -1,81 +1,72 @@
-// ui/static/ui/js/inscripcion_profesorado.js
 (function () {
-  // util: agrega o quita hidden / d-none (funciona con ambos estilos)
-  function setHidden(el, hide) {
-    if (!el) return;
-    if (hide) {
-      el.classList.add('hidden');    // Tailwind
-      el.classList.add('d-none');    // Bootstrap
-    } else {
-      el.classList.remove('hidden');
-      el.classList.remove('d-none');
-    }
+  function $(sel) { return document.querySelector(sel); }
+  function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
+
+  const chkLegal = $('#titulo_secundario_legalizado');
+  const chkTramite = $('#titulo_en_tramite');
+  // tolera ambos ids (por si existe el plural en alguna plantilla vieja)
+  const chkAdeuda = $('#adeuda_materia') || $('#adeuda_materias');
+  const adeudaBlock = $('#adeuda_fields');
+  const adeudaInputs = $all('#adeuda_fields input, #adeuda_fields select, #adeuda_fields textarea');
+
+  const hiddenCond = $('#id_condicion');
+  const badge = $('#condicion_badge');
+
+  if (!chkAdeuda) {
+    console.warn('[inscripcion_profesorado] No encontré #adeuda_materia. Revisar ID en la plantilla.');
+    return;
   }
 
-  // Mostrar/ocultar bloque "Adeuda materia"
-  function wireAdeuda() {
-    var chk = document.getElementById('adeuda_materia');
-    var box = document.getElementById('adeuda_fields');
-    if (!chk || !box) return;
-    var inputs = box.querySelectorAll('input,select,textarea');
+  function toggleAdeuda() {
+    const on = chkAdeuda.checked;
+    if (!adeudaBlock) return;
 
-    function sync() {
-      var on = !!chk.checked;
-      setHidden(box, !on);
-      inputs.forEach(function (i) {
-        i.disabled = !on;
-        if (!on) i.value = '';
-      });
-    }
-    chk.addEventListener('change', sync);
-    sync(); // primera carga
-  }
+    adeudaBlock.classList.toggle('d-none', !on);
+    adeudaBlock.classList.toggle('hidden', !on);
 
-  // Cálculo de condición (ajustá reglas si querés)
-  // - Regular: título legalizado y NO adeuda
-  // - Condicional: título en trámite O adeuda
-  // - Libre: todo lo demás
-  function wireCondicion() {
-    var idCond = document.getElementById('id_condicion');          // hidden o input
-    var badge  = document.getElementById('condicion_badge');       // badge visual (opcional)
-
-    // checkboxes
-    var chkLegal   = document.getElementById('titulo_secundario_legalizado');
-    var chkTramite = document.getElementById('titulo_en_tramite');
-    var chkAdeuda  = document.getElementById('adeuda_materia');
-
-    if (!idCond && !badge) return; // si no hay a dónde escribir, no cablear
-
-    function calcular() {
-      var legal   = !!(chkLegal && chkLegal.checked);
-      var tramite = !!(chkTramite && chkTramite.checked);
-      var adeuda  = !!(chkAdeuda && chkAdeuda.checked);
-
-      var r = 'Libre';
-      if (legal && !adeuda) {
-        r = 'Regular';
-      } else if (tramite || adeuda) {
-        r = 'Condicional';
-      }
-
-      if (idCond) idCond.value = r;
-      if (badge) {
-        badge.textContent = r;
-        badge.dataset.condicion = r.toLowerCase(); // por si querés estilizar por data-attr
-      }
-    }
-
-    ['change', 'input'].forEach(function (ev) {
-      [chkLegal, chkTramite, chkAdeuda].forEach(function (el) {
-        if (el) el.addEventListener(ev, calcular);
-      });
+    adeudaInputs.forEach(inp => {
+      inp.disabled = !on;
+      if (!on) inp.value = '';
     });
-
-    calcular(); // primera carga
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    wireAdeuda();
-    wireCondicion();
+  function setBadge(cond) {
+    hiddenCond.value = cond;
+
+    if (!badge) return;
+    badge.textContent = cond;
+
+    const map = {
+      'Regular': 'text-bg-success',
+      'Condicional': 'text-bg-warning',
+      'Libre': 'text-bg-secondary'
+    };
+    badge.classList.remove('text-bg-success', 'text-bg-warning', 'text-bg-secondary');
+    badge.classList.add(map[cond] || 'text-bg-secondary');
+    badge.dataset.condicion = cond.toLowerCase();
+  }
+
+  function calcular() {
+    const legal = chkLegal?.checked || false;
+    const tramite = chkTramite?.checked || false;
+    const adeuda = chkAdeuda?.checked || false;
+
+    let cond = 'Libre';
+    if (legal && !adeuda) cond = 'Regular';
+    else if (tramite || adeuda) cond = 'Condicional';
+
+    setBadge(cond);
+  }
+
+  // Bind
+  [chkLegal, chkTramite, chkAdeuda].forEach(chk => {
+    if (chk) chk.addEventListener('change', () => {
+      toggleAdeuda();
+      calcular();
+    });
   });
+
+  // Estado inicial
+  toggleAdeuda();
+  calcular();
 })();

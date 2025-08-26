@@ -1,4 +1,3 @@
-# ui/urls.py (extracto)
 from django.urls import path
 from . import views
 
@@ -15,15 +14,15 @@ urlpatterns = [
     path("personas/docentes/nuevo", views.NuevoDocenteView.as_view(), name="docente_nuevo"),
 
     # Inscripciones
-    path("inscripciones/profesorado", views.InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
     path("inscripciones/carrera", views.InscribirCarreraView.as_view(), name="inscribir_carrera"),
     path("inscripciones/materia", views.InscribirMateriaView.as_view(), name="inscribir_materia"),
     path("inscripciones/mesa-final", views.InscribirFinalView.as_view(), name="inscribir_final"),
+    path("inscripciones/profesorado", views.InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
 
-    # Calificaciones
-    path("calificaciones/cargar", views.CargarNotasView.as_view(), name="cargar_notas"),
+    # Cartón e Histórico del Estudiante
+    path("estudiante/carton", views.CartonEstudianteView.as_view(), name="carton_estudiante"),
+    path("estudiante/historico", views.HistoricoEstudianteView.as_view(), name="historico_estudiante"),
 
-    # Estudiante
-    path("estudiante/historico/", views.CartonEstudianteView.as_view(), name="estudiante_historico"),
-    path("estudiante/carton", views.CartonEstudianteView.as_view(), name="estudiante_carton"),
+    # Opcional: Cambiar rol
+    path("cambiar-rol", views.SwitchRoleView.as_view(), name="switch_role"),
 ]
