@@ -1,88 +1,97 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Group
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.models import Group, Permission
 
+# Mapeo de grupos -> lista de codenames (SOLO codenames, sin app_label)
+# Esto hace que funcione aunque tu app NO se llame "academia_core".
 GROUPS = {
-    "Admin": ["*"],
+    "Admin": ["*"],  # todos los permisos
 
     "Secretaría": [
         # Periodos/Ventanas
-        "academia_core.view_periodo", "academia_core.add_periodo", "academia_core.change_periodo",
-        "academia_core.view_ventana", "academia_core.add_ventana", "academia_core.change_ventana",
+        "view_periodo", "add_periodo", "change_periodo",
+        "view_ventana", "add_ventana", "change_ventana",
+
         # Personas
-        "academia_core.view_estudiante", "academia_core.add_estudiante", "academia_core.change_estudiante",
-        "academia_core.view_docente", "academia_core.add_docente", "academia_core.change_docente",
+        "view_estudiante", "add_estudiante", "change_estudiante",
+        "view_docente", "add_docente", "change_docente",
+
         # Comisiones / Inscripciones / Calificaciones
-        "academia_core.view_comision", "academia_core.add_comision", "academia_core.change_comision",
-        "academia_core.view_inscripcionmateria", "academia_core.add_inscripcionmateria", "academia_core.change_inscripcionmateria",
-        "academia_core.view_calificacion", "academia_core.add_calificacion", "academia_core.change_calificacion",
-        # Custom (si los definiste en Meta.permissions)
-        "academia_core.open_close_windows",
-        "academia_core.enroll_others",
-        "academia_core.manage_correlatives",
-        "academia_core.publish_grades",
-        "academia_core.view_any_student_record",
-        "academia_core.edit_student_record",
+        "view_comision", "add_comision", "change_comision",
+        "view_inscripcionmateria", "add_inscripcionmateria", "change_inscripcionmateria",
+        "view_calificacion", "add_calificacion", "change_calificacion",
+
+        # CUSTOM (deben existir en Meta.permissions de algún modelo)
+        "open_close_windows",
+        "enroll_others",
+        "manage_correlatives",
+        "publish_grades",
+        "view_any_student_record",
+        "edit_student_record",
     ],
 
     "Bedel": [
-        # Personas
-        "academia_core.view_estudiante", "academia_core.add_estudiante", "academia_core.change_estudiante",  # 👈 ABM Estudiantes
-        "academia_core.view_docente",  # 👈 ver Docentes
+        # ABM Estudiantes + ver Docentes
+        "view_estudiante", "add_estudiante", "change_estudiante",
+        "view_docente",
 
-        # Inscripciones a terceros
-        "academia_core.view_inscripcionmateria", "academia_core.add_inscripcionmateria", "academia_core.change_inscripcionmateria",
-        "academia_core.enroll_others",  # 👈 custom si lo tenés
+        # Inscripciones a terceros (materias/mesas/carrera si existe ese modelo)
+        "view_inscripcionmateria", "add_inscripcionmateria", "change_inscripcionmateria",
+        "enroll_others",
+        "view_inscripcioncarrera", "add_inscripcioncarrera", "change_inscripcioncarrera",
 
-        # Calificaciones (borrador, sin publicar)
-        "academia_core.view_calificacion", "academia_core.add_calificacion", "academia_core.change_calificacion",
-        # (no agregar publish_grades para Bedel)
+        # Calificaciones en borrador (sin publicar)
+        "view_calificacion", "add_calificacion", "change_calificacion",
 
-        # Ver ficha/cartón de cualquiera
-        "academia_core.view_any_student_record",
+        # Ver cartón/histórico de cualquier estudiante
+        "view_any_student_record",
     ],
 
     "Docente": [
-        # Si Docente NO carga notas:
-        "academia_core.view_calificacion",
-        "academia_core.view_estudiante",
-        # (sin add/change calificacion, sin publish_grades)
+        # Según tu política actual, Docente NO carga notas.
+        "view_calificacion",
+        "view_estudiante",  # filtrarás “solo sus alumnos” en las vistas
     ],
 
     "Estudiante": [
-        "academia_core.enroll_self",
-        # Ver su propio historial se maneja en la vista (filtro por request.user)
+        # Inscribirse a sí mismo (custom)
+        "enroll_self",
+        # Ver su propia ficha: lo resolvés por vista (filtro por request.user)
     ],
 }
 
+
 class Command(BaseCommand):
-    help = "Sets up RBAC permissions for groups"
+    help = "Crea grupos y asigna permisos por codename (independiente del app_label)."
 
-    def handle(self, *args, **kwargs):
-        for group_name, permissions in GROUPS.items():
-            group, created = Group.objects.get_or_create(name=group_name)
-            if created:
-                self.stdout.write(self.style.SUCCESS(f"Created group: {group_name}"))
-            else:
-                self.stdout.write(f"OK group already exists: {group_name}")
+    def handle(self, *args, **options):
+        # Asegurar grupos
+        groups = {name: Group.objects.get_or_create(name=name)[0] for name in GROUPS.keys()}
 
-            # Clear existing permissions for the group
-            group.permissions.clear()
+        # Admin -> todos los permisos
+        if "*" in GROUPS["Admin"]:
+            all_perms = Permission.objects.all()
+            groups["Admin"].permissions.set(all_perms)
+            self.stdout.write(self.style.SUCCESS("Admin -> todos los permisos"))
+        else:
+            self._apply(groups["Admin"], GROUPS["Admin"])
 
-            for perm_codename in permissions:
-                if perm_codename == "*": # Wildcard for Admin
-                    for p in Permission.objects.all():
-                        group.permissions.add(p)
-                    self.stdout.write(f"  Added all permissions to {group_name}")
-                    break # No need to process other permissions for Admin
+        # Resto
+        for gname, codenames in GROUPS.items():
+            if gname == "Admin":
+                continue
+            self._apply(groups[gname], codenames)
 
-                try:
-                    app_label, codename = perm_codename.split(".")
-                    permission = Permission.objects.get(codename=codename, content_type__app_label=app_label)
-                    group.permissions.add(permission)
-                    self.stdout.write(f"  Added permission {perm_codename} to {group_name}")
-                except Permission.DoesNotExist:
-                    self.stdout.write(self.style.WARNING(f"  Permission not found: {perm_codename}"))
-                except ValueError:
-                    self.stdout.write(self.style.WARNING(f"  Invalid permission format: {perm_codename}"))
+        self.stdout.write(self.style.SUCCESS("RBAC sincronizado."))
+
+    def _apply(self, group: Group, codenames: list[str]):
+        resolved = []
+        for code in codenames:
+            found = list(Permission.objects.filter(codename=code))
+            if not found:
+                self.stdout.write(self.style.WARNING(f"Permiso no encontrado (codename): {code}"))
+                continue
+            resolved.extend(found)
+            for p in found:
+                self.stdout.write(f"  OK {group.name} + {p.content_type.app_label}.{p.codename}")
+        group.permissions.set(resolved)
+        self.stdout.write(self.style.SUCCESS(f"Asignados {len(resolved)} permisos a {group.name}"))
