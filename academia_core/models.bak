@@ -1,0 +1,20 @@
+class CorePerms(models.Model):
+    """
+    Proxy para declarar permisos custom de la app sin crear tablas.
+    """
+    class Meta:
+        proxy = True
+        default_permissions = ()  # no queremos add/change/delete/view para este proxy
+        permissions = [
+            ("open_close_windows", "Puede abrir/cerrar ventanas de inscripción"),
+            ("enroll_self", "Puede inscribirse a sí mismo"),
+            ("enroll_others", "Puede inscribir a terceros"),
+            ("manage_correlatives", "Puede gestionar correlatividades"),
+            ("publish_grades", "Puede publicar calificaciones"),
+            ("view_any_student_record", "Puede ver ficha/cartón de cualquier estudiante"),
+            ("edit_student_record", "Puede editar ficha/cartón de estudiantes"),
+            # si vas a usar Inscripción a Carrera como entidad separada:
+            ("view_inscripcioncarrera", "Puede ver inscripciones a carrera"),
+            ("add_inscripcioncarrera", "Puede crear inscripciones a carrera"),
+            ("change_inscripcioncarrera", "Puede editar inscripciones a carrera"),
+        ]
