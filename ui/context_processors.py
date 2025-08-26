@@ -26,6 +26,8 @@ def _role_from_user(user) -> str:
         return "Admin"
     if "secretaria" in group_names or "secretaría" in group_names:
         return "Secretaría"
+    if "bedel" in group_names or "bedeles" in group_names:
+        return "Bedel"
     if "docente" in group_names:
         return "Docente"
     if "estudiante" in group_names:

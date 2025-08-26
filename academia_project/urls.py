@@ -3,18 +3,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib.auth import views as auth_views
+from ui.auth_views import RoleAwareLoginView  # 👈
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-
-    # Auth "clásico" de Django, con nuestros templates
-    path("accounts/login/", auth_views.LoginView.as_view(
-        template_name="ui/auth/login.html"
-    ), name="login"),
-    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
-
-    # UI
+    path("accounts/login/", RoleAwareLoginView.as_view(), name="login"),  # 👈
+    path("accounts/logout/", __import__("django.contrib.auth.views", fromlist=["LogoutView"]).LogoutView.as_view(), name="logout"),
     path("", include("ui.urls")),
 ]
 
