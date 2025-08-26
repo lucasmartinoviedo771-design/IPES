@@ -1,158 +1,86 @@
 # ui/menu.py
 
-# === Datos mock (se usan en badges del menú / dashboard) ===
-demo = {
-    "resumen": {
-        "estudiantes": 3,
-        "docentes": 9,
-        "espacios": 349,
-        "inscCarrera": 1,
-        "inscMateria": 0,
+# Estructura: lista de secciones. Cada sección tiene un título y sus items.
+# Usamos rutas absolutas (strings) para evitar errores de reverse si las views aún son “stub”.
+
+BEDEL_MENU = [
+    {
+        "title": "INICIO",
+        "items": [
+            {"label": "Dashboard", "path": "/dashboard", "icon": "home"},
+        ],
     },
-    "ventanas": {
-        "materia": {"abierto": True, "hasta": "12/03 23:59"},
-        "final": {"abierto": False, "desde": "18/03 08:00"},
+    {
+        "title": "ACADÉMICO",
+        "items": [
+            # Bedel SÍ inscribe carrera
+            {"label": "Inscribir a Carrera", "path": "/inscripciones/carrera", "icon": "check"},
+            {"label": "Inscribir a Materias", "path": "/inscripciones/materia", "icon": "book-plus", "badge": {"text": "Abierto", "tone": "success"}},
+            {"label": "Inscribir a Mesa de Final", "path": "/inscripciones/mesa-final", "icon": "calendar-x", "badge": {"text": "Cerrado", "tone": "danger"}},
+            {"label": "Cartón", "path": "/carton", "icon": "id-card"},
+            {"label": "Histórico", "path": "/historico", "icon": "clock"},
+        ],
     },
-}
+    {
+        "title": "PLANIFICACIÓN",
+        "items": [
+            {"label": "Horarios", "path": "/horarios", "icon": "clock"},
+            {"label": "Espacios Curriculares", "path": "/espacios", "icon": "layers"},
+            {"label": "Planes de Estudio", "path": "/planes", "icon": "map"},
+        ],
+    },
+    {
+        "title": "PERSONAS",
+        "items": [
+            {"label": "Estudiantes", "path": "/estudiantes", "icon": "users"},
+            {"label": "Docentes", "path": "/docentes", "icon": "user"},
+            {"label": "Nuevo Estudiante", "path": "/personas/estudiantes/nuevo", "icon": "user-plus"},
+        ],
+    },
+    {
+        "title": "AYUDA",
+        "items": [
+            {"label": "Documentación", "path": "/docs", "icon": "book"},
+        ],
+    },
+]
 
-def build_menu(role: str):
-    """
-    Construye el menú por secciones.
-    - Se puede filtrar por sección (section["roles"])
-    - Y/o por ítem (item["roles"])
-    Si no se especifica "roles" ni en sección ni en ítem, el elemento es visible para todos.
-    """
+# Secretaría y Admin ven lo mismo que Bedel + (si tenés) extras.
+SECRETARIA_MENU = BEDEL_MENU
+ADMIN_MENU = BEDEL_MENU
 
-    sections = [
-        # ===== INICIO =====
-        {
-            "label": "INICIO",
-            "items": [
-                # Dashboard: NO para Estudiante
-                {
-                    "label": "Dashboard",
-                    "path": "/dashboard",
-                    "icon": "speedometer",
-                    "roles": ["Secretaría", "Admin", "Docente", "Bedel"],
-                },
-            ],
-        },
+# Docente y Estudiante (si los necesitás ahora) — simplificados
+DOCENTE_MENU = [
+    {
+        "title": "INICIO",
+        "items": [{"label": "Dashboard", "path": "/dashboard", "icon": "home"}],
+    },
+]
+ESTUDIANTE_MENU = [
+    {
+        "title": "INICIO",
+        "items": [{"label": "Dashboard", "path": "/dashboard", "icon": "home"}],
+    },
+    {
+        "title": "TRAYECTORIA",
+        "items": [
+            {"label": "Cartón", "path": "/carton", "icon": "id-card"},
+            {"label": "Histórico", "path": "/historico", "icon": "clock"},
+        ],
+    },
+]
 
-        # ===== ACADÉMICO =====
-        {
-            "label": "Académico",
-            "items": [
-                {
-                    "label": "Nuevo Estudiante",
-                    "path": "/personas/estudiantes/nuevo",
-                    "icon": "user-plus",
-                    "roles": ["Secretaría", "Admin", "Bedel"],
-                },
-                {
-                    "label": "Inscripción en Profesorado",
-                    "path": "/inscripciones/profesorado",
-                    "icon": "graduation-cap",
-                    "roles": ["Secretaría", "Admin", "Bedel"],
-                },
-                { "label": "Inscribir a Carrera", "path": "/inscripciones/carrera", "icon": "check", "roles": ["Secretaría","Admin","Bedel"] },
-                                                { "label": "Inscribir a Materia", "path": "/inscripciones/materia", "icon": "book-check", "roles": ["Secretaría","Admin","Bedel"] }
-                {
-                    "label": "Inscribir a Mesa de Final",
-                    "path": "/inscripciones/mesa-final",
-                    "icon": "calendar",
-                    "badge": "Abierto" if demo["ventanas"]["final"]["abierto"] else "Cerrado",
-                    "roles": ["Secretaría", "Admin", "Bedel", "Estudiante"],
-                },
-                {
-                    "label": "Cargar Notas",
-                    "path": "/calificaciones/cargar",
-                    "icon": "pencil",
-                    "roles": ["Secretaría", "Admin", "Bedel"],
-                },
-                {
-                    "label": "Regularidades",
-                    "path": "/calificaciones/regularidades",
-                    "icon": "shield",
-                    "roles": ["Secretaría", "Admin"],
-                },
-                {
-                    "label": "Correlatividades",
-                    "path": "/correlatividades",
-                    "icon": "diagram",
-                    "roles": ["Secretaría", "Admin"],
-                },
-                {
-                    "label": "Cartón",
-                    "path": "/estudiante/carton",
-                    "icon": "file-text",
-                    "roles": ["Estudiante", "Bedel", "Secretaría", "Admin"],
-                },
-                {
-                    "label": "Histórico",
-                    "path": "/estudiante/historico",
-                    "icon": "clock",
-                    "roles": ["Estudiante", "Bedel", "Secretaría", "Admin"],
-                },
-            ],
-        },
-
-        # ===== PLANIFICACIÓN =====
-        {
-            "label": "PLANIFICACIÓN",
-            "roles": ["Secretaría", "Admin", "Bedel"],
-            "items": [
-                {"label": "Horarios", "path": "/horarios", "icon": "calendar"},
-                {"label": "Espacios Curriculares", "path": "/espacios", "icon": "book"},
-                {"label": "Planes de Estudio", "path": "/planes", "icon": "layers"},
-            ],
-        },
-
-        # ===== PERSONAS =====
-        {
-            "label": "PERSONAS",
-            "roles": ["Secretaría", "Admin", "Bedel"],
-            "items": [
-                {"label": "Estudiantes", "path": "/estudiantes", "icon": "users", "roles": ["Secretaría","Admin","Bedel"]},
-                {"label": "Docentes", "path": "/docentes", "icon": "user", "roles": ["Secretaría","Admin"]},
-                {"label": "Nuevo Docente", "path": "/personas/docentes/nuevo", "icon": "user-plus", "roles": ["Secretaría","Admin"]},
-            ],
-        },
-
-        # ===== ADMINISTRACIÓN =====
-        {
-            "label": "ADMINISTRACIÓN",
-            "roles": ["Admin"],
-            "items": [
-                {"label": "Periodos y Fechas", "path": "/periodos", "icon": "hourglass"},
-                {"label": "Usuarios y Permisos", "path": "/usuarios", "icon": "lock"},
-                {"label": "Parámetros", "path": "/parametros", "icon": "gear"},
-                {"label": "Auditoría", "path": "/auditoria", "icon": "history"},
-            ],
-        },
-
-        # ===== AYUDA =====
-        {
-            "label": "AYUDA",
-            "items": [{"label": "Documentación", "path": "/ayuda", "icon": "help"}],
-        },
-    ]
-
-    def section_allowed(section) -> bool:
-        return ("roles" not in section) or (role in section["roles"])
-
-    def filter_items(items):
-        out = []
-        for it in items:
-            if ("roles" not in it) or (role in it["roles"]):
-                out.append(it)
-        return out
-
-    result = []
-    for sec in sections:
-        if not section_allowed(sec):
-            continue
-        filtered = filter_items(sec["items"])
-        if filtered:  # solo mostramos secciones con al menos un item
-            result.append({"label": sec["label"], "items": filtered})
-
-    return result
+def for_role(role: str | None):
+    role = (role or "").strip()
+    if role == "Admin":
+        return ADMIN_MENU
+    if role == "Secretaría":
+        return SECRETARIA_MENU
+    if role == "Bedel":
+        return BEDEL_MENU
+    if role == "Docente":
+        return DOCENTE_MENU
+    if role == "Estudiante":
+        return ESTUDIANTE_MENU
+    # Fallback sensato
+    return ESTUDIANTE_MENU
