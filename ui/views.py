@@ -1,6 +1,7 @@
 # ui/views.py
 from django.shortcuts import redirect
 from django.views.generic import TemplateView
+from django.utils.timezone import localdate
 
 from .mixins import RoleRequiredMixin
 from .context_processors import role_from_request
@@ -18,7 +19,7 @@ class HomeView(RoleRequiredMixin, TemplateView):
     def dispatch(self, request, *args, **kwargs):
         role = role_from_request(request)
         if role == "Estudiante":
-            return redirect("ui:carton_estudiante")
+            return redirect("ui:estudiante_carton")
         return redirect("ui:dashboard")
 
 
@@ -46,11 +47,6 @@ class PlaceholderView(RoleRequiredMixin, TemplateView):
 # ========== MI TRAYECTORIA (Estudiante) ==========
 class EstudianteHistoricoView(PlaceholderView):
     page_title = "Histórico de Movimientos"
-    allowed_roles = ["Estudiante"]
-
-
-class EstudianteCartonView(PlaceholderView):
-    page_title = "Cartón / Trayectoria"
     allowed_roles = ["Estudiante"]
 
 
@@ -146,17 +142,18 @@ class AyudaView(PlaceholderView):
 # ui/views.py  (añadir al final del archivo)
 from django.apps import apps
 from django.contrib import messages
-from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin, LoginRequiredMixin
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, TemplateView
 
 from .forms import (
-    EstudianteForm,
     InscripcionCarreraForm,
     InscripcionMateriaForm,
     InscripcionFinalForm,
     CalificacionBorradorForm,
+    NuevoEstudianteForm,
+    NuevoDocenteForm,
 )
 from .context_processors import role_from_request
 from .menu import demo  # para tarjetas del dashboard si lo necesitás
@@ -283,17 +280,232 @@ class CargarNotasView(PermissionRequiredMixin, CreateView):
 
 # ============ Estudiante - Histórico / Cartón ============
 
-class HistoricoEstudianteView(PermissionRequiredMixin, TemplateView):
-    """
-    Cualquier Estudiante ve su histórico; Bedel/Secretaría/Admin pueden ver de terceros.
-    (En la próxima iteración traemos la data real).
-    """
-    permission_required = "academia_core.view_any_student_record"
-    template_name = "ui/estudiante/historico.html"
+def _safe(obj, attr, default="—"):
+    try:
+        val = getattr(obj, attr)
+        if callable(val):
+            val = val()
+        return val if val not in (None, "") else default
+    except Exception:
+        return default
+
+def _fmt_date(d):
+    try:
+        return d.strftime("%d/%m/%Y") if d else "—"
+    except Exception:
+        return "—"
 
 class CartonEstudianteView(PermissionRequiredMixin, TemplateView):
+    permission_required = "academia_core.view_any_student_record"
+    template_name = "ui/estudiante/carton.html"
+
+    def has_permission(self):
+        # Si tiene el permiso (Bedel/Secretaría/Admin), ok
+        if super().has_permission():
+            return True
+        # Si es el propio estudiante, también ok
+        est = getattr(self, "_resolved_est", None) or self.resolve_estudiante()
+        self._resolved_est = est
+        if not self.request.user.is_authenticated or not est:
+            return False
+
+        UserProfile = m("academia_core", "Userprofile") or m("academia_core", "UserProfile")
+        if not UserProfile:
+            return False
+        try:
+            up = UserProfile.objects.select_related("estudiante").get(user=self.request.user)
+            return bool(getattr(up, "estudiante_id", None) == getattr(est, "id", None))
+        except UserProfile.DoesNotExist:
+            return False
     """
-    'Cartón' = trayectoria consolidada. De momento placeholder con estructura.
+    'Cartón' = trayectoria consolidada (Regular + Mesas Finales).
+    Permisos: Bedel/Secretaría/Admin -> cualquier estudiante (via ?est=<id>)
+              Estudiante -> el propio (si tiene perfil vinculado).
     """
     permission_required = "academia_core.view_any_student_record"
     template_name = "ui/estudiante/carton.html"
+
+    def resolve_estudiante(self):
+        Estudiante = m("academia_core", "Estudiante")
+        UserProfile = m("academia_core", "Userprofile") or m("academia_core", "UserProfile")
+        if not Estudiante:
+            return None
+
+        # 1) ?est=<id>
+        est_id = self.request.GET.get("est")
+        if est_id:
+            return Estudiante.objects.filter(pk=est_id).first()
+
+        # 2) ?dni=<dni>
+        dni = self.request.GET.get("dni")
+        if dni and hasattr(Estudiante, "_meta") and "dni" in [f.name for f in Estudiante._meta.fields]:
+            est = Estudiante.objects.filter(dni=dni).first()
+            if est:
+                return est
+
+        # 3) ?legajo=<legajo>
+        legajo = self.request.GET.get("legajo")
+        if legajo and hasattr(Estudiante, "_meta") and "legajo" in [f.name for f in Estudiante._meta.fields]:
+            est = Estudiante.objects.filter(legajo=legajo).first()
+            if est:
+                return est
+
+        # 4) Usuario Estudiante vinculado a su perfil
+        if self.request.user.is_authenticated and UserProfile:
+            try:
+                up = UserProfile.objects.select_related("estudiante").get(user=self.request.user)
+                return getattr(up, "estudiante", None)
+            except UserProfile.DoesNotExist:
+                return None
+
+        return None
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        est = self.resolve_estudiante()
+        ctx["today"] = localdate()
+
+        if not est:
+            ctx["error"] = "No se pudo resolver el Estudiante. Pasá ?est=<ID> o vinculá el perfil."
+            return ctx
+
+        ctx["est"] = est
+
+        # Modelos que intentamos usar
+        InsEsp = m("academia_core", "Inscripcionespacio")
+        InsFinal = m("academia_core", "Inscripcionfinal")
+        Calif = m("academia_core", "Calificacion")
+        Espacio = m("academia_core", "Espaciocurricular")
+
+        # --- Regular (inscripciones a cursado / condición “Regular/Libre/Promo”, etc.)
+        reg_rows = []
+        if InsEsp:
+            qs = (
+                InsEsp.objects
+                .select_related("espacio", "inscripcion__estudiante")  # traverse
+                .filter(inscripcion__estudiante=est)                   # traverse
+                .order_by("id")
+            )
+            for ins in qs:
+                espacio = _safe(ins, "espacio")
+                nombre = _safe(espacio, "nombre") if espacio != "—" else "—"
+                # Campos tipo anio/cuatrimestre si existen; si no, vacíos
+                anio = _safe(espacio, "anio", "")
+                cuatri = _safe(espacio, "cuatrimestre", "")
+                fecha = _fmt_date(_safe(ins, "fecha", None))
+                condicion = _safe(ins, "estado", _safe(ins, "condicion", "—"))  # según tu modelo
+                # si hay calificación (parcial/promoción) asociada
+                nota = "—"
+                if Calif:
+                    try:
+                        cal = Calif.objects.filter(inscripcion=ins).order_by("-id").first()
+                        if cal:
+                            nota = _safe(cal, "nota", "—")
+                    except Exception:
+                        pass
+
+                reg_rows.append({
+                    "anio": anio,
+                    "cuatri": cuatri,
+                    "espacio": nombre,
+                    "fecha": fecha,
+                    "condicion": condicion,
+                    "nota": nota,
+                })
+
+        # --- Mesas Finales
+        final_rows = []
+        if InsFinal:
+            qs = (
+                InsFinal.objects
+                .select_related("inscripcion_cursada__espacio", "inscripcion_cursada__inscripcion__estudiante")
+                .filter(inscripcion_cursada__inscripcion__estudiante=est)
+                .order_by("id")
+            )
+            for ins in qs:
+                espacio = _safe(ins, "espacio")
+                nombre = _safe(espacio, "nombre") if espacio != "—" else "—"
+                anio = _safe(espacio, "anio", "")
+                cuatri = _safe(espacio, "cuatrimestre", "")
+                fecha = _fmt_date(_safe(ins, "fecha", None))
+                condicion = _safe(ins, "condicion", _safe(ins, "estado", "—"))
+                nota = _safe(ins, "nota", "—")
+
+                # Folio/Libro si existen en el modelo de final o acta
+                folio = _safe(ins, "folio", "—")
+                libro = _safe(ins, "libro", "—")
+
+                final_rows.append({
+                    "anio": anio,
+                    "cuatri": cuatri,
+                    "espacio": nombre,
+                    "fecha": fecha,
+                    "condicion": condicion,
+                    "nota": nota,
+                    "folio": folio,
+                    "libro": libro,
+                })
+
+        # Agrupación por año/cuatrimestre (sólo para separadores)
+        def group(rows):
+            out = {}
+            for r in rows:
+                key = (str(r.get("anio") or ""), str(r.get("cuatri") or ""))
+                out.setdefault(key, []).append(r)
+            return out
+
+        ctx["regular_groups"] = group(reg_rows)   # dict[(anio,cuatri)] = [rows]
+        ctx["final_groups"] = group(final_rows)
+
+        # stats rápidos (por ahora simplificados)
+        try:
+            aprob = [r for r in final_rows if str(r["nota"]).strip() not in ("—", "Ausente", "A", "0")]
+            ctx["stats"] = {"aprobadas": len(aprob), "cursando": len(reg_rows), "finales": len(final_rows)}
+        except Exception:
+            ctx["stats"] = {"aprobadas": 0, "cursando": len(reg_rows), "finales": len(final_rows)}
+
+        return ctx
+
+# ui/views.py  (solo el bloque nuevo)
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.urls import reverse_lazy
+from django.views.generic import CreateView
+from .forms import NuevoEstudianteForm, NuevoDocenteForm
+
+# Si ya tenés RoleRequiredMixin y/o allowed(), seguimos usándolos:
+
+class NuevoEstudianteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequiredMixin, CreateView):
+    """Alta de estudiantes: Bedel, Secretaría, Admin."""
+    permission_required = "academia_core.add_estudiante"
+    allowed_roles = ["Bedel", "Secretaría", "Admin"]
+    form_class = NuevoEstudianteForm
+    template_name = "ui/personas/estudiante_form.html"
+    # Redirigimos a la lista si la tenés, o quedamos en el alta:
+    success_url = reverse_lazy("estudiante_nuevo")
+
+    page_title = "Nuevo Estudiante"
+    section = "personas"
+
+    def form_valid(self, form):
+        obj = form.save()
+        messages.success(self.request, f"Estudiante creado: {obj}")
+        # Podés cambiar a reverse_lazy("estudiantes") si ya existe esa vista/listado
+        return super().form_valid(form)
+
+
+class NuevoDocenteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequiredMixin, CreateView):
+    """Alta de docentes: SOLO Secretaría y Admin."""
+    permission_required = "academia_core.add_docente"
+    allowed_roles = ["Secretaría", "Admin"]
+    form_class = NuevoDocenteForm
+    template_name = "ui/personas/docente_form.html"
+    success_url = reverse_lazy("docente_nuevo")
+
+    page_title = "Nuevo Docente"
+    section = "personas"
+
+    def form_valid(self, form):
+        obj = form.save()
+        messages.success(self.request, f"Docente creado: {obj}")
+        return super().form_valid(form)

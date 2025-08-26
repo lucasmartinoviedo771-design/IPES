@@ -15,7 +15,6 @@ demo = {
     },
 }
 
-
 def build_menu(role: str):
     """
     Construye el menú por secciones.
@@ -36,16 +35,6 @@ def build_menu(role: str):
                     "icon": "speedometer",
                     "roles": ["Secretaría", "Admin", "Docente", "Bedel"],
                 },
-            ],
-        },
-
-        # ===== MI TRAYECTORIA (solo Estudiante) =====
-        {
-            "label": "MI TRAYECTORIA",
-            "roles": ["Estudiante"],
-            "items": [
-                {"label": "Histórico", "path": "/mi/historico", "icon": "history"},
-                {"label": "Cartón", "path": "/mi/carton", "icon": "id"},
             ],
         },
 
@@ -92,6 +81,18 @@ def build_menu(role: str):
                     "icon": "diagram",
                     "roles": ["Secretaría", "Admin"],
                 },
+                {
+                    "label": "Cartón",
+                    "path": "/estudiante/carton",
+                    "icon": "file-text",
+                    "roles": ["Estudiante", "Bedel", "Secretaría", "Admin"],
+                },
+                {
+                    "label": "Histórico",
+                    "path": "/estudiante/historico",
+                    "icon": "clock",
+                    "roles": ["Estudiante", "Bedel", "Secretaría", "Admin"],
+                },
             ],
         },
 
@@ -111,14 +112,10 @@ def build_menu(role: str):
             "label": "PERSONAS",
             "roles": ["Secretaría", "Admin", "Bedel"],
             "items": [
-                {"label": "Estudiantes", "path": "/estudiantes", "icon": "mortarboard"},
-                {"label": "Docentes", "path": "/docentes", "icon": "id"},
-                {
-                    "label": "Nuevo Estudiante",
-                    "path": "/estudiantes/nuevo",
-                    "icon": "plus-circle",
-                    "roles": ["Secretaría", "Admin", "Bedel"],  # 👈 agregado Bedel
-                },
+                {"label": "Estudiantes", "path": "/estudiantes", "icon": "users", "roles": ["Secretaría","Admin","Bedel"]},
+                {"label": "Docentes", "path": "/docentes", "icon": "user", "roles": ["Secretaría","Admin"]},
+                {"label": "Nuevo Estudiante", "path": "/personas/estudiantes/nuevo", "icon": "plus", "roles": ["Secretaría","Admin","Bedel"]},
+                {"label": "Nuevo Docente", "path": "/personas/docentes/nuevo", "icon": "plus", "roles": ["Secretaría","Admin"]},
             ],
         },
 

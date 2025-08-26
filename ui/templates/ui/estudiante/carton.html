@@ -1,9 +1,194 @@
 {% extends "ui/base.html" %}
+{% load static %}
 {% block content %}
-<div class="card">
-  <div class="card-header"><h2 class="text-lg font-semibold">Cartón (Trayectoria)</h2></div>
-  <div class="card-body text-sm text-slate-600">
-    Placeholder del “Cartón”: materias aprobadas, notas, intentos, regularidades, libres, etc.
+
+{% if not est and perms.academia_core.view_any_student_record %}
+<form method="get" class="mb-4 flex items-center gap-2">
+  <input name="dni" placeholder="Buscar por DNI" class="border rounded px-3 py-2" />
+  <span class="text-slate-400">o</span>
+  <input name="est" placeholder="ID Estudiante" class="border rounded px-3 py-2 w-32" />
+  {# si usas legajo #}
+  <input name="legajo" placeholder="Legajo" class="border rounded px-3 py-2 w-40" />
+  <button class="px-4 py-2 rounded bg-brand-500 text-white">Buscar</button>
+</form>
+{% endif %}
+
+{% if error %}
+  <div class="card">
+    <div class="card-body text-rose-700">{{ error }}</div>
+  </div>
+{% else %}
+
+<!-- Header -->
+<div class="mb-4 flex items-center justify-between">
+  <div>
+    <h1 class="text-xl font-semibold tracking-tight">Cartón (Trayectoria)</h1>
+    <p class="text-sm text-slate-500">
+      Estudiante: <span class="font-medium">{{ est.apellido }} {{ est.nombre }}</span>
+      · DNI: {{ est.dni|default:"—" }}
+    </p>
+  </div>
+  <div class="flex gap-2">
+    <a href="javascript:window.print()" class="btn btn-outline">Imprimir</a>
   </div>
 </div>
+
+<!-- Resumen -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+  <div class="card"><div class="card-body">
+    <div class="text-xs text-slate-500">Materias Aprobadas (final)</div>
+    <div class="text-2xl font-semibold">{{ stats.aprobadas }}</div>
+  </div></div>
+  <div class="card"><div class="card-body">
+    <div class="text-xs text-slate-500">Cursadas (histórico)</div>
+    <div class="text-2xl font-semibold">{{ stats.cursando }}</div>
+  </div></div>
+  <div class="card"><div class="card-body">
+    <div class="text-xs text-slate-500">Finales Rendidos</div>
+    <div class="text-2xl font-semibold">{{ stats.finales }}</div>
+  </div></div>
+</div>
+
+<!-- Dos columnas -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+  <!-- REGULAR -->
+  <div class="card">
+    <div class="card-header"><h2 class="text-lg font-semibold">Regular</h2></div>
+    <div class="card-body overflow-auto">
+      {% if regular_groups %}
+        {% for key, rows in regular_groups.items %}
+          {% with anio=key.0 cuatri=key.1 %}
+          <div class="mt-4 first:mt-0">
+            <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-2">
+              <span class="badge">{{ anio|default:"" }}</span>
+              <span class="badge">{{ cuatri|default:"" }}</span>
+            </div>
+            <table class="table w-full">
+              <thead class="sticky top-0 bg-white">
+                <tr>
+                  <th class="w-2/5">Espacio Curricular</th>
+                  <th>Fecha</th>
+                  <th>Condición</th>
+                  <th>Nota</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                <tr>
+                  <td>{{ r.espacio }}</td>
+                  <td>{{ r.fecha }}</td>
+                  <td>
+                    {% with c=r.condicion|lower %}
+                      <span class="badge
+                        {% if "regular" in c %}badge-success{% elif "libre" in c %}badge-danger{% elif "promo" in c %}badge-primary{% else %}badge-muted{% endif %}">
+                        {{ r.condicion }}
+                      </span>
+                    {% endwith %}
+                  </td>
+                  <td>
+                    {% with n=r.nota|stringformat:"s"|lower %}
+                      <span class="badge
+                        {% if n == "—" or "ausente" in n %}badge-muted
+                        {% elif n|floatformat:"0" >= "6" %}badge-success
+                        {% else %}badge-warning{% endif %}">
+                        {{ r.nota }}
+                      </span>
+                    {% endwith %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endwith %}
+        {% endfor %}
+      {% else %}
+        <div class="text-sm text-slate-500">Sin datos de cursado.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- MESAS FINALES -->
+  <div class="card">
+    <div class="card-header"><h2 class="text-lg font-semibold">Mesas Finales</h2></div>
+    <div class="card-body overflow-auto">
+      {% if final_groups %}
+        {% for key, rows in final_groups.items %}
+          {% with anio=key.0 cuatri=key.1 %}
+          <div class="mt-4 first:mt-0">
+            <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-500 mb-2">
+              <span class="badge">{{ anio|default:"" }}</span>
+              <span class="badge">{{ cuatri|default:"" }}</span>
+            </div>
+            <table class="table w-full">
+              <thead class="sticky top-0 bg-white">
+                <tr>
+                  <th class="w-2/5">Espacio Curricular</th>
+                  <th>Fecha</th>
+                  <th>Condición</th>
+                  <th>Nota</th>
+                  <th>Folio</th>
+                  <th>Libro</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                <tr>
+                  <td>{{ r.espacio }}</td>
+                  <td>{{ r.fecha }}</td>
+                  <td>
+                    {% with c=r.condicion|lower %}
+                      <span class="badge
+                        {% if "regular" in c or "aprob" in c %}badge-success
+                        {% elif "ausente" in c %}badge-muted
+                        {% elif "libre" in c %}badge-danger
+                        {% else %}badge-muted{% endif %}">
+                        {{ r.condicion }}
+                      </span>
+                    {% endwith %}
+                  </td>
+                  <td>
+                    {% with n=r.nota|stringformat:"s"|lower %}
+                      <span class="badge
+                        {% if n == "—" or "ausente" in n %}badge-muted
+                        {% elif n|floatformat:"0" >= "4" %}badge-success
+                        {% else %}badge-warning{% endif %}">
+                        {{ r.nota }}
+                      </span>
+                    {% endwith %}
+                  </td>
+                  <td>{{ r.folio }}</td>
+                  <td>{{ r.libro }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endwith %}
+        {% endfor %}
+      {% else %}
+        <div class="text-sm text-slate-500">Sin registros de mesa final.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  /* badges (ajusta a tu tailwind/estilos) */
+  .badge{display:inline-flex;align-items:center;padding:.125rem .5rem;border-radius:.5rem;font-size:.7rem;border:1px solid #e2e8f0;background:#f8fafc}
+  .badge-success{background:#ecfdf5;border-color:#86efac;color:#065f46}
+  .badge-warning{background:#fffbeb;border-color:#fcd34d;color:#92400e}
+  .badge-danger{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+  .badge-primary{background:#eff6ff;border-color:#93c5fd;color:#1e3a8a}
+  .badge-muted{background:#f8fafc;border-color:#e2e8f0;color:#475569}
+  /* simple print */
+  @media print {
+    .btn, .card-header { display: none !important; }
+    .card { box-shadow:none; border:0; }
+    table { page-break-inside:auto }
+    tr { page-break-inside:avoid; page-break-after:auto }
+  }
+</style>
+
+{% endif %}
 {% endblock %}

@@ -1,8 +1,10 @@
 {% extends "ui/base.html" %}
+{% load ui_extras %}
+
 {% block content %}
 <div class="card">
   <div class="card-header">
-    <h2 class="text-lg font-semibold">{{ view.__class__.__name__|cut:"View" }}</h2>
+    <h2 class="text-lg font-semibold">{{ view|classname|cut:"View" }}</h2>
   </div>
   <div class="card-body">
     {% if form is None %}
