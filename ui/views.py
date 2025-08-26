@@ -152,8 +152,9 @@ from .forms import (
     InscripcionMateriaForm,
     InscripcionFinalForm,
     CalificacionBorradorForm,
-    NuevoEstudianteForm,
+    EstudianteNuevoForm,
     NuevoDocenteForm,
+    InscripcionProfesoradoForm
 )
 from .context_processors import role_from_request
 from .menu import demo  # para tarjetas del dashboard si lo necesitás
@@ -193,15 +194,7 @@ class EstudianteDetailView(PermissionRequiredMixin, DetailView):
     template_name = "ui/estudiantes/detail.html"
     context_object_name = "obj"
 
-class EstudianteCreateView(PermissionRequiredMixin, CreateView):
-    permission_required = "academia_core.add_estudiante"
-    form_class = EstudianteForm
-    template_name = "ui/generic_form.html"
-    success_url = reverse_lazy("ui:estudiantes_list")
 
-    def form_valid(self, form):
-        messages.success(self.request, "Estudiante creado correctamente.")
-        return super().form_valid(form)
 
 # Docentes
 class DocenteListView(PermissionRequiredMixin, ListView):
@@ -471,15 +464,15 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
-from .forms import NuevoEstudianteForm, NuevoDocenteForm
+from .forms import EstudianteNuevoForm, NuevoDocenteForm
 
 # Si ya tenés RoleRequiredMixin y/o allowed(), seguimos usándolos:
 
-class NuevoEstudianteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequiredMixin, CreateView):
+class NuevoEstudianteView(PermissionRequiredMixin, RoleRequiredMixin, CreateView):
     """Alta de estudiantes: Bedel, Secretaría, Admin."""
     permission_required = "academia_core.add_estudiante"
     allowed_roles = ["Bedel", "Secretaría", "Admin"]
-    form_class = NuevoEstudianteForm
+    form_class = EstudianteNuevoForm
     template_name = "ui/personas/estudiante_form.html"
     # Redirigimos a la lista si la tenés, o quedamos en el alta:
     success_url = reverse_lazy("estudiante_nuevo")
@@ -494,7 +487,7 @@ class NuevoEstudianteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequi
         return super().form_valid(form)
 
 
-class NuevoDocenteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequiredMixin, CreateView):
+class NuevoDocenteView(PermissionRequiredMixin, RoleRequiredMixin, CreateView):
     """Alta de docentes: SOLO Secretaría y Admin."""
     permission_required = "academia_core.add_docente"
     allowed_roles = ["Secretaría", "Admin"]
@@ -509,3 +502,22 @@ class NuevoDocenteView(LoginRequiredMixin, PermissionRequiredMixin, RoleRequired
         obj = form.save()
         messages.success(self.request, f"Docente creado: {obj}")
         return super().form_valid(form)
+
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import CreateView
+from academia_core.models import EstudianteProfesorado
+
+class InscripcionProfesoradoView(RoleRequiredMixin, LoginRequiredMixin, CreateView):
+    model = EstudianteProfesorado
+    form_class = InscripcionProfesoradoForm
+    template_name = "ui/inscripciones/inscripcion_profesorado_form.html"
+    success_url = reverse_lazy("ui:dashboard")
+    allowed_roles = ["Secretaría", "Admin", "Bedel"]
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        est = self.request.GET.get("est")
+        if est:
+            kwargs["initial_estudiante"] = est
+        return kwargs

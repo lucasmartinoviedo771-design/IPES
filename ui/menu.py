@@ -40,34 +40,34 @@ def build_menu(role: str):
 
         # ===== ACADÉMICO =====
         {
-            "label": "ACADÉMICO",
+            "label": "Académico",
             "items": [
-                # Inscribir a Carrera: NO Estudiante
                 {
-                    "label": "Inscribir a Carrera",
-                    "path": "/inscripciones/carrera",
-                    "icon": "check",
-                    "roles": ["Secretaría", "Admin", "Bedel"],  # 👈 ahora Bedel también
+                    "label": "Nuevo Estudiante",
+                    "path": "/personas/estudiantes/nuevo",
+                    "icon": "user-plus",
+                    "roles": ["Secretaría", "Admin", "Bedel"],
                 },
                 {
-                    "label": "Inscribir a Materias",
-                    "path": "/inscripciones/materia",
-                    "icon": "grid",
-                    "badge": "Abierto" if demo["ventanas"]["materia"]["abierto"] else None,
-                    "roles": ["Secretaría", "Admin", "Bedel", "Estudiante"],  # 👈 agregado Bedel
+                    "label": "Inscripción en Profesorado",
+                    "path": "/inscripciones/profesorado",
+                    "icon": "graduation-cap",
+                    "roles": ["Secretaría", "Admin", "Bedel"],
                 },
+                { "label": "Inscribir a Carrera", "path": "/inscripciones/carrera", "icon": "check", "roles": ["Secretaría","Admin","Bedel"] },
+                { "label": "Inscribir a Materias", "path": "/inscripciones/materias", "icon": "book-plus", "roles": ["Secretaría","Admin","Bedel","Estudiante"] },
                 {
                     "label": "Inscribir a Mesa de Final",
                     "path": "/inscripciones/mesa-final",
                     "icon": "calendar",
                     "badge": "Abierto" if demo["ventanas"]["final"]["abierto"] else "Cerrado",
-                    "roles": ["Secretaría", "Admin", "Bedel", "Estudiante"],  # 👈 agregado Bedel
+                    "roles": ["Secretaría", "Admin", "Bedel", "Estudiante"],
                 },
                 {
                     "label": "Cargar Notas",
                     "path": "/calificaciones/cargar",
                     "icon": "pencil",
-                    "roles": ["Secretaría", "Admin", "Bedel"],  # 👈 Docente sale
+                    "roles": ["Secretaría", "Admin", "Bedel"],
                 },
                 {
                     "label": "Regularidades",
@@ -114,7 +114,6 @@ def build_menu(role: str):
             "items": [
                 {"label": "Estudiantes", "path": "/estudiantes", "icon": "users", "roles": ["Secretaría","Admin","Bedel"]},
                 {"label": "Docentes", "path": "/docentes", "icon": "user", "roles": ["Secretaría","Admin"]},
-                {"label": "Nuevo Estudiante", "path": "/personas/estudiantes/nuevo", "icon": "plus", "roles": ["Secretaría","Admin","Bedel"]},
                 {"label": "Nuevo Docente", "path": "/personas/docentes/nuevo", "icon": "plus", "roles": ["Secretaría","Admin"]},
             ],
         },

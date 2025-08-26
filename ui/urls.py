@@ -15,6 +15,7 @@ urlpatterns = [
     path("personas/docentes/nuevo", views.NuevoDocenteView.as_view(), name="docente_nuevo"),
 
     # Inscripciones
+    path("inscripciones/profesorado", views.InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
     path("inscripciones/carrera", views.InscribirCarreraView.as_view(), name="inscribir_carrera"),
     path("inscripciones/materia", views.InscribirMateriaView.as_view(), name="inscribir_materia"),
     path("inscripciones/mesa-final", views.InscribirFinalView.as_view(), name="inscribir_final"),
