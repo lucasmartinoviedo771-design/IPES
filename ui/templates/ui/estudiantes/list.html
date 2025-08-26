@@ -1,0 +1,30 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<div class="mb-3 flex items-center justify-between">
+  <h2 class="text-lg font-semibold">Estudiantes</h2>
+  <a href="{% url 'ui:estudiantes_new' %}" class="btn btn-primary">Nuevo Estudiante</a>
+</div>
+<form method="get" class="mb-3">
+  <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar por DNI/Apellido/Nombre" class="input"/>
+  <button class="btn">Buscar</button>
+</form>
+<div class="card">
+  <div class="card-body">
+    {% if rows %}
+      <table class="table">
+        <thead><tr><th>DNI</th><th>Apellido</th><th>Nombre</th><th>Email</th></tr></thead>
+        <tbody>
+        {% for e in rows %}
+          <tr>
+            <td><a href="{% url 'ui:estudiantes_detail' e.id %}">{{ e.dni }}</a></td>
+            <td>{{ e.apellido }}</td><td>{{ e.nombre }}</td><td>{{ e.email }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="text-sm text-slate-500">No hay estudiantes.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

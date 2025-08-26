@@ -1,0 +1,22 @@
+{% extends "ui/base.html" %}
+{% block content %}
+<h2 class="text-lg font-semibold mb-3">Docentes</h2>
+<form method="get" class="mb-3">
+  <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar" class="input"/>
+  <button class="btn">Buscar</button>
+</form>
+<div class="card"><div class="card-body">
+  {% if rows %}
+  <table class="table">
+    <thead><tr><th>Apellido</th><th>Nombre</th><th>Email</th></tr></thead>
+    <tbody>
+      {% for d in rows %}
+      <tr><td>{{ d.apellido }}</td><td>{{ d.nombre }}</td><td>{{ d.email }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="text-sm text-slate-500">No hay docentes.</div>
+  {% endif %}
+</div></div>
+{% endblock %}

@@ -124,7 +124,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "ui.context_processors.menu",
+                "ui.context_processors.ui_globals",
             ],
             "builtins": ["ui.templatetags.icons"],
         },

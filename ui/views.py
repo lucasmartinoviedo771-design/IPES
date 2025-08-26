@@ -142,3 +142,158 @@ class AuditoriaView(PlaceholderView):
 class AyudaView(PlaceholderView):
     page_title = "Documentación"
     allowed_roles = ["Secretaría", "Admin", "Docente", "Estudiante", "Bedel"]
+
+# ui/views.py  (añadir al final del archivo)
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
+from django.views.generic import ListView, DetailView, CreateView, TemplateView
+
+from .forms import (
+    EstudianteForm,
+    InscripcionCarreraForm,
+    InscripcionMateriaForm,
+    InscripcionFinalForm,
+    CalificacionBorradorForm,
+)
+from .context_processors import role_from_request
+from .menu import demo  # para tarjetas del dashboard si lo necesitás
+
+def m(app_label, model_name):
+    """Obtiene un modelo o None sin romper la app."""
+    try:
+        return apps.get_model(app_label, model_name)
+    except Exception:
+        return None
+
+# ============ Personas ============
+
+class EstudianteListView(PermissionRequiredMixin, ListView):
+    permission_required = "academia_core.view_estudiante"
+    model = m("academia_core", "Estudiante")
+    template_name = "ui/estudiantes/list.html"
+    context_object_name = "rows"
+    paginate_by = 20
+
+    def handle_no_permission(self):
+        messages.error(self.request, "No tenés permiso para ver Estudiantes.")
+        return redirect("/")
+
+    def get_queryset(self):
+        if not self.model:
+            return []
+        qs = self.model.objects.all().order_by("apellido", "nombre")
+        q = self.request.GET.get("q")
+        if q:
+            qs = qs.filter(apellido__icontains=q) | qs.filter(nombre__icontains=q) | qs.filter(dni__icontains=q)
+        return qs
+
+class EstudianteDetailView(PermissionRequiredMixin, DetailView):
+    permission_required = "academia_core.view_estudiante"
+    model = m("academia_core", "Estudiante")
+    template_name = "ui/estudiantes/detail.html"
+    context_object_name = "obj"
+
+class EstudianteCreateView(PermissionRequiredMixin, CreateView):
+    permission_required = "academia_core.add_estudiante"
+    form_class = EstudianteForm
+    template_name = "ui/generic_form.html"
+    success_url = reverse_lazy("ui:estudiantes_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Estudiante creado correctamente.")
+        return super().form_valid(form)
+
+# Docentes
+class DocenteListView(PermissionRequiredMixin, ListView):
+    permission_required = "academia_core.view_docente"
+    model = m("academia_core", "Docente")
+    template_name = "ui/docentes/list.html"
+    context_object_name = "rows"
+    paginate_by = 20
+
+    def get_queryset(self):
+        if not self.model:
+            return []
+        qs = self.model.objects.all().order_by("apellido", "nombre")
+        q = self.request.GET.get("q")
+        if q:
+            qs = qs.filter(apellido__icontains=q) | qs.filter(nombre__icontains=q)
+        return qs
+
+# ============ Inscripciones ============
+
+class InscribirCarreraView(PermissionRequiredMixin, CreateView):
+    """
+    Secretaría/Admin/Bedel: pueden inscribir a carrera a terceros (según RBAC).
+    """
+    permission_required = ["academia_core.add_inscripcioncarrera", "academia_core.enroll_others"]
+    form_class = InscripcionCarreraForm
+    template_name = "ui/inscripciones/carrera_form.html"
+    success_url = reverse_lazy("ui:dashboard")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Inscripción a Carrera generada.")
+        return super().form_valid(form)
+
+class InscribirMateriaView(PermissionRequiredMixin, CreateView):
+    permission_required = ["academia_core.add_inscripcionespacio", "academia_core.enroll_others"]
+    form_class = InscripcionMateriaForm
+    template_name = "ui/inscripciones/materia_form.html"
+    success_url = reverse_lazy("ui:dashboard")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Inscripción a Materia generada.")
+        return super().form_valid(form)
+
+class InscribirFinalView(PermissionRequiredMixin, CreateView):
+    permission_required = ["academia_core.add_inscripcionfinal", "academia_core.enroll_others"]
+    form_class = InscripcionFinalForm
+    template_name = "ui/inscripciones/final_form.html"
+    success_url = reverse_lazy("ui:dashboard")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Inscripción a Mesa de Final generada.")
+        return super().form_valid(form)
+
+# ============ Calificaciones (borrador) ============
+
+class CargarNotasView(PermissionRequiredMixin, CreateView):
+    """
+    MVP: alta simple de calificaciones en estado 'BORRADOR'.
+    Más adelante lo reemplazamos por grilla editable por comisión.
+    """
+    permission_required = "academia_core.add_calificacion"
+    form_class = CalificacionBorradorForm
+    template_name = "ui/calificaciones/cargar.html"
+    success_url = reverse_lazy("ui:dashboard")
+
+    def form_valid(self, form):
+        try:
+            estado_field = form.fields.get("estado")
+            if estado_field and not form.cleaned_data.get("estado"):
+                # si el modelo tiene campo estado, marcamos borrador por defecto
+                form.instance.estado = "BORRADOR"
+        except Exception:
+            pass
+        messages.success(self.request, "Calificación guardada en borrador.")
+        return super().form_valid(form)
+
+# ============ Estudiante - Histórico / Cartón ============
+
+class HistoricoEstudianteView(PermissionRequiredMixin, TemplateView):
+    """
+    Cualquier Estudiante ve su histórico; Bedel/Secretaría/Admin pueden ver de terceros.
+    (En la próxima iteración traemos la data real).
+    """
+    permission_required = "academia_core.view_any_student_record"
+    template_name = "ui/estudiante/historico.html"
+
+class CartonEstudianteView(PermissionRequiredMixin, TemplateView):
+    """
+    'Cartón' = trayectoria consolidada. De momento placeholder con estructura.
+    """
+    permission_required = "academia_core.view_any_student_record"
+    template_name = "ui/estudiante/carton.html"

@@ -1,105 +1,82 @@
+# ui/management/commands/seed_rbac.py
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 
-# Mapeo de grupos -> lista de codenames (SOLO codenames, sin app_label)
-# Esto hace que funcione aunque tu app NO se llame "academia_core".
+# Mapa de grupos -> codenames REALES en tu app (según tu lista)
 GROUPS = {
-    "Admin": ["*"],  # todos los permisos
+    "Admin": ["*"],
 
+    # Secretaría: gestiona personas, espacios/planes/horarios, correlativas, inscripciones (materia/final/carrera),
+    # auditoría básica y permisos custom de operación.
     "Secretaría": [
-        # Periodos/Ventanas
-        "view_periodo", "add_periodo", "change_periodo",
-        "view_ventana", "add_ventana", "change_ventana",
-
         # Personas
         "view_estudiante", "add_estudiante", "change_estudiante",
         "view_docente", "add_docente", "change_docente",
 
-        # Comisiones / Inscripciones / Calificaciones
-        "view_comision", "add_comision", "change_comision",
-        "view_inscripcionmateria", "add_inscripcionmateria", "change_inscripcionmateria",
-        "view_calificacion", "add_calificacion", "change_calificacion",
+        # Planificación / Académico
+        "view_espaciocurricular", "add_espaciocurricular", "change_espaciocurricular",
+        "view_docenteespacio", "add_docenteespacio", "change_docenteespacio",
+        "view_horario", "add_horario", "change_horario",
+        "view_planestudios", "add_planestudios", "change_planestudios",
+        "view_correlatividad", "add_correlatividad", "change_correlatividad",
 
-        # CUSTOM (deben existir en Meta.permissions de algún modelo)
-        "open_close_windows",
-        "enroll_others",
-        "manage_correlatives",
-        "publish_grades",
-        "view_any_student_record",
-        "edit_student_record",
+        # Inscripciones (materia/espacio – mesa final – carrera)
+        "view_inscripcionespacio", "add_inscripcionespacio", "change_inscripcionespacio",
+        "view_inscripcionfinal", "add_inscripcionfinal", "change_inscripcionfinal",
+        "view_inscripcioncarrera", "add_inscripcioncarrera", "change_inscripcioncarrera",
+
+        # Auditoría / estado
+        "view_inscripcionespacioestadolog", "view_movimiento",
+
+        # CUSTOM (creados con CorePerms.managed=False)
+        "open_close_windows",        # abrir/cerrar ventanas (si aplica en tu flujo)
+        "manage_correlatives",       # gestionar reglas de correlativas (UI/servicio)
+        "publish_grades",            # publicar calificaciones (siempre vía Secretaría/Admin)
+        "enroll_others",             # inscribir a terceros
+        "view_any_student_record",   # ver Cartón/Histórico de cualquier estudiante
+        "edit_student_record",       # editar ficha/cartón
     ],
 
+    # Bedel: ABM mínimo de estudiantes + inscribir a terceros (materias/mesas/carrera) + ver docente + ver cartón
     "Bedel": [
-        # ABM Estudiantes + ver Docentes
         "view_estudiante", "add_estudiante", "change_estudiante",
         "view_docente",
 
-        # Inscripciones a terceros (materias/mesas/carrera si existe ese modelo)
-        "view_inscripcionmateria", "add_inscripcionmateria", "change_inscripcionmateria",
-        "enroll_others",
+        # Inscribir a terceros
+        "view_inscripcionespacio", "add_inscripcionespacio", "change_inscripcionespacio",
+        "view_inscripcionfinal", "add_inscripcionfinal", "change_inscripcionfinal",
         "view_inscripcioncarrera", "add_inscripcioncarrera", "change_inscripcioncarrera",
 
-        # Calificaciones en borrador (sin publicar)
-        "view_calificacion", "add_calificacion", "change_calificacion",
-
-        # Ver cartón/histórico de cualquier estudiante
+        # Custom
+        "enroll_others",
         "view_any_student_record",
     ],
 
+    # Docente: puede ver estudiantes vinculados y sus cursadas/finales + su estructura académica
     "Docente": [
-        # Según tu política actual, Docente NO carga notas.
-        "view_calificacion",
-        "view_estudiante",  # filtrarás “solo sus alumnos” en las vistas
+        "view_estudiante",
+        "view_inscripcionespacio",
+        "view_inscripcionfinal",
+        "view_espaciocurricular",
+        "view_docenteespacio",
+        "view_horario",
     ],
 
+    # Estudiante: solo autoinscripción (el resto se controla por lógica de UI/servicio)
     "Estudiante": [
-        # Inscribirse a sí mismo (custom)
         "enroll_self",
-        # Ver su propia ficha: lo resolvés por vista (filtro por request.user)
     ],
-}
-
-ALIAS = {
-    # Calificaciones / Notas / Evaluaciones
-    "view_calificacion": ["view_calificacion", "view_nota", "view_evaluacion", "view_acta", "view_detallecalificacion"],
-    "add_calificacion":  ["add_calificacion",  "add_nota",  "add_evaluacion",  "add_acta",  "add_detallecalificacion"],
-    "change_calificacion":["change_calificacion","change_nota","change_evaluacion","change_acta","change_detallecalificacion"],
-
-    # Comisiones / Cursos / Secciones
-    "view_comision": ["view_comision", "view_comisioncursada", "view_curso", "view_seccion"],
-    "add_comision":  ["add_comision",  "add_comisioncursada",  "add_curso",  "add_seccion"],
-    "change_comision":["change_comision","change_comisioncursada","change_curso","change_seccion"],
-
-    # Inscripción a Materia / Cursada
-    "view_inscripcionmateria":   ["view_inscripcionmateria", "view_inscripcioncursada", "view_inscripcion"],
-    "add_inscripcionmateria":    ["add_inscripcionmateria",  "add_inscripcioncursada",  "add_inscripcion"],
-    "change_inscripcionmateria": ["change_inscripcionmateria","change_inscripcioncursada","change_inscripcion"],
-
-    # Periodo / Ciclo / PeriodoLectivo / Term
-    "view_periodo":  ["view_periodo", "view_periodolectivo", "view_ciclo", "view_term"],
-    "add_periodo":   ["add_periodo",  "add_periodolectivo",  "add_ciclo",  "add_term"],
-    "change_periodo":["change_periodo","change_periodolectivo","change_ciclo","change_term"],
-
-    # Ventana / VentanaInscripcion
-    "view_ventana":  ["view_ventana", "view_ventanainscripcion"],
-    "add_ventana":   ["add_ventana",  "add_ventanainscripcion"],
-    "change_ventana":["change_ventana","change_ventanainscripcion"],
-
-    # Inscripción a Carrera / Programa
-    "view_inscripcioncarrera":  ["view_inscripcioncarrera", "view_inscripcionprograma"],
-    "add_inscripcioncarrera":   ["add_inscripcioncarrera",  "add_inscripcionprograma"],
-    "change_inscripcioncarrera":["change_inscripcioncarrera","change_inscripcionprograma"],
 }
 
 
 class Command(BaseCommand):
-    help = "Crea grupos y asigna permisos por codename (independiente del app_label)."
+    help = "Crea grupos y asigna permisos según codenames reales del proyecto."
 
     def handle(self, *args, **options):
-        # Asegurar grupos
+        # Crear grupos si no existen
         groups = {name: Group.objects.get_or_create(name=name)[0] for name in GROUPS.keys()}
 
-        # Admin -> todos los permisos
+        # Admin => todos los permisos
         if "*" in GROUPS["Admin"]:
             all_perms = Permission.objects.all()
             groups["Admin"].permissions.set(all_perms)
@@ -107,32 +84,23 @@ class Command(BaseCommand):
         else:
             self._apply(groups["Admin"], GROUPS["Admin"])
 
-        # Resto
-        for gname, codenames in GROUPS.items():
+        # Resto de grupos
+        for gname, codes in GROUPS.items():
             if gname == "Admin":
                 continue
-            self._apply(groups[gname], codenames)
+            self._apply(groups[gname], codes)
 
         self.stdout.write(self.style.SUCCESS("RBAC sincronizado."))
 
-    def _apply(self, group: Group, codenames: list[str]):
+    def _apply(self, group: Group, desired_codenames: list[str]):
         resolved = []
-        for code in codenames:
-            # Resolve alias
-            real_codenames = ALIAS.get(code, [code])
-            for real_code in real_codenames:
-                found = list(Permission.objects.filter(codename=real_code))
-                if not found:
-                    # This is not a fatal error, just a warning if an alias is not found
-                    pass
-                resolved.extend(found)
-        
-        # Use a set to remove duplicates
-        unique_resolved = sorted(list(set(resolved)), key=lambda p: p.codename)
-
-        group.permissions.set(unique_resolved)
-
-        for p in unique_resolved:
-            self.stdout.write(f"  OK {group.name} + {p.content_type.app_label}.{p.codename}")
-
-        self.stdout.write(self.style.SUCCESS(f"Asignados {len(unique_resolved)} permisos a {group.name}"))
+        for code in desired_codenames:
+            qs = Permission.objects.filter(codename=code)
+            if not qs.exists():
+                self.stdout.write(self.style.WARNING(f"Permiso no encontrado (codename): {code}"))
+                continue
+            for p in qs:
+                resolved.append(p)
+                self.stdout.write(f"  OK {group.name} + {p.content_type.app_label}.{p.codename}")
+        group.permissions.set(resolved)
+        self.stdout.write(self.style.SUCCESS(f"Asignados {len(resolved)} permisos a {group.name}"))

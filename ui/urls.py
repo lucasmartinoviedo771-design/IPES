@@ -1,44 +1,27 @@
-# ui/urls.py
+# ui/urls.py (extracto)
 from django.urls import path
 from . import views
 
 app_name = "ui"
 
 urlpatterns = [
-    # Home dinámico por rol
-    path("", views.HomeView.as_view(), name="root"),
-
-    # Dashboard (no Estudiante)
     path("dashboard", views.DashboardView.as_view(), name="dashboard"),
 
-    # Mi trayectoria (Estudiante)
-    path("mi/historico", views.EstudianteHistoricoView.as_view(), name="historico_estudiante"),
-    path("mi/carton", views.EstudianteCartonView.as_view(), name="carton_estudiante"),
+    # Personas
+    path("estudiantes", views.EstudianteListView.as_view(), name="estudiantes_list"),
+    path("estudiantes/<int:pk>", views.EstudianteDetailView.as_view(), name="estudiantes_detail"),
+    path("estudiantes/nuevo", views.EstudianteCreateView.as_view(), name="estudiantes_new"),
+    path("docentes", views.DocenteListView.as_view(), name="docentes_list"),
 
-    # Académico
+    # Inscripciones
     path("inscripciones/carrera", views.InscribirCarreraView.as_view(), name="inscribir_carrera"),
     path("inscripciones/materia", views.InscribirMateriaView.as_view(), name="inscribir_materia"),
-    path("inscripciones/mesa-final", views.InscribirMesaFinalView.as_view(), name="inscribir_mesa_final"),
+    path("inscripciones/mesa-final", views.InscribirFinalView.as_view(), name="inscribir_final"),
+
+    # Calificaciones
     path("calificaciones/cargar", views.CargarNotasView.as_view(), name="cargar_notas"),
-    path("calificaciones/regularidades", views.RegularidadesView.as_view(), name="regularidades"),
-    path("correlatividades", views.CorrelatividadesView.as_view(), name="correlatividades"),
 
-    # Planificación
-    path("horarios", views.HorariosView.as_view(), name="horarios"),
-    path("espacios", views.EspaciosView.as_view(), name="espacios"),
-    path("planes", views.PlanesView.as_view(), name="planes"),
-
-    # Personas
-    path("estudiantes", views.EstudiantesView.as_view(), name="estudiantes"),
-    path("estudiantes/nuevo", views.EstudianteNuevoView.as_view(), name="estudiante_nuevo"),
-    path("docentes", views.DocentesView.as_view(), name="docentes"),
-
-    # Administración
-    path("periodos", views.PeriodosView.as_view(), name="periodos"),
-    path("usuarios", views.UsuariosPermisosView.as_view(), name="usuarios"),
-    path("parametros", views.ParametrosView.as_view(), name="parametros"),
-    path("auditoria", views.AuditoriaView.as_view(), name="auditoria"),
-
-    # Ayuda
-    path("ayuda", views.AyudaView.as_view(), name="ayuda"),
+    # Estudiante
+    path("estudiante/historico", views.HistoricoEstudianteView.as_view(), name="estudiante_historico"),
+    path("estudiante/carton", views.CartonEstudianteView.as_view(), name="estudiante_carton"),
 ]
