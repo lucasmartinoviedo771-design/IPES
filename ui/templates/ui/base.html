@@ -1,0 +1,110 @@
+{% load static %}
+{% load icons %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{% block title %}IPES{% endblock %}</title>
+
+  <!-- Fuente + Tailwind CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Config correcta para CDN */
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter","ui-sans-serif","system-ui"] },
+          colors: {
+            peach: {
+              50:"#FFF7F3",100:"#FFEDE6",200:"#FFD9CC",300:"#FAD0C4",
+              400:"#F2B8A0",500:"#E9A480",600:"#D78F6C",700:"#B57252",
+              800:"#8C583F",900:"#6F4633"
+            },
+            accent: {
+              50:"#EEF4FF",100:"#DFE9FF",200:"#BFD4FF",300:"#9EBEFF",
+              400:"#7EA9FF",500:"#4F83FF",600:"#2F6BFF",700:"#2153CC",
+              800:"#183E99",900:"#122F74"
+            }
+          },
+          boxShadow:{ soft:"0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10)" }
+        }
+      }
+    }
+  </script>
+  <style> ::selection{background:#9EBEFF;color:#0B0B14} </style>
+</head>
+
+<body class="bg-gradient-to-b from-peach-50 to-peach-100 text-slate-800 font-sans">
+  <!-- HEADER -->
+<header class="sticky top-0 z-40 border-b border-peach-300 bg-peach-100/95 backdrop-blur">
+  <div class="mx-auto max-w-[110rem] px-3 py-5 flex items-center justify-between">
+    <!-- Marca (escudo + nombre) -->
+    <div class="flex items-center gap-4">
+      <a href="/" class="flex items-center gap-4">
+        <img src="{% static 'academia_core/escudo.png' %}" alt="Escudo IPES"
+             class="h-16 w-16 md:h-18 md:w-18 rounded-xl bg-white object-contain ring-1 ring-peach-400/70 shadow-soft"/>
+        <div class="leading-tight">
+          <div class="text-xl md:text-2xl font-bold tracking-tight text-slate-900">IPES</div>
+          <div class="text-[12px] md:text-sm text-slate-700 -mt-0.5">Paulo Freire</div>
+        </div>
+      </a>
+      <!-- (Quitamos “Rol:” de acá para pasarlo a la barra inferior) -->
+    </div>
+
+    <!-- Acciones derecha -->
+    <div class="hidden md:flex items-center gap-3">
+      <div class="flex items-center gap-2 rounded-xl border border-peach-300 bg-white/90 px-3 py-2 shadow-soft">
+        {% icon "search" "w-4 h-4 text-slate-400" %}
+        <input class="w-80 outline-none text-sm placeholder:text-slate-400 bg-transparent" placeholder="Buscar… (decorativo)" />
+      </div>
+      <span class="text-xs text-slate-600">Promop — v1</span>
+    </div>
+  </div>
+</header>
+
+<!-- BARRA INFERIOR DEL HEADER: Usuario + Rol (a la derecha) -->
+<div class="border-b border-peach-200 bg-peach-50/85">
+  <div class="mx-auto max-w-[110rem] px-3 py-2 flex items-center justify-end gap-3 text-sm text-slate-700">
+    <span>
+      Usuario:
+      {% if request.user.is_authenticated %}
+        {{ request.user.get_full_name|default:request.user.username }}
+      {% else %} Invitado {% endif %}
+    </span>
+    <span class="text-slate-400">·</span>
+    <span>Rol: {{ UI_ROLE }}</span>
+    {% if request.user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}" class="inline">
+        {% csrf_token %}
+        <button class="text-rose-700 hover:underline">Salir</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+  <!-- APP SHELL -->
+  <div class="mx-auto max-w-[110rem] px-2 py-8 grid grid-cols-1 md:grid-cols-[308px,1fr] gap-7">
+    <!-- Sidebar card -->
+    <aside id="sidebar" class="hidden md:block w-[308px]">
+      <div class="rounded-2xl border border-peach-300 bg-white shadow-soft px-2 py-3">
+        {% include "ui/partials/sidebar.html" %}
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="min-h-[70vh]">
+      <div class="rounded-2xl border border-peach-200 bg-white shadow-soft p-4 md:p-6">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+      const sb = document.getElementById('sidebar'); sb?.classList.toggle('hidden');
+    });
+  </script>
+</body>
+</html>

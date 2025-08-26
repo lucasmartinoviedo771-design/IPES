@@ -1,0 +1,66 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ingresar · IPES</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme:{ extend:{
+        colors:{
+          peach:{50:"#FFF7F3",100:"#FFEDE6",200:"#FFD9CC",300:"#FAD0C4",400:"#F2B8A0",500:"#E9A480"},
+          accent:{600:"#2F6BFF",700:"#2153CC"}
+        },
+        boxShadow:{ soft:"0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10)"}
+      }}
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-peach-50 to-peach-100 flex items-center justify-center p-6">
+  <div class="w-full max-w-md">
+    <div class="mb-6 flex items-center gap-4 justify-center">
+      <img src="{% static 'academia_core/escudo.png' %}" alt="Escudo" class="h-16 w-16 rounded-xl bg-white ring-1 ring-peach-400/60 shadow-soft object-contain">
+      <div class="leading-tight text-center">
+        <div class="text-2xl font-semibold">IPES</div>
+        <div class="text-sm text-slate-600 -mt-0.5">Paulo Freire</div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-peach-300 bg-white p-6 shadow-soft">
+      {% if form.errors %}
+        <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 px-3 py-2 text-sm">
+          Usuario o contraseña inválidos.
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="space-y-4">
+          <div>
+            <label class="text-sm font-medium text-slate-700">Usuario</label>
+            <input type="text" name="username" autofocus required
+                   class="mt-1 w-full rounded-xl border border-peach-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-600">
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700">Contraseña</label>
+            <input type="password" name="password" required
+                   class="mt-1 w-full rounded-xl border border-peach-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent-600">
+          </div>
+          {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+          <button class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-accent-600 hover:bg-accent-700 text-white px-3 py-2">
+            Ingresar
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="mt-4 text-center text-xs text-slate-500">
+      © IPES — {{ now|date:"Y" }}
+    </div>
+  </div>
+</body>
+</html>

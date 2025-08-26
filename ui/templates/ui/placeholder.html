@@ -1,0 +1,15 @@
+{% extends "ui/base.html" %}
+{% load icons %}
+{% block title %}Módulo · IPES{% endblock %}
+{% block content %}
+  <div class="flex items-start justify-between mb-4">
+    <div>
+      <h1 class="text-xl font-semibold tracking-tight">{{ page_title }}</h1>
+      <p class="text-sm text-slate-600">Panel creado por estructura; se completará en la fase correspondiente.</p>
+    </div>
+  </div>
+
+  <div class="rounded-2xl border border-dashed border-peach-300 bg-peach-50/40 p-6 text-sm text-slate-600">
+    {% icon "layers" "w-5 h-5 inline mr-1 text-peach-700" %} Aquí irá el contenido de <strong>{{ page_title }}</strong>.
+  </div>
+{% endblock %}

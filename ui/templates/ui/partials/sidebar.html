@@ -1,0 +1,66 @@
+{% load icons %}
+<nav class="space-y-6">
+  {% for section in UI_MENU %}
+    <div class="space-y-2">
+      <div class="px-2 text-[11px] uppercase tracking-wide font-semibold text-slate-500">{{ section.label }}</div>
+      <ul class="space-y-2">
+        {% for item in section.items %}
+          {% if request.path == item.path %}
+            <!-- activo exacto -->
+            <li>
+              <a href="{{ item.path }}"
+                 class="flex items-center justify-between rounded-xl border border-accent-300 bg-accent-50 px-3 py-2 hover:bg-accent-100 transition">
+                <span class="flex items-center gap-2 text-sm">
+                  <span class="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-accent-600 text-white">
+                    {% icon item.icon "w-3.5 h-3.5" %}
+                  </span>
+                  <span class="font-semibold text-slate-900">{{ item.label }}</span>
+                </span>
+                {% if item.badge %}
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/50 ring-1 ring-accent-300 text-slate-700">{{ item.badge }}</span>
+                {% endif %}
+              </a>
+            </li>
+
+          {% elif request.path == "/" and item.path == "/dashboard" %}
+            <!-- home -> dashboard activo -->
+            <li>
+              <a href="{{ item.path }}"
+                 class="flex items-center justify-between rounded-xl border border-accent-300 bg-accent-50 px-3 py-2 hover:bg-accent-100 transition">
+                <span class="flex items-center gap-2 text-sm">
+                  <span class="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-accent-600 text-white">
+                    {% icon item.icon "w-3.5 h-3.5" %}
+                  </span>
+                  <span class="font-semibold text-slate-900">{{ item.label }}</span>
+                </span>
+              </a>
+            </li>
+
+          {% else %}
+            <!-- inactivo -->
+            <li>
+              <a href="{{ item.path }}"
+                 class="flex items-center justify-between rounded-xl border border-peach-300 bg-white px-3 py-2 hover:bg-peach-50 hover:border-peach-400 transition">
+                <span class="flex items-center gap-2 text-sm">
+                  <span class="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                    {% icon item.icon "w-3.5 h-3.5" %}
+                  </span>
+                  <span class="text-slate-700">{{ item.label }}</span>
+                </span>
+                {% if item.badge %}
+                  {% if item.badge == 'Abierto' %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{{ item.badge }}</span>
+                  {% elif item.badge == 'Cerrado' %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">{{ item.badge }}</span>
+                  {% else %}
+                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-200">{{ item.badge }}</span>
+                  {% endif %}
+                {% endif %}
+              </a>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+  {% endfor %}
+</nav>

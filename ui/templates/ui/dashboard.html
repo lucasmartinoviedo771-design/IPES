@@ -1,0 +1,108 @@
+{% extends "ui/base.html" %}
+{% load icons %}
+{% block title %}Dashboard · IPES{% endblock %}
+
+{% block content %}
+  <!-- Header de página -->
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Bienvenido</h1>
+      <p class="text-sm text-slate-600">Atajos y estado general del sistema para {{ UI_ROLE }}.</p>
+    </div>
+    <div class="hidden md:flex gap-2">
+      <a href="/inscripciones/materia" class="inline-flex items-center gap-2 rounded-xl border border-accent-700 bg-accent-600 text-white px-3 py-2 shadow-soft hover:bg-accent-700">
+        {% icon "bolt" "w-4 h-4" %} Inscribir Materias
+      </a>
+      <a href="/calificaciones/cargar" class="inline-flex items-center gap-2 rounded-xl border border-peach-300 bg-white px-3 py-2 shadow-soft hover:bg-peach-50">
+        {% icon "pencil" "w-4 h-4" %} Cargar Notas
+      </a>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% comment %}Usamos defaults por si el CP aún trae demo{% endcomment %}
+    <div class="rounded-2xl border border-peach-200 bg-white p-4 shadow-soft">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600">Estudiantes</div>
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 ring-1 ring-accent-200">
+          {% icon "mortarboard" "w-4 h-4" %}
+        </span>
+      </div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight">{{ UI_RESUMEN.estudiantes|default:3 }}</div>
+      <div class="text-xs text-emerald-600 mt-1">+2 hoy</div>
+    </div>
+
+    <div class="rounded-2xl border border-peach-200 bg-white p-4 shadow-soft">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600">Docentes</div>
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 ring-1 ring-accent-200">
+          {% icon "id" "w-4 h-4" %}
+        </span>
+      </div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight">{{ UI_RESUMEN.docentes|default:9 }}</div>
+      <div class="text-xs text-slate-500 mt-1">sin cambios</div>
+    </div>
+
+    <div class="rounded-2xl border border-peach-200 bg-white p-4 shadow-soft">
+      <div class="flex items-center justify-between">
+        <div class="text-sm text-slate-600">Espacios</div>
+        <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-accent-50 text-accent-700 ring-1 ring-accent-200">
+          {% icon "book" "w-4 h-4" %}
+        </span>
+      </div>
+      <div class="mt-1 text-3xl font-semibold tracking-tight">{{ UI_RESUMEN.espacios|default:349 }}</div>
+      <div class="text-xs text-slate-500 mt-1">catálogo</div>
+    </div>
+  </div>
+
+  <!-- Secundario -->
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 rounded-2xl border border-peach-200 bg-white p-4 shadow-soft">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-sm font-semibold text-slate-700">Alertas</div>
+        <a href="/periodos" class="text-xs text-accent-700 hover:underline inline-flex items-center gap-1">
+          {% icon "history" "w-3.5 h-3.5" %} Ver periodos
+        </a>
+      </div>
+      <ul class="space-y-2">
+        <li class="flex items-start gap-3">
+          <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          <div class="text-sm">
+            Inscripción a Materias:
+            <strong>Abierta</strong>
+            {% if UI_VENTANAS.materia.hasta %}
+              <span class="text-slate-500">— hasta {{ UI_VENTANAS.materia.hasta }}</span>
+            {% endif %}
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+          <div class="text-sm">
+            Inscripción a Final:
+            <strong>{{ UI_VENTANAS.final.abierto|yesno:"Abierta,Cerrada" }}</strong>
+            {% if UI_VENTANAS.final.desde %}
+              <span class="text-slate-500">— desde {{ UI_VENTANAS.final.desde }}</span>
+            {% endif %}
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="rounded-2xl border border-peach-200 bg-white p-4 shadow-soft">
+      <div class="text-sm font-semibold text-slate-700 mb-2">Accesos rápidos</div>
+      <div class="grid grid-cols-1 gap-2">
+        <a class="flex items-center justify-between rounded-xl border border-peach-200 bg-white px-3 py-2 text-sm hover:bg-peach-50 shadow-soft"
+           href="/inscripciones/materia">
+          <span class="flex items-center gap-2">{% icon "grid" "w-4 h-4" %} Inscribir a Materias</span>
+          {% icon "arrow-right" "w-4 h-4 text-slate-400" %}
+        </a>
+        <a class="flex items-center justify-between rounded-xl border border-peach-200 bg-white px-3 py-2 text-sm hover:bg-peach-50 shadow-soft"
+           href="/calificaciones/cargar">
+          <span class="flex items-center gap-2">{% icon "pencil" "w-4 h-4" %} Cargar Notas</span>
+          {% icon "arrow-right" "w-4 h-4 text-slate-400" %}
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

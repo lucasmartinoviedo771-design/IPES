@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     "rest_framework",
     # App propia (usar AppConfig para cargar signals en ready())
     "academia_core.apps.AcademiaCoreConfig",
+    "ui",
 ]
 
 # --- Middleware ---
@@ -116,18 +117,16 @@ ROOT_URLCONF = "academia_project.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [
-            BASE_DIR / "templates",  # carpeta de templates del proyecto (opcional)
-        ],
+        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # expone login_url y logout_url en todos los templates
-                "academia_core.context_processors.auth_urls",
+                "ui.context_processors.menu",
             ],
+            "builtins": ["ui.templatetags.icons"],
         },
     },
 ]
@@ -166,15 +165,15 @@ USE_TZ = True
 
 # --- Archivos estáticos y de medios ---
 STATIC_URL = "/static/"
-# STATICFILES_DIRS = [BASE_DIR / "static"]  # si usás una carpeta global
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # --- Login/Logout (para vistas protegidas) ---
-LOGIN_URL = "/accounts/login/"  # explícito
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "/dashboard"
+LOGOUT_REDIRECT_URL = "login"
 
 # --- DRF básico (opcional)
 REST_FRAMEWORK = {

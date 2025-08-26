@@ -3,19 +3,19 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-
-from academia_core.views_auth import RoleAwareRememberLoginView, root_redirect
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # 1) Override del login (antes del include de auth)
-    path("accounts/login/", RoleAwareRememberLoginView.as_view(), name="login"),
-    # 2) Resto de URLs de auth (logout, password reset, etc.)
-    path("accounts/", include("django.contrib.auth.urls")),
-    # 3) Raíz -> requiere login y luego redirige por rol
-    path("", root_redirect, name="root"),
-    # 4) Rutas de tu app
-    path("", include("academia_core.urls")),
+
+    # Auth "clásico" de Django, con nuestros templates
+    path("accounts/login/", auth_views.LoginView.as_view(
+        template_name="ui/auth/login.html"
+    ), name="login"),
+    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+
+    # UI
+    path("", include("ui.urls")),
 ]
 
 if settings.DEBUG:
