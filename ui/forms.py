@@ -2,6 +2,8 @@
 from django import forms
 from django.apps import apps
 from django.forms.widgets import ClearableFileInput, DateInput, TextInput, EmailInput, NumberInput, Select, Textarea
+from django.forms import CheckboxInput, FileInput
+from datetime import date
 
 def existing_fields(model, candidates):
     model_fields = {f.name for f in model._meta.get_fields() if getattr(f, "editable", False)}
@@ -41,15 +43,19 @@ class BaseStyledModelForm(forms.ModelForm):
                     }
                 )
 
-# ui/forms.py
-from django import forms
-from django.forms import TextInput, EmailInput, DateInput, CheckboxInput, FileInput
-from django.apps import apps
-
 _INPUT = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
 _LABEL = "block text-sm font-medium text-slate-700 mb-1"
+_SELECT = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
 
 class EstudianteNuevoForm(forms.ModelForm):
+    field_order = [
+        "apellido", "nombre",
+        "dni", "fecha_nacimiento",
+        "lugar_nacimiento", "email",
+        "telefono", "localidad",
+        "contacto_emergencia_parentesco", "contacto_emergencia_tel",
+        "activo", "foto",
+    ]
     class Meta:
         model = apps.get_model("academia_core", "Estudiante")
         fields = [
@@ -192,52 +198,146 @@ class CalificacionBorradorForm(BaseStyledModelForm):
         ) or "__all__"
 
 
-_SELECT = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+# -------------------------
+#   INSCRIPCIÓN A PROFESORADO (CARRERA)
+# -------------------------
+EstudianteProfesorado = apps.get_model("academia_core", "EstudianteProfesorado")
+CERT_DOCENTE_LABEL = "Certificación Docente para la Educación Secundaria"
+
+def year_choices(start=2010):
+    current = date.today().year
+    return [(y, y) for y in range(current, start - 1, -1)]
+
+base_input = {"class": "w-full border rounded px-3 py-2"}
+base_select = {"class": "w-full border rounded px-3 py-2"}
+base_textarea = {"class": "w-full border rounded px-3 py-2", "rows": 3}
 
 class InscripcionProfesoradoForm(forms.ModelForm):
-    """Formulario tolerante a diferencias de nombres en campos del modelo."""
+    # cohorte en <select> de años
+    cohorte = forms.ChoiceField(choices=year_choices(), required=True)
+
+    # Requisitos (generales)
+    req_dni = forms.BooleanField(required=False, label="Fotocopia legalizada del DNI")
+    req_cert_med = forms.BooleanField(required=False, label="Certificado Médico de Buena Salud")
+    req_fotos = forms.BooleanField(required=False, label="Dos (2) fotos carnet")
+    req_folios = forms.BooleanField(required=False, label="Dos (2) folios oficio")
+
+    # Título (mutuamente excluyentes para carreras generales)
+    req_titulo_sec = forms.BooleanField(required=False, label="Fotocopia legalizada del Título Secundario")
+    req_titulo_tramite = forms.BooleanField(required=False, label="Título en trámite")
+    req_adeuda = forms.BooleanField(required=False, label="Adeuda materias")
+    req_adeuda_mats = forms.CharField(required=False, label="Materias adeudadas")
+    req_adeuda_inst = forms.CharField(required=False, label="Escuela o Institución de origen")
+
+    # Específico Certificación Docente
+    req_titulo_sup = forms.BooleanField(required=False, label="Fotocopia legalizada del Título de Nivel Superior")
+    req_incumbencias = forms.BooleanField(required=False, label="Incumbencias del Título Base")
+
+    # Nuevo: “Condición” (tiene que estar marcado para regularidad)
+    req_condicion = forms.BooleanField(required=False, label="Preinscripción")
+
+    # DDJJ aparece solo si queda condicional
+    ddjj_compromiso = forms.BooleanField(required=False, label="DDJJ de Compromiso")
+
     class Meta:
-        model = apps.get_model("academia_core", "EstudianteProfesorado")
-        fields = "__all__"  # luego ocultamos lo que no corresponda
-        widgets = {}        # se completa en __init__
+        model = EstudianteProfesorado
+        fields = ["estudiante", "profesorado", "plan", "cohorte"]  # solo campos del modelo
+        widgets = {
+            "estudiante": forms.Select(attrs=base_select),
+            "profesorado": forms.Select(attrs=base_select),
+            "plan": forms.Select(attrs=base_select),
+            "cohorte": forms.Select(attrs=base_select),
+        }
+
+    field_order = [
+        "estudiante", "profesorado", "plan", "cohorte",
+        "req_dni", "req_cert_med", "req_fotos", "req_folios",
+        "req_titulo_sec", "req_titulo_tramite", "req_adeuda",
+        "req_adeuda_mats", "req_adeuda_inst",
+        "req_titulo_sup", "req_incumbencias",
+        "req_condicion", "ddjj_compromiso",
+    ]
 
     def __init__(self, *args, **kwargs):
         initial_estudiante = kwargs.pop("initial_estudiante", None)
         super().__init__(*args, **kwargs)
 
-        # Campos que típicamente no queremos editar a mano si existen
-        ocultar = {
-            "id", "created", "updated", "fecha_baja", "usuario_creacion",
-            "usuario_actualizacion", "estado_interno",
-        }
-        for name in list(self.fields.keys()):
-            if name in ocultar:
-                self.fields.pop(name, None)
+        # año actual por defecto
+        current = date.today().year
+        self.fields["cohorte"].choices = year_choices()
+        self.fields["cohorte"].initial = current
 
-        # Tipados/estilos por tipo y por posibles nombres
-        for name, field in self.fields.items():
-            # Selects comunes (FKs): estudiante, profesorado, cohorte_fk si existiera
-            if field.widget.__class__.__name__ in {"Select", "RelatedFieldWidgetWrapper"}:
-                field.widget.attrs.setdefault("class", _SELECT)
-            # Booleans
-            elif field.__class__.__name__ == "BooleanField":
-                field.widget = CheckboxInput(attrs={"class": "h-5 w-5 align-middle accent-blue-600"})
-            # Textos por defecto
-            else:
-                field.widget.attrs.setdefault("class", _INPUT)
-
-        # Tratar de detectar el campo de fecha de inscripción
-        for probable in ("fecha_inscripcion", "cohorte", "fecha"):
-            if probable in self.fields and not isinstance(self.fields[probable].widget, DateInput):
-                self.fields[probable].widget = DateInput(attrs={"class": _INPUT, "type": "date"})
-                break
-
-        # Un textarea para observaciones si existiera
-        for probable in ("observaciones", "nota", "comentario"):
-            if probable in self.fields:
-                self.fields[probable].widget = Textarea(attrs={"class": _INPUT, "rows": 3})
-                break
-
-        # Preseleccionar estudiante si viene por querystring (?est=ID)
-        if initial_estudiante and "estudiante" in self.fields:
+        if initial_estudiante is not None and "estudiante" in self.fields:
             self.fields["estudiante"].initial = initial_estudiante
+
+        # estilo a los inputs de texto extra
+        for name in ("req_adeuda_mats", "req_adeuda_inst"):
+            self.fields[name].widget.attrs.update(base_input)
+
+    # ---------- Validación ----------
+    def clean(self):
+        cleaned = super().clean()
+        prof = cleaned.get("profesorado")
+        label = (str(prof).strip() if prof else "")
+        is_cert_docente = (label == CERT_DOCENTE_LABEL)
+
+        # exclusión mutua (solo aplica a generales)
+        if not is_cert_docente:
+            a = cleaned.get("req_titulo_sec")
+            b = cleaned.get("req_titulo_tramite")
+            c = cleaned.get("req_adeuda")
+            if sum(bool(x) for x in (a, b, c)) > 1:
+                raise forms.ValidationError(
+                    "‘Título Secundario’, ‘Título en trámite’ y ‘Adeuda materias’ son mutuamente excluyentes."
+                )
+
+            if cleaned.get("req_adeuda"):
+                if not cleaned.get("req_adeuda_mats"):
+                    self.add_error("req_adeuda_mats", "Obligatorio si se marca ‘Adeuda materias’.")
+                if not cleaned.get("req_adeuda_inst"):
+                    self.add_error("req_adeuda_inst", "Obligatorio si se marca ‘Adeuda materias’.")
+
+        else:
+            # si es Certificación, ignoro título sec / trámite / adeuda
+            cleaned["req_titulo_sec"] = False
+            cleaned["req_titulo_tramite"] = False
+            cleaned["req_adeuda"] = False
+            cleaned["req_adeuda_mats"] = ""
+            cleaned["req_adeuda_inst"] = ""
+
+        return cleaned
+
+    # ---------- Estado administrativo ----------
+    def compute_estado_admin(self):
+        cd = getattr(self, "cleaned_data", {})
+        prof = cd.get("profesorado")
+        label = (str(prof).strip() if prof else "")
+        is_cert_docente = (label == CERT_DOCENTE_LABEL)
+
+        # requisito común: “condición” marcado
+        cond_ok = bool(cd.get("req_condicion"))
+
+        if is_cert_docente:
+            # generales + específicos de certificación
+            base_ok = all([
+                cd.get("req_dni"),
+                cd.get("req_cert_med"),
+                cd.get("req_fotos"),
+                cd.get("req_folios"),
+                cd.get("req_titulo_sup"),
+                cd.get("req_incumbencias"),
+            ])
+            cond_flags = False  # no hay “trámite/adeuda” aquí
+        else:
+            # generales + título secundario (o condicional si trámite/adeuda)
+            base_ok = all([
+                cd.get("req_dni"),
+                cd.get("req_cert_med"),
+                cd.get("req_fotos"),
+                cd.get("req_folios"),
+                cd.get("req_titulo_sec"),
+            ])
+            cond_flags = any([cd.get("req_titulo_tramite"), cd.get("req_adeuda")])
+
+        is_regular = base_ok and not cond_flags and cond_ok
+        return ("REGULAR" if is_regular else "CONDICIONAL"), is_cert_docente

@@ -22,6 +22,7 @@ from .forms import (
     EstudianteNuevoForm,
     InscripcionProfesoradoForm,
     NuevoDocenteForm,
+    CERT_DOCENTE_LABEL,
 )
 
 # Mixin de permisos por rol
@@ -176,7 +177,7 @@ class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     extra_context = {"page_title": "Inscribir a Mesa de Final"}
 
 
-class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, FormView):
+class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     permission_required = "academia_core.add_estudianteprofesorado"
     allowed_roles = ["Bedel", "Secretaría", "Admin"]
 
@@ -184,28 +185,36 @@ class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, FormView
     form_class = InscripcionProfesoradoForm
     success_url = reverse_lazy("ui:dashboard")
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["base_checks"] = [
-            ("dni_copia", "Copia DNI"),
-            ("cert_nacimiento", "Certificado de Nacimiento"),
-            ("cert_trabajo", "Certificado de Trabajo (si corresponde)"),
-            ("cert_vacunas", "Esquema de Vacunación"),
-        ]
-        return ctx
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        est = self.request.GET.get("est")
+        if est:
+            kwargs["initial_estudiante"] = est
+        return kwargs
 
     def form_valid(self, form):
-        condicion = self.request.POST.get("condicion", "Libre")
-        insc = form.save(commit=False)
+        estado, _ = form.compute_estado_admin()
+        # Si tu modelo tiene un campo 'condicion_admin', podés setearlo:
+        obj = form.save(commit=False)
+        if hasattr(obj, "condicion_admin"):
+            obj.condicion_admin = estado
+        obj.save()
+        form.save_m2m() # por si acaso
 
-        if hasattr(insc, "condicion_admin"):
-            insc.condicion_admin = condicion
-        elif hasattr(insc, "condicion"):
-            insc.condicion = condicion
-
-        insc.save()
-        form.save_m2m()
+        # Placeholder: guardar y seguir
         return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        form = ctx.get("form")
+        estado = None
+        is_cert = False
+        if form and form.is_bound and form.is_valid():
+            estado, is_cert = form.compute_estado_admin()
+        ctx["estado_admin"] = estado  # "REGULAR" / "CONDICIONAL" / None
+        ctx["is_cert_docente"] = is_cert
+        ctx["CERT_DOCENTE_LABEL"] = CERT_DOCENTE_LABEL
+        return ctx
 
 
 # --- Cartón e Histórico del Estudiante ---

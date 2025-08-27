@@ -1,28 +1,40 @@
 from django.urls import path
-from . import views
+from .views import (
+    DashboardView,
+    EstudianteListView, EstudianteDetailView, NuevoEstudianteView,
+    DocenteListView, NuevoDocenteView,
+    InscribirCarreraView, InscribirMateriaView, InscribirFinalView, InscripcionProfesoradoView,
+    CartonEstudianteView, HistoricoEstudianteView,
+    SwitchRoleView,
+)
+from .api import api_planes_por_profesorado, api_cohortes_por_plan
 
 app_name = "ui"
 
 urlpatterns = [
-    path("dashboard", views.DashboardView.as_view(), name="dashboard"),
+    path("dashboard", DashboardView.as_view(), name="dashboard"),
 
     # Personas
-    path("estudiantes", views.EstudianteListView.as_view(), name="estudiantes_list"),
-    path("estudiantes/<int:pk>", views.EstudianteDetailView.as_view(), name="estudiantes_detail"),
-    path("personas/estudiantes/nuevo", views.NuevoEstudianteView.as_view(), name="estudiante_nuevo"),
-    path("docentes", views.DocenteListView.as_view(), name="docentes_list"),
-    path("personas/docentes/nuevo", views.NuevoDocenteView.as_view(), name="docente_nuevo"),
+    path("estudiantes", EstudianteListView.as_view(), name="estudiantes_list"),
+    path("estudiantes/<int:pk>", EstudianteDetailView.as_view(), name="estudiantes_detail"),
+    path("personas/estudiantes/nuevo", NuevoEstudianteView.as_view(), name="estudiante_nuevo"),
+    path("docentes", DocenteListView.as_view(), name="docentes_list"),
+    path("personas/docentes/nuevo", NuevoDocenteView.as_view(), name="docente_nuevo"),
 
     # Inscripciones
-    path("inscripciones/carrera", views.InscribirCarreraView.as_view(), name="inscribir_carrera"),
-    path("inscripciones/materia", views.InscribirMateriaView.as_view(), name="inscribir_materia"),
-    path("inscripciones/mesa-final", views.InscribirFinalView.as_view(), name="inscribir_final"),
-    path("inscripciones/profesorado", views.InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
+    path("inscripciones/carrera", InscripcionProfesoradoView.as_view(), name="inscribir_carrera"),
+    path("inscripciones/materia", InscribirMateriaView.as_view(), name="inscribir_materia"),
+    path("inscripciones/mesa-final", InscribirFinalView.as_view(), name="inscribir_final"),
+    path("inscripciones/profesorado", InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
 
     # Cartón e Histórico del Estudiante
-    path("estudiante/carton", views.CartonEstudianteView.as_view(), name="carton_estudiante"),
-    path("estudiante/historico", views.HistoricoEstudianteView.as_view(), name="historico_estudiante"),
+    path("estudiante/carton", CartonEstudianteView.as_view(), name="carton_estudiante"),
+    path("estudiante/historico", HistoricoEstudianteView.as_view(), name="historico_estudiante"),
 
-    # Opcional: Cambiar rol
-    path("cambiar-rol", views.SwitchRoleView.as_view(), name="switch_role"),
+    # Cambiar rol
+    path("cambiar-rol", SwitchRoleView.as_view(), name="switch_role"),
+
+    # API Endpoints
+    path("api/planes", api_planes_por_profesorado, name="api_planes"),
+    path("api/cohortes", api_cohortes_por_plan, name="api_cohortes"),
 ]

@@ -1,68 +1,55 @@
+# ui/auth_views.py
 from django.contrib.auth.views import LoginView
 from django.urls import reverse
-from django.shortcuts import redirect
 
-ROLE_PRIORITY = ["Admin", "Secretaría", "Bedel", "Docente", "Estudiante"]
+def resolve_role(user) -> str:
+    """
+    Devuelve el rol principal del usuario según superusuario y grupos.
+    Posibles valores: 'Admin', 'Secretaría', 'Bedel', 'Docente', 'Estudiante'.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return "Estudiante"
+
+    if user.is_superuser:
+        return "Admin"
+
+    names = set(user.groups.values_list("name", flat=True))
+    if "Secretaría" in names:
+        return "Secretaría"
+    if "Bedel" in names:
+        return "Bedel"
+    if "Docente" in names:
+        return "Docente"
+    if "Estudiante" in names:
+        return "Estudiante"
+
+    return "Estudiante"
+
+
+# A dónde redirigir luego de login según el rol
 ROLE_HOME = {
     "Admin": "ui:dashboard",
     "Secretaría": "ui:dashboard",
     "Bedel": "ui:dashboard",
-    "Docente": "ui:dashboard",      # ajustá si tenés un panel específico
-    ROLE_HOME = {
-    "Admin": "ui:dashboard",
-    "Secretaría": "ui:dashboard",
-    "Bedel": "ui:dashboard",
     "Docente": "ui:dashboard",
-    "Estudiante": "ui:dashboard",  # cámbialo cuando tengas la vista específica
+    # Cambia si más adelante tienes una vista específica para estudiantes:
+    "Estudiante": "ui:dashboard",
 }
+
 
 class RoleAwareLoginView(LoginView):
     template_name = "ui/auth/login.html"
 
     def get_success_url(self):
-        # 1) Si hay ?next=, respétalo
+        # 1) Respetar ?next= si viene de una página protegida
         redirect_to = self.get_redirect_url()
         if redirect_to:
             return redirect_to
 
-        # 2) Si no hay next, redirige por rol
-        user = self.request.user
-        role = resolve_role(user)  # reutiliza tu función para evitar duplicar lógica
-        self.request.session["active_role"] = role
-        return reverse(ROLE_HOME.get(role, "ui:dashboard"))
+        # 2) Determinar rol y guardarlo en sesión
+        role = resolve_role(self.request.user)
+        if hasattr(self.request, "session"):
+            self.request.session["active_role"] = role
 
-def resolve_role(user):
-    """Devuelve el rol prioritario del usuario."""
-    if user.is_superuser:
-        return "Admin"
-    names = set(user.groups.values_list("name", flat=True))
-    for r in ROLE_PRIORITY:
-        if r in names:
-            return r
-    # fallback sensato
-    return "Estudiante"
-
-class RoleAwareLoginView(LoginView):
-    template_name = "ui/auth/login.html"
-
-    def get_success_url(self):
-        user = self.request.user
-
-        # resolución robusta del rol (coincide con CP)
-        if user.is_superuser:
-            role = "Admin"
-        else:
-            names = set(user.groups.values_list("name", flat=True))
-            if "Secretaría" in names:
-                role = "Secretaría"
-            elif "Bedel" in names:
-                role = "Bedel"
-            elif "Docente" in names:
-                role = "Docente"
-            elif "Estudiante" in names:
-                role = "Estudiante"
-            else:
-                role = "Estudiante"
-
-        self.request.session["active_role"] = role
+        # 3) Redirigir según rol
         return reverse(ROLE_HOME.get(role, "ui:dashboard"))
