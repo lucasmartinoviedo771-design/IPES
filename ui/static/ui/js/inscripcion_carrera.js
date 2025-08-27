@@ -3,24 +3,31 @@
   if (!form) return;
 
   const urlPlanes = form.dataset.planesUrl;
-  const urlPlanesEl = document.getElementById('id_plan');        // select Plan
-  const profSelect = document.getElementById('id_profesorado');   // select Profesorado/Carrera
+  const planSelect = document.getElementById('id_plan');
+  const profSelect = document.getElementById('id_profesorado');
   const planErrEl  = document.getElementById('plan-error');
 
-  function setOptions(select, items, placeholder) {
-    const frag = document.createDocumentFragment();
-    const opt0 = document.createElement('option');
-    opt0.value = '';
-    opt0.textContent = placeholder || '---------';
-    frag.appendChild(opt0);
-    (items || []).forEach(it => {
-      const opt = document.createElement('option');
+  function resetPlanSelect(sel) {
+    sel.innerHTML = "";
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "— Seleccioná un plan —";
+    sel.appendChild(opt);
+    sel.value = "";
+  }
+
+  function populatePlanes(sel, items) {
+    resetPlanSelect(sel);
+    for (const it of items) {
+      const opt = document.createElement("option");
       opt.value = it.id;
       opt.textContent = it.label;
-      frag.appendChild(opt);
-    });
-    select.innerHTML = '';
-    select.appendChild(frag);
+      sel.appendChild(opt);
+    }
+    if (items.length === 1) {
+      sel.value = String(items[0].id);
+      sel.dispatchEvent(new Event("change"));
+    }
   }
 
   function showPlanError(msg) {
@@ -28,51 +35,46 @@
     planErrEl.textContent = msg;
     planErrEl.classList.remove('hidden');
   }
+
   function clearPlanError() {
     if (!planErrEl) return;
     planErrEl.textContent = '';
     planErrEl.classList.add('hidden');
   }
 
-  async function fetchJSONVerbose(url) {
+  async function fetchPlanes(url) {
     try {
-      const r = await fetch(url, { credentials: 'same-origin' });
+      const r = await fetch(url, {credentials: "same-origin"});
       if (!r.ok) {
         const body = await r.text();
         const msg = `HTTP ${r.status} ${r.statusText} — ${body.slice(0, 300)}`;
-        console.error('[planes] fallo fetch:', url, msg);
-        showPlanError(msg);
-        return { items: [], __error: msg };
+        throw new Error(msg);
       }
       const data = await r.json();
-      clearPlanError();
-      console.debug('[planes] OK', url, data);
-      return data;
+      return data.items || [];
     } catch (err) {
-      console.error('[planes] error de red:', url, err);
+      console.error("Error cargando planes:", err);
       showPlanError(err.message);
-      return { items: [], __error: err.message };
+      alert("No pudimos cargar los planes. Probá recargar la página.");
+      return [];
     }
   }
 
   async function loadPlanesFor(profId) {
-    urlPlanesEl.disabled = true;
-    setOptions(urlPlanesEl, [], 'Cargando planes...');
+    planSelect.disabled = true;
+    resetPlanSelect(planSelect);
     clearPlanError();
 
-    if (!profId) { setOptions(urlPlanesEl, [], '---------'); return; }
-
-    const url = `${urlPlanes}?prof_id=${encodeURIComponent(profId)}`;
-    const data = await fetchJSONVerbose(url);
-
-    if (data.__error) {
-      setOptions(urlPlanesEl, [], '{error}');
-      urlPlanesEl.disabled = true;
-      return;
+    if (!profId) {
+        planSelect.disabled = true;
+        return;
     }
 
-    setOptions(urlPlanesEl, data.items || [], (data.items?.length ? 'Seleccione un plan' : '(sin planes)'));
-    urlPlanesEl.disabled = !(data.items && data.items.length);
+    const url = `${urlPlanes}?prof_id=${encodeURIComponent(profId)}`;
+    const items = await fetchPlanes(url);
+
+    populatePlanes(planSelect, items);
+    planSelect.disabled = items.length === 0;
   }
 
   // Cargar al inicio si ya hay profesor preseleccionado

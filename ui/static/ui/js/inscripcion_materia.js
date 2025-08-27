@@ -11,79 +11,85 @@
 
   const prefill = (window.__INSCR_MAT_PREFILL__) || {prof:"", plan:"", mat:""};
 
-  function setDisabled(select, disabled) {
-    select.disabled = !!disabled;
+  function resetSelect(sel, placeholder) {
+    sel.innerHTML = "";
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder;
+    sel.appendChild(opt);
+    sel.value = "";
   }
-  function setOptions(select, items, placeholder) {
-    const frag = document.createDocumentFragment();
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = placeholder || "---------";
-    frag.appendChild(opt0);
 
-    (items || []).forEach(it => {
+  function populateSelect(sel, items, placeholder) {
+    resetSelect(sel, placeholder);
+    for (const it of items) {
       const opt = document.createElement("option");
       opt.value = it.id;
       opt.textContent = it.label;
-      frag.appendChild(opt);
-    });
-
-    select.innerHTML = "";
-    select.appendChild(frag);
+      sel.appendChild(opt);
+    }
+    if (items.length === 1) {
+      sel.value = String(items[0].id);
+      sel.dispatchEvent(new Event("change"));
+    }
   }
 
-  async function fetchJSON(url) {
-    const r = await fetch(url, { credentials: "same-origin" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
+  async function fetchJSON(url, resourceName) {
+    try {
+      const r = await fetch(url, {credentials: "same-origin"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      return data.items || [];
+    } catch (err) {
+      console.error(`Error cargando ${resourceName}:`, err);
+      alert(`No pudimos cargar los ${resourceName}. Probá recargar la página.`);
+      return [];
+    }
   }
 
   async function loadPlanes(profId, trySelectPrefill=true) {
-    setDisabled(selPlan, true);
-    setDisabled(selMat, true);
-    setOptions(selPlan, [], "Cargando planes...");
-    setOptions(selMat, [], "---------");
+    selPlan.disabled = true;
+    selMat.disabled = true;
+    resetSelect(selPlan, "Cargando planes...");
+    resetSelect(selMat, "Esperando plan...");
 
     if (!profId) {
-      setOptions(selPlan, [], "---------");
+      resetSelect(selPlan, "Esperando carrera...");
       return;
     }
 
-    try {
-      const data = await fetchJSON(`${urlPlanes}?prof_id=${encodeURIComponent(profId)}`);
-      setOptions(selPlan, data.items || [], data.items?.length ? "Seleccione un plan" : "(sin planes)");
-      setDisabled(selPlan, false);
+    const url = `${urlPlanes}?prof_id=${encodeURIComponent(profId)}`;
+    const items = await fetchJSON(url, "planes");
+    
+    populateSelect(selPlan, items, "Seleccioná un plan...");
+    selPlan.disabled = items.length === 0;
 
-      if (trySelectPrefill && prefill.plan) {
-        const exists = Array.from(selPlan.options).some(o => String(o.value) === String(prefill.plan));
-        if (exists) {
-          selPlan.value = prefill.plan;
-          await loadMaterias(prefill.plan, true);
-        }
+    if (trySelectPrefill && prefill.plan) {
+      const exists = Array.from(selPlan.options).some(o => String(o.value) === String(prefill.plan));
+      if (exists) {
+        selPlan.value = prefill.plan;
+        await loadMaterias(prefill.plan, true);
       }
-    } catch (e) {
-      setOptions(selPlan, [], "(error)");
-      console.error("Error cargando planes:", e);
     }
   }
 
   async function loadMaterias(planId, trySelectPrefill=false) {
-    setDisabled(selMat, true);
-    setOptions(selMat, [], "Cargando materias...");
-    if (!planId) { setOptions(selMat, [], "---------"); return; }
+    selMat.disabled = true;
+    resetSelect(selMat, "Cargando materias...");
+    if (!planId) {
+      resetSelect(selMat, "Esperando plan...");
+      return;
+    }
 
-    try {
-      const data = await fetchJSON(`${urlMaterias}?plan_id=${encodeURIComponent(planId)}`);
-      setOptions(selMat, data.items || [], data.items?.length ? "Seleccione una materia" : "(sin materias)");
-      setDisabled(selMat, false);
+    const url = `${urlMaterias}?plan_id=${encodeURIComponent(planId)}`;
+    const items = await fetchJSON(url, "materias");
 
-      if (trySelectPrefill && prefill.mat) {
-        const exists = Array.from(selMat.options).some(o => String(o.value) === String(prefill.mat));
-        if (exists) selMat.value = prefill.mat;
-      }
-    } catch (e) {
-      setOptions(selMat, [], "(error)");
-      console.error("Error cargando materias:", e);
+    populateSelect(selMat, items, "Seleccioná una materia...");
+    selMat.disabled = items.length === 0;
+
+    if (trySelectPrefill && prefill.mat) {
+      const exists = Array.from(selMat.options).some(o => String(o.value) === String(prefill.mat));
+      if (exists) selMat.value = prefill.mat;
     }
   }
 
