@@ -365,17 +365,17 @@ class CorrelatividadesForm(forms.Form):
     profesorado = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, PROF_MODEL).objects.all().order_by("nombre"),
         required=True, label="Profesorado / Carrera",
-        widget=forms.Select(attrs={"class": "form-select"})
+        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"})
     )
     plan = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, PLAN_MODEL).objects.none(),
         required=True, label="Plan",
-        widget=forms.Select(attrs={"class": "form-select", "data-endpoint": "/ui/api/materias-por-plan"})
+        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500", "data-endpoint": "/ui/api/materias-por-plan"})
     )
     espacio = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, ESPACIO_MODEL).objects.none(),
         required=True, label="Materia / Espacio",
-        widget=forms.Select(attrs={"class": "form-select"})
+        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"})
     )
 
     correlativas_regular = forms.MultipleChoiceField(

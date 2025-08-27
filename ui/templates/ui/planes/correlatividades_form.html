@@ -5,53 +5,52 @@
 
 {% block content %}
 <div class="p-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h4 m-0">Correlatividades</h1>
-    <a href="javascript:history.back()" class="btn btn-outline-secondary">Volver</a>
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-semibold">Correlatividades</h1>
+    <button onclick="history.back()" class="px-3 py-2 rounded border">Volver</button>
   </div>
 
-  <div class="card">
-    <div class="card-body">
-      <form method="post" id="correl-form"
-            data-planes-url="{% url 'ui:api_planes' %}"
-            data-materias-url="{% url 'ui:api_materias_por_plan' %}">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
+  <div class="rounded-2xl border bg-white p-4 md:p-6">
+    <form method="post" id="correl-form"
+          data-planes-url="{% url 'ui:api_planes' %}"
+          data-materias-url="{% url 'ui:api_materias_por_plan' %}"
+          data-corrs-url="{% url 'ui:api_correlatividades_por_espacio' %}">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
 
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <label class="form-label">{{ form.profesorado.label }}</label>
-            {{ form.profesorado }}
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label">{{ form.plan.label }}</label>
-            {{ form.plan }}
-          </div>
-          <div class="col-12 col-md-6">
-            <label class="form-label">{{ form.espacio.label }}</label>
-            {{ form.espacio }}
-          </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">{{ form.profesorado.label }}</label>
+          {{ form.profesorado }}
         </div>
-
-        <hr class="my-4">
-
-        <div class="row g-3">
-          <div class="col-12 col-lg-6">
-            <h6 class="mb-2">Requiere REGULAR</h6>
-            {{ form.correlativas_regular }}
-          </div>
-          <div class="col-12 col-lg-6">
-            <h6 class="mb-2">Requiere APROBADA</h6>
-            {{ form.correlativas_aprobada }}
-          </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">{{ form.plan.label }}</label>
+          {{ form.plan }}
         </div>
-
-        <div class="mt-4 d-flex gap-2">
-          <button class="btn btn-primary">Guardar</button>
-          <button type="button" class="btn btn-outline-secondary" onclick="history.back()">Cancelar</button>
+        <div>
+          <label class="block text-sm font-medium mb-1">{{ form.espacio.label }}</label>
+          {{ form.espacio }}
         </div>
-      </form>
-    </div>
+      </div>
+
+      <div class="mt-6">
+        <h2 class="font-semibold mb-3">Requiere REGULAR</h2>
+        <div id="corr-regular-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+        <!-- field original oculto (no usar en UI) -->
+        <div class="hidden">{{ form.correlativas_regular }}</div>
+      </div>
+
+      <div class="pt-5 mt-5 border-t">
+        <h2 class="font-semibold mb-3">Requiere APROBADA</h2>
+        <div id="corr-aprobada-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+        <div class="hidden">{{ form.correlativas_aprobada }}</div>
+      </div>
+
+      <div class="mt-6 flex gap-2">
+        <button class="px-4 py-2 rounded bg-slate-800 text-white">Guardar</button>
+        <button type="button" onclick="history.back()" class="px-4 py-2 rounded border">Cancelar</button>
+      </div>
+    </form>
   </div>
 </div>
 
