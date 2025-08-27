@@ -1,17 +1,21 @@
 # ui/permissions.py
-from functools import wraps
-from django.core.exceptions import PermissionDenied
-from .auth_views import resolve_role
+from django.contrib.auth.mixins import UserPassesTestMixin
 
-def roles_allowed(*allowed):
-    def deco(view_func):
-        @wraps(view_func)
-        def _wrapped(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                raise PermissionDenied
-            role = request.session.get("active_role") or resolve_role(request.user)
-            if role not in allowed:
-                raise PermissionDenied
-            return view_func(request, *args, **kwargs)
-        return _wrapped
-    return deco
+class RolesPermitidosMixin(UserPassesTestMixin):
+    """
+    Permite acceso si el usuario es superusuario o pertenece a alguno de los grupos en `allowed`.
+    """
+    allowed = {"Admin", "Secretaría", "Bedel"}  # ajustá si lo necesitás
+
+    def test_func(self):
+        u = self.request.user
+        if not u.is_authenticated:
+            return False
+        if getattr(u, "is_superuser", False):
+            return True
+        names = set(u.groups.values_list("name", flat=True))
+        return bool(self.allowed & names)
+
+# Alias retrocompatible: cualquier vista que use RolesAllowedMixin seguirá funcionando
+class RolesAllowedMixin(RolesPermitidosMixin):
+    pass

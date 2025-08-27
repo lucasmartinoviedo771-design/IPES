@@ -26,7 +26,7 @@ from .forms import (
 )
 
 # Mixin de permisos por rol
-from .mixins import RolesAllowedMixin
+from .permissions import RolesPermitidosMixin, RolesAllowedMixin
 from .auth_views import ROLE_HOME # Importar ROLE_HOME
 
 
@@ -177,9 +177,8 @@ class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     extra_context = {"page_title": "Inscribir a Mesa de Final"}
 
 
-class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
-    permission_required = "academia_core.add_estudianteprofesorado"
-    allowed_roles = ["Bedel", "Secretaría", "Admin"]
+class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, CreateView):
+    allowed_roles = {"Admin", "Secretaría", "Bedel"}   # roles habilitados
 
     template_name = "ui/inscripciones/inscripcion_profesorado_form.html"
     form_class = InscripcionProfesoradoForm
@@ -193,15 +192,22 @@ class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, CreateVi
         return kwargs
 
     def form_valid(self, form):
-        estado, _ = form.compute_estado_admin()
-        # Si tu modelo tiene un campo 'condicion_admin', podés setearlo:
-        obj = form.save(commit=False)
-        if hasattr(obj, "condicion_admin"):
-            obj.condicion_admin = estado
-        obj.save()
-        form.save_m2m() # por si acaso
+        obj = form.save()  # guarda la inscripción (EstudianteProfesorado)
+        cd = form.cleaned_data
 
-        # Placeholder: guardar y seguir
+        # Carga el modelo RequisitosIngreso sin importar la app
+        RequisitosIngreso = apps.get_model("academia_core", "RequisitosIngreso")
+
+        RequisitosIngreso.objects.update_or_create(
+            inscripcion=obj,
+            defaults={k: cd.get(k) for k in [
+                "req_dni","req_cert_med","req_fotos","req_folios",
+                "req_titulo_sec","req_titulo_tramite","req_adeuda",
+                "req_adeuda_mats","req_adeuda_inst",
+                "req_titulo_sup","req_incumbencias",
+                "req_condicion",
+            ]}
+        )
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):

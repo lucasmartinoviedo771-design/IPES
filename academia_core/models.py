@@ -1123,3 +1123,32 @@ class CorePerms(models.Model):
             ("add_inscripcioncarrera", "Puede crear inscripciones a carrera"),
             ("change_inscripcioncarrera", "Puede editar inscripciones a carrera"),
         ]
+
+class RequisitosIngreso(models.Model):
+    # IMPORTANTE: ajustá el import / referencia ↓ a TU modelo de inscripción
+    inscripcion = models.OneToOneField(
+        "academia_core.EstudianteProfesorado",  # cambia TU_APP al label real de esa app
+        on_delete=models.CASCADE,
+        related_name="requisitos"
+    )
+    # Generales
+    req_dni = models.BooleanField(default=False)
+    req_cert_med = models.BooleanField(default=False)
+    req_fotos = models.BooleanField(default=False)
+    req_folios = models.BooleanField(default=False)
+    # Título (para carreras generales)
+    req_titulo_sec = models.BooleanField(default=False)
+    req_titulo_tramite = models.BooleanField(default=False)
+    req_adeuda = models.BooleanField(default=False)
+    req_adeuda_mats = models.CharField(max_length=255, blank=True)
+    req_adeuda_inst = models.CharField(max_length=255, blank=True)
+    # Certificación Docente
+    req_titulo_sup = models.BooleanField(default=False)
+    req_incumbencias = models.BooleanField(default=False)
+    # Nuevo: “Preinscripción”
+    req_condicion = models.BooleanField(default=False)
+
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Requisitos de {self.inscripcion_id}"

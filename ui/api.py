@@ -2,19 +2,42 @@ from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
 
+# ui/api.py
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
 from django.apps import apps
 
-PlanEstudios = apps.get_model("academia_core", "PlanEstudios")
+# ==== CONFIGURÁ ESTAS DOS CONSTANTES (una vez) ====
+APP_LABEL = "academia_core"
+PLAN_MODEL = "PlanEstudios"
+# ===================================================
 
 @login_required
 @require_GET
 def api_planes_por_profesorado(request):
+    Plan = apps.get_model(APP_LABEL, PLAN_MODEL)
+
     prof_id = request.GET.get("prof_id")
     if not prof_id:
         return JsonResponse({"items": []})
-    
-    planes = PlanEstudios.objects.filter(profesorado_id=prof_id, vigente=True).order_by("-resolucion")
-    data = [{"id": p.id, "label": str(p)} for p in planes]
+
+    # Detecta automáticamente el nombre del FK (profesorado/carrera)
+    fk_field = None
+    for cand in ("profesorado_id", "carrera_id"):
+        if cand in [f.attname for f in Plan._meta.fields]:
+            fk_field = cand
+            break
+    if not fk_field:
+        return JsonResponse({"items": [], "error": "FK a profesorado/carrera no encontrada en Plan."})
+
+    qs = Plan.objects.all()
+    # Si tu modelo tiene un booleano 'vigente', se filtra
+    if "vigente" in [f.name for f in Plan._meta.fields]:
+        qs = qs.filter(vigente=True)
+
+    qs = qs.filter(**{fk_field: prof_id}).order_by("nombre")
+    data = [{"id": p.pk, "label": str(p)} for p in qs]
     return JsonResponse({"items": data})
 
 @login_required

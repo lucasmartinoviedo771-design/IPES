@@ -234,7 +234,7 @@ class InscripcionProfesoradoForm(forms.ModelForm):
     req_incumbencias = forms.BooleanField(required=False, label="Incumbencias del Título Base")
 
     # Nuevo: “Condición” (tiene que estar marcado para regularidad)
-    req_condicion = forms.BooleanField(required=False, label="Preinscripción")
+    req_condicion = forms.BooleanField(required=False, label="Formulario de preinscripción")
 
     # DDJJ aparece solo si queda condicional
     ddjj_compromiso = forms.BooleanField(required=False, label="DDJJ de Compromiso")
@@ -273,6 +273,14 @@ class InscripcionProfesoradoForm(forms.ModelForm):
         # estilo a los inputs de texto extra
         for name in ("req_adeuda_mats", "req_adeuda_inst"):
             self.fields[name].widget.attrs.update(base_input)
+
+        try:
+            from django.apps import apps
+            Plan = apps.get_model("academia_core", "PlanEstudios")
+            if "plan" in self.fields:
+                self.fields["plan"].queryset = Plan.objects.none()
+        except Exception:
+            pass
 
     # ---------- Validación ----------
     def clean(self):
