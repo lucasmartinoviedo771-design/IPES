@@ -13,12 +13,12 @@ BEDEL_MENU = [
     {
         "title": "ACADÉMICO",
         "items": [
-            # Bedel SÍ inscribe carrera
-            {"label": "Inscribir a Carrera", "path": "/inscripciones/carrera", "icon": "check"},
-            {"label": "Inscribir a Materias", "path": "/inscripciones/materia", "icon": "book-plus", "badge": {"text": "Abierto", "tone": "success"}},
-            {"label": "Inscribir a Mesa de Final", "path": "/inscripciones/mesa-final", "icon": "calendar-x", "badge": {"text": "Cerrado", "tone": "danger"}},
-            {"label": "Cartón", "path": "/carton", "icon": "id-card"},
-            {"label": "Histórico", "path": "/historico", "icon": "clock"},
+            {"label": "Estudiante nuevo",        "path": "/personas/estudiantes/nuevo",        "icon": "user-plus"},
+            {"label": "Inscribir a Carrera",     "path": "/inscripciones/carrera",    "icon": "check"},
+            {"label": "Inscribir a Materias",    "path": "/inscripciones/materia",    "icon": "book-plus",  "badge": {"text": "Abierto",  "tone": "success"}},
+            {"label": "Inscribir a Mesa de Final","path": "/inscripciones/mesa-final","icon": "calendar-x", "badge": {"text": "Cerrado",  "tone": "danger"}},
+            {"label": "Cartón",                  "path": "/carton",                   "icon": "id-card"},
+            {"label": "Histórico",               "path": "/historico",                "icon": "clock"},
         ],
     },
     {
@@ -60,6 +60,13 @@ ESTUDIANTE_MENU = [
     {
         "title": "INICIO",
         "items": [{"label": "Dashboard", "path": "/dashboard", "icon": "home"}],
+    },
+    {
+        "title": "ACADÉMICO",
+        "items": [
+            {"label": "Inscribirme a Materias",     "path": "/inscripciones/materia",    "icon": "book-plus"},
+            {"label": "Inscribirme a Mesa de Final","path": "/inscripciones/mesa-final","icon": "calendar-x"},
+        ],
     },
     {
         "title": "TRAYECTORIA",

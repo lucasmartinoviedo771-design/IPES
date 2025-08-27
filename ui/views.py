@@ -25,7 +25,7 @@ from .forms import (
 )
 
 # Mixin de permisos por rol
-from .mixins import RoleRequiredMixin
+from .mixins import RolesAllowedMixin
 from .auth_views import ROLE_HOME # Importar ROLE_HOME
 
 
@@ -89,7 +89,7 @@ class EstudianteDetailView(LoginRequiredMixin, DetailView):
 
 
 # ---------- Estudiantes: alta ----------
-class NuevoEstudianteView(RoleRequiredMixin, CreateView):
+class NuevoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     """
     Alta de estudiantes — autorizado para Bedel / Secretaría / Admin.
     """
@@ -129,7 +129,7 @@ class DocenteListView(LoginRequiredMixin, ListView):
 
 
 # ---------- Docentes: alta ----------
-class NuevoDocenteView(RoleRequiredMixin, CreateView):
+class NuevoDocenteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     """
     Alta de docentes — SOLO Secretaría y Admin.
     """
@@ -143,7 +143,7 @@ class NuevoDocenteView(RoleRequiredMixin, CreateView):
 
 
 # ---------- Inscripciones ----------
-class InscribirCarreraView(RoleRequiredMixin, TemplateView):
+class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     """
     Pantalla de Inscripción a Carrera (placeholder).
     Restringida a Secretaría / Admin / Bedel.
@@ -154,7 +154,7 @@ class InscribirCarreraView(RoleRequiredMixin, TemplateView):
     extra_context = {"page_title": "Inscribir a Carrera"}
 
 
-class InscribirMateriaView(RoleRequiredMixin, TemplateView):
+class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     """
     Pantalla de Inscripción a Materias/Comisiones (placeholder).
     Restringida a Secretaría / Admin / Bedel (inscripción de terceros).
@@ -165,7 +165,7 @@ class InscribirMateriaView(RoleRequiredMixin, TemplateView):
     extra_context = {"page_title": "Inscribir a Materia"}
 
 
-class InscribirFinalView(RoleRequiredMixin, TemplateView):
+class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     """
     Pantalla de Inscripción a Mesas de Final (inscribir terceros).
     Habilitada para Secretaría / Admin / Bedel.
@@ -176,7 +176,7 @@ class InscribirFinalView(RoleRequiredMixin, TemplateView):
     extra_context = {"page_title": "Inscribir a Mesa de Final"}
 
 
-class InscripcionProfesoradoView(RoleRequiredMixin, FormView):
+class InscripcionProfesoradoView(LoginRequiredMixin, RolesAllowedMixin, FormView):
     permission_required = "academia_core.add_estudianteprofesorado"
     allowed_roles = ["Bedel", "Secretaría", "Admin"]
 
@@ -209,12 +209,12 @@ class InscripcionProfesoradoView(RoleRequiredMixin, FormView):
 
 
 # --- Cartón e Histórico del Estudiante ---
-class CartonEstudianteView(RoleRequiredMixin, TemplateView):
+class CartonEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/carton.html"
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
 
 
-class HistoricoEstudianteView(RoleRequiredMixin, TemplateView):
+class HistoricoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     template_name = "ui/estudiante/historico.html"
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
 
