@@ -1,0 +1,45 @@
+/* ancho cómodo y centrado */
+.corr-wrap{max-width:1280px;margin:0 auto}
+
+/* GRID: 1→2→3→5 columnas; gap consistente; la altura de cada fila
+   se iguala automáticamente al ítem más alto de la fila */
+.corr-grid{
+  display:grid;
+  grid-template-columns:1fr;    /* móvil */
+  column-gap:2.5rem;            /* espacio entre columnas */
+  row-gap:1rem;                 /* espacio entre filas */
+}
+ @media/** (min-width:640px){ .corr-grid{ grid-template-columns:repeat(2,1fr) } }
+ @media/** (min-width:768px){ .corr-grid{ grid-template-columns:repeat(3,1fr) } }
+ @media/** (min-width:1280px){ .corr-grid{ grid-template-columns:repeat(5,1fr) } }
+
+/* Cada ítem es una CELDA del grid (no más listas/UL por columna) */
+.corr-cell{
+  display:flex;
+  align-items:flex-start;        /* alinea checkbox con tope del texto */
+  gap:.8rem;
+  font-size:15px;
+  line-height:1.25;
+  word-break:break-word;
+}
+
+/* Checkbox grande y uniforme */
+.corr-checkbox{
+  width:1.35rem;height:1.35rem;
+  border:1px solid #cbd5e1;border-radius:.35rem;
+  flex-shrink:0;
+}
+ @media/** (min-width:1280px){
+  .corr-checkbox{ width:1.6rem;height:1.6rem }
+}
+
+.corr-item { display:flex; align-items:flex-start; gap:.8rem; font-size:15px; line-height:1.25; word-break:break-word; min-height:2.8em; }
+.corr-checkbox { width:1.35rem; height:1.35rem; border:1px solid #cbd5e1; border-radius:.35rem; flex-shrink:0; }
+.corr-text {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;   /* ← cantidad de líneas visibles */
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-height:2.8em;       /* misma “altura de dos líneas” */
+}

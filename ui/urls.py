@@ -39,8 +39,8 @@ urlpatterns = [
     path("cambiar-rol", SwitchRoleView.as_view(), name="switch_role"),
 
     # API Endpoints
-    path("api/planes", api.api_planes_por_profesorado, name="api_planes"),
+    path("api/planes", api.api_planes_por_carrera, name="api_planes"),
     path("api/cohortes", api.api_cohortes_por_plan, name="api_cohortes"),
-    path("api/materias-por-plan", api.api_materias_por_plan, name="api_materias_por_plan"),
+    path("api/materias", api.api_materias_por_plan, name="api_materias"),
     path("api/correlatividades", api.api_correlatividades_por_espacio, name="api_correlatividades_por_espacio"),
 ]

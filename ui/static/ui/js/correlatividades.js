@@ -10,29 +10,15 @@
 
   const urlPlanes    = form.dataset.planesUrl;
   const urlMaterias  = form.dataset.materiasUrl;
-  const urlCorrs     = form.dataset.conrsUrl || form.dataset.corrsUrl || "/ui/api/correlatividades";
+  const urlCorrs     = form.dataset.corrsUrl || "/ui/api/correlatividades";
 
-  // ---------------- Helpers ----------------
+  // ---------- helpers ----------
   async function fetchJSON(url){
     const r = await fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
     if (!r.ok) return null;
     try { return await r.json(); } catch { return null; }
   }
-  function guessYear(label){
-    const s = (label||"").toLowerCase();
 
-    // 1) localizar palabra clave
-    const kw = s.match(/(año|ano|anual|cuatr(?:\.|imestre)?)/);
-    const seg = kw ? s.slice(0, kw.index) : s.slice(0, 32);
-
-    // 2) primer número 1..4 en ese segmento
-    const nums = seg.match(/[1-4]\s*(?:º|°|er|ro)?/g);
-    if (nums && nums.length) return parseInt(nums[0], 10);
-
-    // 3) fallback laxo
-    const m = s.match(/(?:^|\s)([1-4])(?:\D|$)/);
-    return m ? parseInt(m[1], 10) : null;
-  }
   function clearGrids(){
     const r = $('#corr-regular-grid');
     const a = $('#corr-aprobada-grid');
@@ -40,65 +26,64 @@
     if(a) a.innerHTML = '';
   }
 
-  // UI de cada bloque por año
-  function yearBlock(title, items, fieldName, containerId){
-    const box = document.createElement('div');
-    const h = document.createElement('h6');
-    h.textContent = title;
-    h.className = 'text-sm font-semibold mb-2';
-    box.appendChild(h);
+  // Grid 5 columnas + clamp de 2 líneas + altura uniforme (sin CSS externo)
+function renderChecks3Cols(container, fieldName, items) {
+  const COLS = 5;
+  const gapX = '2.5rem';
+  const gapY = '1rem';
+  const lineHeight = 1.25;              // em
+  const lines = 2;                       // cantidad de líneas visibles
+  const cellHeightEm = (lineHeight * lines).toFixed(2) + 'em';
 
-    const wrap = document.createElement('div');
-    wrap.className = 'space-y-1';
+  // grid contenedor
+  const grid = document.createElement('div');
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = `repeat(${COLS}, minmax(0, 1fr))`;
+  grid.style.columnGap = gapX;
+  grid.style.rowGap = gapY;
+  grid.style.maxWidth = '1280px';
+  grid.style.margin = '0 auto';
 
-    items.forEach(it=>{
-      const row = document.createElement('label');
-      row.className = 'flex items-center gap-2 text-sm';
-      const id = `${containerId}_${title.replace(/\s+/g,'').toLowerCase()}_${it.id}`;
-      row.innerHTML = `
-        <input type="checkbox" id="${id}" name="${fieldName}" value="${it.id}"
-               class="h-4 w-4 rounded border-slate-300 text-slate-700 focus:ring-2 focus:ring-slate-500">
-        <span>${it.label}</span>`;
-      wrap.appendChild(row);
-    });
+  (items || []).forEach((it) => {
+    const label = document.createElement('label');
+    label.style.display = 'flex';
+    label.style.alignItems = 'flex-start';
+    label.style.gap = '.8rem';
+    label.style.fontSize = '15px';
+    label.style.lineHeight = String(lineHeight);
+    label.style.wordBreak = 'break-word';
+    label.style.minHeight = cellHeightEm;  // todas las celdas misma altura
 
-    box.appendChild(wrap);
-    return box;
-  }
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.name = fieldName;
+    chk.value = it.id;
+    chk.style.width = '1.35rem';
+    chk.style.height = '1.35rem';
+    chk.style.border = '1px solid #cbd5e1';
+    chk.style.borderRadius = '.35rem';
+    chk.style.flexShrink = '0';
 
-  // Render 2 columnas: izq (1º,2º) | der (3º,4º) + "Otros" abajo si existe
-  function renderChecks2Cols(container, fieldName, items){
-    const groups = {1:[],2:[],3:[],4:[],otros:[]};
-    (items||[]).forEach(it=>{
-      const yr = (it.year ?? guessYear(it.label));
-      const key = (yr>=1 && yr<=4) ? yr : 'otros';
-      groups[key].push(it);
-    });
+    const span = document.createElement('span');
+    span.title = it.label;                 // tooltip con el texto completo
+    // clamp a 2 líneas + ellipsis
+    span.style.display = '-webkit-box';
+    span.style.webkitBoxOrient = 'vertical';
+    span.style.webkitLineClamp = String(lines);
+    span.style.overflow = 'hidden';
+    span.style.textOverflow = 'ellipsis';
+    span.style.maxHeight = cellHeightEm;   // fija la altura de texto a 2 líneas
 
-    const left = document.createElement('div');
-    left.className = 'space-y-4';
-    left.appendChild(yearBlock('1º Año', groups[1], fieldName, container.id));
-    left.appendChild(yearBlock('2º Año', groups[2], fieldName, container.id));
+    span.textContent = it.label;
 
-    const right = document.createElement('div');
-    right.className = 'space-y-4';
-    right.appendChild(yearBlock('3º Año', groups[3], fieldName, container.id));
-    right.appendChild(yearBlock('4º Año', groups[4], fieldName, container.id));
+    label.appendChild(chk);
+    label.appendChild(span);
+    grid.appendChild(label);
+  });
 
-    container.innerHTML = '';
-    const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
-    grid.appendChild(left);
-    grid.appendChild(right);
-    container.appendChild(grid);
-
-    if(groups.otros.length){
-      const extra = document.createElement('div');
-      extra.className = 'mt-4';
-      extra.appendChild(yearBlock('Otros', groups.otros, fieldName, container.id));
-      container.appendChild(extra);
-    }
-  }
+  container.innerHTML = '';
+  container.appendChild(grid);
+}
 
   function checkByIds(containerSelector, ids){
     const set = new Set((ids||[]).map(String));
@@ -134,16 +119,16 @@
     const data = await fetchJSON(`${urlMaterias}?plan_id=${encodeURIComponent(planId)}`);
     const items = data?.items || [];
 
-    // combo Materia (ya viene ordenado del API)
+    // combo Materia (queda en el orden que mande el API; si querés solo alfabético, ordenalo allí)
     items.forEach(it=>{
       const opt = document.createElement('option');
       opt.value = it.id; opt.textContent = it.label;
       selEsp.appendChild(opt);
     });
 
-    // Grids
-    renderChecks2Cols($('#corr-regular-grid'),  'correlativas_regular',  items);
-    renderChecks2Cols($('#corr-aprobada-grid'), 'correlativas_aprobada', items);
+    // grid de checks en 3 columnas para ambos bloques
+    renderChecks3Cols($('#corr-regular-grid'),  'correlativas_regular',  items);
+    renderChecks3Cols($('#corr-aprobada-grid'), 'correlativas_aprobada', items);
 
     // si ya hay una materia seleccionada, precargar
     if(selEsp.value) onEspChange();

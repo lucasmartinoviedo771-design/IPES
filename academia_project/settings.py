@@ -13,7 +13,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {
         "null": {"class": "logging.NullHandler"},
-        # "console": {"class": "logging.StreamHandler"},  # activar si querés ver logs
+        "console": {"class": "logging.StreamHandler"},
     },
     "loggers": {
         "academia_core.forms_carga": {
@@ -21,7 +21,8 @@ LOGGING = {
             "level": "CRITICAL",
             "propagate": False,
         },
-        # "django.db.backends": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "ui": {"handlers": ["console"], "level": "INFO"},
+        "django.request": {"handlers": ["console"], "level": "ERROR"},
     },
 }
 

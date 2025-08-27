@@ -160,14 +160,38 @@ class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
 
 
 class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
-    """
-    Pantalla de Inscripción a Materias/Comisiones (placeholder).
-    Restringida a Secretaría / Admin / Bedel (inscripción de terceros).
-    """
-    allowed_roles = ["Secretaría", "Admin", "Bedel"]
-    permission_required = "academia_core.enroll_others"
     template_name = "ui/inscripciones/materia.html"
-    extra_context = {"page_title": "Inscribir a Materia"}
+    # Ajustá los roles que pueden entrar a esta pantalla
+    allowed_roles = ("Admin", "Secretaría", "Bedel", "Docente", "Estudiante")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        # Buscamos el modelo de Profesorado/Carrera para poblar el primer select.
+        prof_model = None
+        for app_label, model_name in (("academico","Profesorado"),
+                                      ("academico","Carrera"),
+                                      ("ui","Profesorado"),
+                                      ("ui","Carrera")):
+            try:
+                prof_model = apps.get_model(app_label, model_name)
+                break
+            except LookupError:
+                continue
+
+        if prof_model:
+            try:
+                qs = prof_model.objects.all().order_by("nombre")
+            except Exception:
+                qs = prof_model.objects.all().order_by("id")
+            ctx["profesorados"] = qs
+        else:
+            ctx["profesorados"] = []
+
+        # soporte de preselección por querystring (opcional)
+        ctx["prefill_prof"] = self.request.GET.get("prof", "") or ""
+        ctx["prefill_plan"] = self.request.GET.get("plan", "") or ""
+        ctx["prefill_mat"]  = self.request.GET.get("mat", "") or ""
+        return ctx
 
 
 class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):

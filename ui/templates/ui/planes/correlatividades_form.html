@@ -1,5 +1,6 @@
 {% extends "ui/base.html" %}
 {% load static %}
+<link rel="stylesheet" href="{% static 'ui/css/correlatividades.css' %}">
 
 {% block title %}Correlatividades{% endblock %}
 
@@ -35,14 +36,14 @@
 
       <div class="mt-6">
         <h2 class="font-semibold mb-3">Requiere REGULAR</h2>
-        <div id="corr-regular-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+        <div id="corr-regular-grid"></div>
         <!-- field original oculto (no usar en UI) -->
         <div class="hidden">{{ form.correlativas_regular }}</div>
       </div>
 
       <div class="pt-5 mt-5 border-t">
         <h2 class="font-semibold mb-3">Requiere APROBADA</h2>
-        <div id="corr-aprobada-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+        <div id="corr-aprobada-grid"></div>
         <div class="hidden">{{ form.correlativas_aprobada }}</div>
       </div>
 
