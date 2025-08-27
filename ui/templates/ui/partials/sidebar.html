@@ -1,8 +1,8 @@
 {% load icons %}
 <nav class="space-y-6">
-  {% for section in UI_MENU %}
+  {% for section in menu %}
     <div class="space-y-2">
-      <div class="px-2 text-[11px] uppercase tracking-wide font-semibold text-slate-500">{{ section.label }}</div>
+      <div class="px-2 text-[11px] uppercase tracking-wide font-semibold text-slate-500">{{ section.title }}</div>
       <ul class="space-y-2">
         {% for item in section.items %}
           {% if request.path == item.path %}
@@ -16,8 +16,16 @@
                   </span>
                   <span class="font-semibold text-slate-900">{{ item.label }}</span>
                 </span>
-                {% if item.badge %}
-                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/50 ring-1 ring-accent-300 text-slate-700">{{ item.badge }}</span>
+                                {% if item.badge %}
+                  {% with tone=item.badge.tone|default:"" text=item.badge.text|default:item.badge %}
+                    {% if tone == "success" %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{{ text }}</span>
+                    {% elif tone == "danger" %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">{{ text }}</span>
+                    {% else %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-200">{{ text }}</span>
+                    {% endif %}
+                  {% endwith %}
                 {% endif %}
               </a>
             </li>
@@ -47,14 +55,16 @@
                   </span>
                   <span class="text-slate-700">{{ item.label }}</span>
                 </span>
-                {% if item.badge %}
-                  {% if item.badge == 'Abierto' %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{{ item.badge }}</span>
-                  {% elif item.badge == 'Cerrado' %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">{{ item.badge }}</span>
-                  {% else %}
-                    <span class="text-[10px] px-2 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-200">{{ item.badge }}</span>
-                  {% endif %}
+                                {% if item.badge %}
+                  {% with tone=item.badge.tone|default:"" text=item.badge.text|default:item.badge %}
+                    {% if tone == "success" %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{{ text }}</span>
+                    {% elif tone == "danger" %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-rose-50 text-rose-700 border-rose-200">{{ text }}</span>
+                    {% else %}
+                      <span class="text-[10px] px-2 py-0.5 rounded-full border bg-slate-100 text-slate-700 border-slate-200">{{ text }}</span>
+                    {% endif %}
+                  {% endwith %}
                 {% endif %}
               </a>
             </li>

@@ -1,90 +1,71 @@
+# academia_project/settings.py
 from pathlib import Path
 import os
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- Logging: silenciado para academia_core.forms_carga ---
+# -----------------------------
+# Logging (silenciar ruidos puntuales)
+# -----------------------------
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
-        # Handler “nulo” para descartar mensajes
         "null": {"class": "logging.NullHandler"},
-        # Si querés ver algo en consola, podés reactivar este:
-        # "console": {"class": "logging.StreamHandler"},
+        # "console": {"class": "logging.StreamHandler"},  # activar si querés ver logs
     },
     "loggers": {
-        # Apaga por completo los logs del form de inscripción a espacio
         "academia_core.forms_carga": {
             "handlers": ["null"],
-            "level": "CRITICAL",  # nada va a pasar por acá
+            "level": "CRITICAL",
             "propagate": False,
         },
-        # Si alguna vez querés ver SQL, podés habilitar esto:
-        # "django.db.backends": {
-        #     "handlers": ["console"],
-        #     "level": "WARNING",
-        #     "propagate": False,
-        # },
+        # "django.db.backends": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
 
-# (Opcional) .env para credenciales sin hardcodear
+# -----------------------------
+# .env (opcional)
+# -----------------------------
 try:
     from dotenv import load_dotenv
-
     load_dotenv()
 except Exception:
     pass
 
 # -----------------------------
-# Seguridad / Debug (dev-friendly)
+# Seguridad / Debug
 # -----------------------------
-
 def getenv_bool(name: str, default: bool = False) -> bool:
     v = os.getenv(name)
     if v is None:
         return default
     return str(v).lower() in {"1", "true", "t", "yes", "y"}
 
-# Por defecto arrancamos en desarrollo
 DEBUG = getenv_bool("DJANGO_DEBUG", default=True)
 
-# Clave por defecto SOLO para desarrollo (podés cambiarla si querés)
 DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_"
 
 if DEBUG:
-    # En desarrollo permitimos no tener variables de entorno
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
-    ALLOWED_HOSTS = []
+    ALLOWED_HOSTS: list[str] = []
 else:
-    # En producción exigimos variables de entorno correctas
     SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
     if not SECRET_KEY:
         raise ImproperlyConfigured("Set the DJANGO_SECRET_KEY environment variable")
-
     hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
     if not hosts:
         raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS (comma separated)")
-
     ALLOWED_HOSTS = [h.strip() for h in hosts.split(",") if h.strip()]
 
-# Security headers (podés habilitarlas en prod)
-# SECURE_SSL_REDIRECT = not DEBUG
-# SECURE_HSTS_SECONDS = 31536000  # 1 año
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
-# SECURE_CONTENT_TYPE_NOSNIFF = True
-# SECURE_BROWSER_XSS_FILTER = True
-# X_FRAME_OPTIONS = "DENY"  # Ya lo setea XFrameOptionsMiddleware por defecto
-
-# Cookies de sesión/CSRF: seguras en prod, flexibles en dev
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = not DEBUG
 
-# --- Apps ---
+# -----------------------------
+# Apps
+# -----------------------------
 INSTALLED_APPS = [
     # Django
     "django.contrib.admin",
@@ -95,12 +76,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Terceros
     "rest_framework",
-    # App propia (usar AppConfig para cargar signals en ready())
+    # Apps propias
     "academia_core.apps.AcademiaCoreConfig",
     "ui",
 ]
 
-# --- Middleware ---
+# -----------------------------
+# Middleware
+# -----------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -113,27 +96,49 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "academia_project.urls"
 
-# --- Templates ---
+# -----------------------------
+# Templates
+# -----------------------------
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # Directorio(s) de templates a nivel de proyecto (opcional)
+        "DIRS": [BASE_DIR / "templates"],
+        # Busca automáticamente en 'templates' dentro de cada app instalada
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
+                "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Opcionales útiles:
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.tz",
+                # === Tus context processors ===
+                "ui.context_processors.role_from_request",
+                "ui.context_processors.menu",
                 "ui.context_processors.ui_globals",
             ],
-            "builtins": ["ui.templatetags.icons"],
+            # Cargar tags/filters globales (opcional)
+            "builtins": [
+                "ui.templatetags.icons",
+            ],
         },
     },
 ]
 
+
 WSGI_APPLICATION = "academia_project.wsgi.application"
 
-# --- Base de datos (MySQL) ---
+# -----------------------------
+# Base de datos (MySQL)
+# -----------------------------
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -149,7 +154,9 @@ DATABASES = {
     }
 }
 
-# --- Password validators ---
+# -----------------------------
+# Password validators
+# -----------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -157,25 +164,39 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# --- Internacionalización ---
+# -----------------------------
+# i18n
+# -----------------------------
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Argentina/Buenos_Aires"
 USE_I18N = True
 USE_TZ = True
 
-# --- Archivos estáticos y de medios ---
+# -----------------------------
+# Static & Media
+# -----------------------------
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Agrega solo las carpetas de estáticos que existan para evitar warnings
+_static_candidates = [
+    BASE_DIR / "ui" / "static",  # donde suele estar ui/img/avatar-placeholder.svg, etc.
+    BASE_DIR / "static",         # opcional si la usás
+]
+STATICFILES_DIRS = [p for p in _static_candidates if p.exists()]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# --- Login/Logout (para vistas protegidas) ---
-LOGIN_URL = "login"
+# -----------------------------
+# Login / Logout
+# -----------------------------
+LOGIN_URL = "login"              # o "ui:login" si tu URL está namespaced
 LOGIN_REDIRECT_URL = "/dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
-# --- DRF básico (opcional)
+# -----------------------------
+# DRF (básico)
+# -----------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -185,5 +206,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-# --- Misc ---
+# -----------------------------
+# Varios
+# -----------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

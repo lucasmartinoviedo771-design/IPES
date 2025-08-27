@@ -5,12 +5,20 @@ from .menu import for_role
 
 
 def role_from_request(request):
-    """Expone el rol activo (y lo guarda en sesión)."""
+    print("DEBUG: Ejecutando role_from_request.")
     role = request.session.get("active_role")
-    if not role and request.user.is_authenticated:
+    print(f"DEBUG: Rol recuperado de sesión: {role}")
+    if role:
+        print(f"DEBUG: Retornando rol de sesión: {role}")
+        return {"active_role": role}
+    if request.user.is_authenticated:
+        print("DEBUG: Usuario autenticado, resolviendo rol...")
         role = resolve_role(request.user)
         request.session["active_role"] = role
-    return {"active_role": role}
+        print(f"DEBUG: Rol resuelto y establecido en sesión: {role}")
+        return {"active_role": role}
+    print("DEBUG: Usuario no autenticado o rol no encontrado.")
+    return {"active_role": None}
 
 
 def menu(request):

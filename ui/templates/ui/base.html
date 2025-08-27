@@ -74,7 +74,7 @@
       {% else %} Invitado {% endif %}
     </span>
     <span class="text-slate-400">·</span>
-    <span>Rol: {{ UI_ROLE }}</span>
+    <span>Rol: {{ active_role|default:"—" }}</span>
     {% if request.user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="inline">
         {% csrf_token %}
