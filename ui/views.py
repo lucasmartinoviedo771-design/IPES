@@ -12,6 +12,9 @@ from django.shortcuts import redirect
 from django.db.models import Q
 from django.views import View
 from django.http import HttpResponseForbidden
+from django.contrib import messages
+from django.db import transaction
+from django.apps import apps
 
 # Modelos del core
 from academia_core.models import Estudiante, Docente, EstudianteProfesorado
@@ -23,6 +26,7 @@ from .forms import (
     InscripcionProfesoradoForm,
     NuevoDocenteForm,
     CERT_DOCENTE_LABEL,
+    CorrelatividadesForm,
 )
 
 # Mixin de permisos por rol
@@ -221,6 +225,64 @@ class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, Creat
         ctx["is_cert_docente"] = is_cert
         ctx["CERT_DOCENTE_LABEL"] = CERT_DOCENTE_LABEL
         return ctx
+
+
+class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
+    """
+    Configurar correlatividades por espacio de un plan.
+    Acceso: Secretaría y Admin.
+    """
+    allowed_roles = {"Secretaría", "Admin"}
+    template_name = "ui/planes/correlatividades_form.html"
+    form_class = CorrelatividadesForm
+    success_url = reverse_lazy("ui:correlatividades")
+
+    # Valores por defecto (ajustá si tus modelos usan otros nombres/choices)
+    APP_LABEL = "academia_core"
+    CORR_MODEL = "Correlatividad"
+    TIPO_CURSAR = "CURSAR"
+    REQUISITO_REGULAR = "REGULARIZADA"
+    REQUISITO_APROBADA = "APROBADA"
+
+    def form_valid(self, form):
+        Correlatividad = apps.get_model(self.APP_LABEL, self.CORR_MODEL)
+
+        plan = form.cleaned_data["plan"]
+        espacio = form.cleaned_data["espacio"]
+        reg_ids = [int(x) for x in (form.cleaned_data["correlativas_regular"] or [])]
+        apr_ids = [int(x) for x in (form.cleaned_data["correlativas_aprobada"] or [])]
+
+        try:
+            with transaction.atomic():
+                # Borramos definiciones previas (para ese plan+espacio) y recreamos
+                Correlatividad.objects.filter(plan=plan, espacio=espacio).delete()
+
+                # REGULAR
+                for rid in reg_ids:
+                    Correlatividad.objects.create(
+                        plan=plan,
+                        espacio=espacio,
+                        requiere_espacio_id=rid,
+                        tipo=self.TIPO_CURSAR,
+                        requisito=self.REQUISITO_REGULAR,
+                    )
+                # APROBADA
+                for aid in apr_ids:
+                    Correlatividad.objects.create(
+                        plan=plan,
+                        espacio=espacio,
+                        requiere_espacio_id=aid,
+                        tipo=self.TIPO_CURSAR,
+                        requisito=self.REQUISITO_APROBADA,
+                    )
+
+            messages.success(self.request, "Correlatividades guardadas correctamente.")
+        except LookupError:
+            messages.error(
+                self.request,
+                "No encuentro el modelo de correlatividades. Ajustá APP_LABEL/CORR_MODEL o pasame tu models.py y lo adapto."
+            )
+        return super().form_valid(form)
 
 
 # --- Cartón e Histórico del Estudiante ---

@@ -6,8 +6,9 @@ from .views import (
     InscribirCarreraView, InscribirMateriaView, InscribirFinalView, InscripcionProfesoradoView,
     CartonEstudianteView, HistoricoEstudianteView,
     SwitchRoleView,
+    CorrelatividadesView,
 )
-from .api import api_planes_por_profesorado, api_cohortes_por_plan
+from .api import api_planes_por_profesorado, api_cohortes_por_plan, api_materias_por_plan
 
 app_name = "ui"
 
@@ -27,6 +28,9 @@ urlpatterns = [
     path("inscripciones/mesa-final", InscribirFinalView.as_view(), name="inscribir_final"),
     path("inscripciones/profesorado", InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
 
+    # Académico
+    path("academico/correlatividades", CorrelatividadesView.as_view(), name="correlatividades"),
+
     # Cartón e Histórico del Estudiante
     path("estudiante/carton", CartonEstudianteView.as_view(), name="carton_estudiante"),
     path("estudiante/historico", HistoricoEstudianteView.as_view(), name="historico_estudiante"),
@@ -37,4 +41,5 @@ urlpatterns = [
     # API Endpoints
     path("api/planes", api_planes_por_profesorado, name="api_planes"),
     path("api/cohortes", api_cohortes_por_plan, name="api_cohortes"),
+    path("api/materias-por-plan", api_materias_por_plan, name="api_materias_por_plan"),
 ]

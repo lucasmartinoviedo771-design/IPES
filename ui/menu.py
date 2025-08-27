@@ -19,6 +19,7 @@ BEDEL_MENU = [
             {"label": "Inscribir a Mesa de Final","path": "/inscripciones/mesa-final","icon": "calendar-x", "badge": {"text": "Cerrado",  "tone": "danger"}},
             {"label": "Cartón",                  "path": "/carton",                   "icon": "id-card"},
             {"label": "Histórico",               "path": "/historico",                "icon": "clock"},
+            {"label": "Correlatividades", "url_name": "ui:correlatividades", "icon": "layers", "roles": ["Secretaría", "Admin"]},
         ],
     },
     {

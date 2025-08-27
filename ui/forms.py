@@ -349,3 +349,75 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
         is_regular = base_ok and not cond_flags and cond_ok
         return ("REGULAR" if is_regular else "CONDICIONAL"), is_cert_docente
+
+
+class CorrelatividadesForm(forms.Form):
+    """
+    Profesorado → Plan → Materia y definición de correlativas:
+    - correlativas_regular: materias que requiere REGULARES
+    - correlativas_aprobada: materias que requiere APROBADAS
+    """
+    APP_LABEL = "academia_core"
+    PROF_MODEL = "Profesorado"
+    PLAN_MODEL = "PlanEstudios"
+    ESPACIO_MODEL = "EspacioCurricular"
+
+    profesorado = forms.ModelChoiceField(
+        queryset=apps.get_model(APP_LABEL, PROF_MODEL).objects.all().order_by("nombre"),
+        required=True, label="Profesorado / Carrera",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+    plan = forms.ModelChoiceField(
+        queryset=apps.get_model(APP_LABEL, PLAN_MODEL).objects.none(),
+        required=True, label="Plan",
+        widget=forms.Select(attrs={"class": "form-select", "data-endpoint": "/ui/api/materias-por-plan"})
+    )
+    espacio = forms.ModelChoiceField(
+        queryset=apps.get_model(APP_LABEL, ESPACIO_MODEL).objects.none(),
+        required=True, label="Materia / Espacio",
+        widget=forms.Select(attrs={"class": "form-select"})
+    )
+
+    correlativas_regular = forms.MultipleChoiceField(
+        choices=[], required=False, label="Requiere REGULAR",
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"})
+    )
+    correlativas_aprobada = forms.MultipleChoiceField(
+        choices=[], required=False, label="Requiere APROBADA",
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        Plan = apps.get_model(self.APP_LABEL, self.PLAN_MODEL)
+        Espacio = apps.get_model(self.APP_LABEL, self.ESPACIO_MODEL)
+
+        # Si ya viene 'plan' en POST/initial, completamos dependientes
+        plan = None
+        if self.data.get("plan"):
+            try:
+                plan = Plan.objects.get(pk=self.data.get("plan"))
+            except Plan.DoesNotExist:
+                plan = None
+        elif self.initial.get("plan"):
+            plan = self.initial["plan"]
+
+        if plan:
+            self.fields["espacio"].queryset = Espacio.objects.filter(plan=plan).order_by("nombre")
+            opciones = [(str(e.pk), str(e)) for e in self.fields["espacio"].queryset]
+            self.fields["correlativas_regular"].choices = opciones
+            self.fields["correlativas_aprobada"].choices = opciones
+
+    def clean(self):
+        cleaned = super().clean()
+        espacio = cleaned.get("espacio")
+        reg = cleaned.get("correlativas_regular") or []
+        apr = cleaned.get("correlativas_aprobada") or []
+
+        if espacio:
+            if str(espacio.pk) in reg or str(espacio.pk) in apr:
+                raise forms.ValidationError("La materia no puede ser correlativa de sí misma.")
+
+        if set(reg) & set(apr):
+            raise forms.ValidationError("Una correlativa no puede ser simultáneamente REGULAR y APROBADA.")
+        return cleaned
