@@ -24,7 +24,7 @@ urlpatterns = [
 
     # Inscripciones
     path("inscripciones/carrera", InscripcionProfesoradoView.as_view(), name="inscribir_carrera"),
-    path("inscripciones/materia", InscribirMateriaView.as_view(), name="inscribir_materia"),
+    path("inscribir/materias", InscribirMateriaView.as_view(), name="inscribir_materias"),
     path("inscripciones/mesa-final", InscribirFinalView.as_view(), name="inscribir_final"),
     path("inscripciones/profesorado", InscripcionProfesoradoView.as_view(), name="inscripcion_profesorado"),
 
@@ -41,6 +41,6 @@ urlpatterns = [
     # API Endpoints
     path("api/planes", api.api_planes_por_carrera, name="api_planes"),
     path("api/cohortes", api.api_cohortes_por_plan, name="api_cohortes"),
-    path("api/materias", api.api_materias_por_plan, name="api_materias"),
+    path("api/materias", api.api_materias_por_plan, name="api_materias_por_plan"),
     path("api/correlatividades", api.api_correlatividades_por_espacio, name="api_correlatividades_por_espacio"),
 ]

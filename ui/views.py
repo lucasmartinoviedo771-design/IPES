@@ -33,6 +33,27 @@ from .forms import (
 from .permissions import RolesPermitidosMixin, RolesAllowedMixin
 from .auth_views import ROLE_HOME # Importar ROLE_HOME
 
+def resolve_estudiante_from_request(request):
+    """
+    Devuelve un Estudiante o None.
+    - Si el usuario logueado es Estudiante -> su registro.
+    - Si llega ?est=<ID> -> ese registro (si existe).
+    """
+    user = request.user
+    # 1) si el user tiene perfil Estudiante
+    if hasattr(user, "estudiante"):
+        return user.estudiante
+
+    # 2) si viene ?est=ID
+    est_id = request.GET.get("est")
+    if est_id:
+        try:
+            return Estudiante.objects.get(pk=est_id)
+        except Estudiante.DoesNotExist:
+            return None
+
+    return None
+
 
 # ---------- Dashboard ----------
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -160,37 +181,23 @@ class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
 
 
 class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
+    """
+    UI dinámica: estudiante + carrera + plan + materias.
+    Paso 1: solo visualiza y permite marcar; aún no guarda.
+    """
     template_name = "ui/inscripciones/materia.html"
-    # Ajustá los roles que pueden entrar a esta pantalla
-    allowed_roles = ("Admin", "Secretaría", "Bedel", "Docente", "Estudiante")
+    allowed_roles = ["Admin", "Secretaría", "Bedel", "Docente", "Estudiante"]
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # Buscamos el modelo de Profesorado/Carrera para poblar el primer select.
-        prof_model = None
-        for app_label, model_name in (("academico","Profesorado"),
-                                      ("academico","Carrera"),
-                                      ("ui","Profesorado"),
-                                      ("ui","Carrera")):
-            try:
-                prof_model = apps.get_model(app_label, model_name)
-                break
-            except LookupError:
-                continue
-
-        if prof_model:
-            try:
-                qs = prof_model.objects.all().order_by("nombre")
-            except Exception:
-                qs = prof_model.objects.all().order_by("id")
-            ctx["profesorados"] = qs
-        else:
-            ctx["profesorados"] = []
-
-        # soporte de preselección por querystring (opcional)
-        ctx["prefill_prof"] = self.request.GET.get("prof", "") or ""
-        ctx["prefill_plan"] = self.request.GET.get("plan", "") or ""
-        ctx["prefill_mat"]  = self.request.GET.get("mat", "") or ""
+        # para preselección por ?est=
+        ctx["prefill_est"] = self.request.GET.get("est") or ""
+        # selector de estudiantes
+        ctx["estudiantes"] = (
+            Estudiante.objects.all()
+            .order_by("apellido", "nombre")
+            .values("id", "apellido", "nombre", "dni")
+        )
         return ctx
 
 
