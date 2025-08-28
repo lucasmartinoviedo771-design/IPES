@@ -2,6 +2,7 @@
 from django.contrib.auth.views import LoginView
 from django.urls import reverse
 
+
 def resolve_role(user) -> str:
     """
     Devuelve el rol principal del usuario según superusuario y grupos.

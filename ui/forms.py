@@ -1,13 +1,25 @@
 # ui/forms.py
 from django import forms
 from django.apps import apps
-from django.forms.widgets import ClearableFileInput, DateInput, TextInput, EmailInput, NumberInput, Select, Textarea
+from django.forms.widgets import (
+    ClearableFileInput,
+    DateInput,
+    TextInput,
+    EmailInput,
+    NumberInput,
+    Select,
+    Textarea,
+)
 from django.forms import CheckboxInput, FileInput
 from datetime import date
 
+
 def existing_fields(model, candidates):
-    model_fields = {f.name for f in model._meta.get_fields() if getattr(f, "editable", False)}
+    model_fields = {
+        f.name for f in model._meta.get_fields() if getattr(f, "editable", False)
+    }
     return [f for f in candidates if f in model_fields]
+
 
 # ---- base para dar estilo a todos los campos ----
 class BaseStyledModelForm(forms.ModelForm):
@@ -39,44 +51,70 @@ class BaseStyledModelForm(forms.ModelForm):
                         "accept": "image/*",
                         "class": self.BASE
                         + " file:mr-4 file:py-2 file:px-3 file:rounded-lg file:border-0 "
-                          "file:bg-brand-500 file:text-white hover:file:bg-brand-600 cursor-pointer",
+                        "file:bg-brand-500 file:text-white hover:file:bg-brand-600 cursor-pointer",
                     }
                 )
+
 
 _INPUT = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
 _LABEL = "block text-sm font-medium text-slate-700 mb-1"
 _SELECT = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
 
+
 class EstudianteNuevoForm(forms.ModelForm):
     field_order = [
-        "apellido", "nombre",
-        "dni", "fecha_nacimiento",
-        "lugar_nacimiento", "email",
-        "telefono", "localidad",
-        "contacto_emergencia_parentesco", "contacto_emergencia_tel",
-        "activo", "foto",
+        "apellido",
+        "nombre",
+        "dni",
+        "fecha_nacimiento",
+        "lugar_nacimiento",
+        "email",
+        "telefono",
+        "localidad",
+        "contacto_emergencia_parentesco",
+        "contacto_emergencia_tel",
+        "activo",
+        "foto",
     ]
+
     class Meta:
         model = apps.get_model("academia_core", "Estudiante")
         fields = [
-            "apellido", "nombre", "dni",
-            "fecha_nacimiento", "lugar_nacimiento",
-            "email", "telefono",
-            "contacto_emergencia_tel", "contacto_emergencia_parentesco",
-            "localidad", "activo", "foto",
+            "apellido",
+            "nombre",
+            "dni",
+            "fecha_nacimiento",
+            "lugar_nacimiento",
+            "email",
+            "telefono",
+            "contacto_emergencia_tel",
+            "contacto_emergencia_parentesco",
+            "localidad",
+            "activo",
+            "foto",
         ]
         widgets = {
             "apellido": TextInput(attrs={"class": _INPUT, "placeholder": "Apellido"}),
             "nombre": TextInput(attrs={"class": _INPUT, "placeholder": "Nombre"}),
             "dni": TextInput(attrs={"class": _INPUT, "placeholder": "DNI"}),
-            "lugar_nacimiento": TextInput(attrs={"class": _INPUT, "placeholder": "Lugar de nacimiento"}),
-            "fecha_nacimiento": DateInput(attrs={"class": _INPUT, "placeholder": "dd/mm/aaaa", "type": "date"}),
+            "lugar_nacimiento": TextInput(
+                attrs={"class": _INPUT, "placeholder": "Lugar de nacimiento"}
+            ),
+            "fecha_nacimiento": DateInput(
+                attrs={"class": _INPUT, "placeholder": "dd/mm/aaaa", "type": "date"}
+            ),
             "email": EmailInput(attrs={"class": _INPUT, "placeholder": "Email"}),
             "telefono": TextInput(attrs={"class": _INPUT, "placeholder": "Teléfono"}),
-            "contacto_emergencia_tel": TextInput(attrs={"class": _INPUT, "placeholder": "Tel. de emergencia"}),
-            "contacto_emergencia_parentesco": TextInput(attrs={"class": _INPUT, "placeholder": "Parentesco (emergencia)"}),
+            "contacto_emergencia_tel": TextInput(
+                attrs={"class": _INPUT, "placeholder": "Tel. de emergencia"}
+            ),
+            "contacto_emergencia_parentesco": TextInput(
+                attrs={"class": _INPUT, "placeholder": "Parentesco (emergencia)"}
+            ),
             "localidad": TextInput(attrs={"class": _INPUT, "placeholder": "Localidad"}),
-            "activo": CheckboxInput(attrs={"class": "h-5 w-5 align-middle accent-blue-600"}),
+            "activo": CheckboxInput(
+                attrs={"class": "h-5 w-5 align-middle accent-blue-600"}
+            ),
             "foto": FileInput(attrs={"class": "block text-sm", "accept": "image/*"}),
         }
 
@@ -90,18 +128,29 @@ class EstudianteNuevoForm(forms.ModelForm):
         for name, field in self.fields.items():
             field.label = labels.get(name, field.label)
 
+
 # -------- Docente --------
 Docente = apps.get_model("academia_core", "Docente")
 
 DOCENTE_CANDIDATES = [
-    "apellido", "apellidos",
-    "nombre", "nombres",
-    "dni", "documento",
+    "apellido",
+    "apellidos",
+    "nombre",
+    "nombres",
+    "dni",
+    "documento",
     "legajo",
-    "email", "mail",
-    "telefono", "celular",
-    "foto", "imagen", "foto_perfil", "avatar", "photo",
+    "email",
+    "mail",
+    "telefono",
+    "celular",
+    "foto",
+    "imagen",
+    "foto_perfil",
+    "avatar",
+    "photo",
 ]
+
 
 class NuevoDocenteForm(BaseStyledModelForm):
     class Meta:
@@ -114,20 +163,24 @@ class NuevoDocenteForm(BaseStyledModelForm):
 # -----------------------
 InscripcionCarrera = apps.get_model("academia_core", "EstudianteProfesorado")
 
+
 class InscripcionCarreraForm(BaseStyledModelForm):
     class Meta:
         model = InscripcionCarrera
         # tomamos los que existan en el modelo
-        fields = existing_fields(
-            InscripcionCarrera,
-            [
-                "estudiante",       # FK
-                "profesorado",      # o "carrera" si tu modelo lo llama así
-                "fecha",            # si existe
-                "observaciones",    # si existe
-                "estado",           # si existe
-            ],
-        ) or "__all__"
+        fields = (
+            existing_fields(
+                InscripcionCarrera,
+                [
+                    "estudiante",  # FK
+                    "profesorado",  # o "carrera" si tu modelo lo llama así
+                    "fecha",  # si existe
+                    "observaciones",  # si existe
+                    "estado",  # si existe
+                ],
+            )
+            or "__all__"
+        )
 
 
 # -------------------------
@@ -136,21 +189,25 @@ class InscripcionCarreraForm(BaseStyledModelForm):
 # -------------------------
 InscripcionMateria = apps.get_model("academia_core", "InscripcionEspacio")
 
+
 class InscripcionMateriaForm(BaseStyledModelForm):
     class Meta:
         model = InscripcionMateria
-        fields = existing_fields(
-            InscripcionMateria,
-            [
-                "estudiante",       # FK
-                "espacio",          # o "espacio_curricular"/"materia"
-                "comision",         # si existe
-                "periodo",          # si existe
-                "fecha",            # si existe
-                "observaciones",    # si existe
-                "estado",           # si existe
-            ],
-        ) or "__all__"
+        fields = (
+            existing_fields(
+                InscripcionMateria,
+                [
+                    "estudiante",  # FK
+                    "espacio",  # o "espacio_curricular"/"materia"
+                    "comision",  # si existe
+                    "periodo",  # si existe
+                    "fecha",  # si existe
+                    "observaciones",  # si existe
+                    "estado",  # si existe
+                ],
+            )
+            or "__all__"
+        )
 
 
 # -------------------------
@@ -158,44 +215,53 @@ class InscripcionMateriaForm(BaseStyledModelForm):
 # -------------------------
 InscripcionFinal = apps.get_model("academia_core", "InscripcionFinal")
 
+
 class InscripcionFinalForm(BaseStyledModelForm):
     class Meta:
         model = InscripcionFinal
-        fields = existing_fields(
-            InscripcionFinal,
-            [
-                "estudiante",       # FK
-                "espacio",          # o "materia"
-                "mesa",             # si existe
-                "llamado",          # si existe
-                "fecha",            # si existe
-                "observaciones",    # si existe
-                "estado",           # si existe
-            ],
-        ) or "__all__"
+        fields = (
+            existing_fields(
+                InscripcionFinal,
+                [
+                    "estudiante",  # FK
+                    "espacio",  # o "materia"
+                    "mesa",  # si existe
+                    "llamado",  # si existe
+                    "fecha",  # si existe
+                    "observaciones",  # si existe
+                    "estado",  # si existe
+                ],
+            )
+            or "__all__"
+        )
+
 
 # -------------------------
 #   CALIFICACIÓN (BORRADOR)
 # -------------------------
 Calificacion = apps.get_model("academia_core", "Movimiento")
 
+
 class CalificacionBorradorForm(BaseStyledModelForm):
     class Meta:
         model = Calificacion
-        fields = existing_fields(
-            Calificacion,
-            [
-                "inscripcion",
-                "espacio",
-                "tipo",
-                "fecha",
-                "condicion",
-                "nota_num",
-                "nota_texto",
-                "folio",
-                "libro",
-            ],
-        ) or "__all__"
+        fields = (
+            existing_fields(
+                Calificacion,
+                [
+                    "inscripcion",
+                    "espacio",
+                    "tipo",
+                    "fecha",
+                    "condicion",
+                    "nota_num",
+                    "nota_texto",
+                    "folio",
+                    "libro",
+                ],
+            )
+            or "__all__"
+        )
 
 
 # -------------------------
@@ -204,13 +270,16 @@ class CalificacionBorradorForm(BaseStyledModelForm):
 EstudianteProfesorado = apps.get_model("academia_core", "EstudianteProfesorado")
 CERT_DOCENTE_LABEL = "Certificación Docente para la Educación Secundaria"
 
+
 def year_choices(start=2010):
     current = date.today().year
     return [(y, y) for y in range(current, start - 1, -1)]
 
+
 base_input = {"class": "w-full border rounded px-3 py-2"}
 base_select = {"class": "w-full border rounded px-3 py-2"}
 base_textarea = {"class": "w-full border rounded px-3 py-2", "rows": 3}
+
 
 class InscripcionProfesoradoForm(forms.ModelForm):
     # cohorte en <select> de años
@@ -218,30 +287,47 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
     # Requisitos (generales)
     req_dni = forms.BooleanField(required=False, label="Fotocopia legalizada del DNI")
-    req_cert_med = forms.BooleanField(required=False, label="Certificado Médico de Buena Salud")
+    req_cert_med = forms.BooleanField(
+        required=False, label="Certificado Médico de Buena Salud"
+    )
     req_fotos = forms.BooleanField(required=False, label="Dos (2) fotos carnet")
     req_folios = forms.BooleanField(required=False, label="Dos (2) folios oficio")
 
     # Título (mutuamente excluyentes para carreras generales)
-    req_titulo_sec = forms.BooleanField(required=False, label="Fotocopia legalizada del Título Secundario")
+    req_titulo_sec = forms.BooleanField(
+        required=False, label="Fotocopia legalizada del Título Secundario"
+    )
     req_titulo_tramite = forms.BooleanField(required=False, label="Título en trámite")
     req_adeuda = forms.BooleanField(required=False, label="Adeuda materias")
     req_adeuda_mats = forms.CharField(required=False, label="Materias adeudadas")
-    req_adeuda_inst = forms.CharField(required=False, label="Escuela o Institución de origen")
+    req_adeuda_inst = forms.CharField(
+        required=False, label="Escuela o Institución de origen"
+    )
 
     # Específico Certificación Docente
-    req_titulo_sup = forms.BooleanField(required=False, label="Fotocopia legalizada del Título de Nivel Superior")
-    req_incumbencias = forms.BooleanField(required=False, label="Incumbencias del Título Base")
+    req_titulo_sup = forms.BooleanField(
+        required=False, label="Fotocopia legalizada del Título de Nivel Superior"
+    )
+    req_incumbencias = forms.BooleanField(
+        required=False, label="Incumbencias del Título Base"
+    )
 
     # Nuevo: “Condición” (tiene que estar marcado para regularidad)
-    req_condicion = forms.BooleanField(required=False, label="Formulario de preinscripción")
+    req_condicion = forms.BooleanField(
+        required=False, label="Formulario de preinscripción"
+    )
 
     # DDJJ aparece solo si queda condicional
     ddjj_compromiso = forms.BooleanField(required=False, label="DDJJ de Compromiso")
 
     class Meta:
         model = EstudianteProfesorado
-        fields = ["estudiante", "profesorado", "plan", "cohorte"]  # solo campos del modelo
+        fields = [
+            "estudiante",
+            "profesorado",
+            "plan",
+            "cohorte",
+        ]  # solo campos del modelo
         widgets = {
             "estudiante": forms.Select(attrs=base_select),
             "profesorado": forms.Select(attrs=base_select),
@@ -250,12 +336,23 @@ class InscripcionProfesoradoForm(forms.ModelForm):
         }
 
     field_order = [
-        "estudiante", "profesorado", "plan", "cohorte",
-        "req_dni", "req_cert_med", "req_fotos", "req_folios",
-        "req_titulo_sec", "req_titulo_tramite", "req_adeuda",
-        "req_adeuda_mats", "req_adeuda_inst",
-        "req_titulo_sup", "req_incumbencias",
-        "req_condicion", "ddjj_compromiso",
+        "estudiante",
+        "profesorado",
+        "plan",
+        "cohorte",
+        "req_dni",
+        "req_cert_med",
+        "req_fotos",
+        "req_folios",
+        "req_titulo_sec",
+        "req_titulo_tramite",
+        "req_adeuda",
+        "req_adeuda_mats",
+        "req_adeuda_inst",
+        "req_titulo_sup",
+        "req_incumbencias",
+        "req_condicion",
+        "ddjj_compromiso",
     ]
 
     def __init__(self, *args, **kwargs):
@@ -276,6 +373,7 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
         try:
             from django.apps import apps
+
             Plan = apps.get_model("academia_core", "PlanEstudios")
             if "plan" in self.fields:
                 self.fields["plan"].queryset = Plan.objects.none()
@@ -286,8 +384,8 @@ class InscripcionProfesoradoForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         prof = cleaned.get("profesorado")
-        label = (str(prof).strip() if prof else "")
-        is_cert_docente = (label == CERT_DOCENTE_LABEL)
+        label = str(prof).strip() if prof else ""
+        is_cert_docente = label == CERT_DOCENTE_LABEL
 
         # exclusión mutua (solo aplica a generales)
         if not is_cert_docente:
@@ -301,9 +399,13 @@ class InscripcionProfesoradoForm(forms.ModelForm):
 
             if cleaned.get("req_adeuda"):
                 if not cleaned.get("req_adeuda_mats"):
-                    self.add_error("req_adeuda_mats", "Obligatorio si se marca ‘Adeuda materias’.")
+                    self.add_error(
+                        "req_adeuda_mats", "Obligatorio si se marca ‘Adeuda materias’."
+                    )
                 if not cleaned.get("req_adeuda_inst"):
-                    self.add_error("req_adeuda_inst", "Obligatorio si se marca ‘Adeuda materias’.")
+                    self.add_error(
+                        "req_adeuda_inst", "Obligatorio si se marca ‘Adeuda materias’."
+                    )
 
         else:
             # si es Certificación, ignoro título sec / trámite / adeuda
@@ -319,32 +421,36 @@ class InscripcionProfesoradoForm(forms.ModelForm):
     def compute_estado_admin(self):
         cd = getattr(self, "cleaned_data", {})
         prof = cd.get("profesorado")
-        label = (str(prof).strip() if prof else "")
-        is_cert_docente = (label == CERT_DOCENTE_LABEL)
+        label = str(prof).strip() if prof else ""
+        is_cert_docente = label == CERT_DOCENTE_LABEL
 
         # requisito común: “condición” marcado
         cond_ok = bool(cd.get("req_condicion"))
 
         if is_cert_docente:
             # generales + específicos de certificación
-            base_ok = all([
-                cd.get("req_dni"),
-                cd.get("req_cert_med"),
-                cd.get("req_fotos"),
-                cd.get("req_folios"),
-                cd.get("req_titulo_sup"),
-                cd.get("req_incumbencias"),
-            ])
+            base_ok = all(
+                [
+                    cd.get("req_dni"),
+                    cd.get("req_cert_med"),
+                    cd.get("req_fotos"),
+                    cd.get("req_folios"),
+                    cd.get("req_titulo_sup"),
+                    cd.get("req_incumbencias"),
+                ]
+            )
             cond_flags = False  # no hay “trámite/adeuda” aquí
         else:
             # generales + título secundario (o condicional si trámite/adeuda)
-            base_ok = all([
-                cd.get("req_dni"),
-                cd.get("req_cert_med"),
-                cd.get("req_fotos"),
-                cd.get("req_folios"),
-                cd.get("req_titulo_sec"),
-            ])
+            base_ok = all(
+                [
+                    cd.get("req_dni"),
+                    cd.get("req_cert_med"),
+                    cd.get("req_fotos"),
+                    cd.get("req_folios"),
+                    cd.get("req_titulo_sec"),
+                ]
+            )
             cond_flags = any([cd.get("req_titulo_tramite"), cd.get("req_adeuda")])
 
         is_regular = base_ok and not cond_flags and cond_ok
@@ -357,6 +463,7 @@ class CorrelatividadesForm(forms.Form):
     - correlativas_regular: materias que requiere REGULARES
     - correlativas_aprobada: materias que requiere APROBADAS
     """
+
     APP_LABEL = "academia_core"
     PROF_MODEL = "Profesorado"
     PLAN_MODEL = "PlanEstudios"
@@ -364,27 +471,47 @@ class CorrelatividadesForm(forms.Form):
 
     profesorado = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, PROF_MODEL).objects.all().order_by("nombre"),
-        required=True, label="Profesorado / Carrera",
-        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"})
+        required=True,
+        label="Profesorado / Carrera",
+        widget=forms.Select(
+            attrs={
+                "class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            }
+        ),
     )
     plan = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, PLAN_MODEL).objects.none(),
-        required=True, label="Plan",
-        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500", "data-endpoint": "/ui/api/materias-por-plan"})
+        required=True,
+        label="Plan",
+        widget=forms.Select(
+            attrs={
+                "class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500",
+                "data-endpoint": "/ui/api/materias-por-plan",
+            }
+        ),
     )
     espacio = forms.ModelChoiceField(
         queryset=apps.get_model(APP_LABEL, ESPACIO_MODEL).objects.none(),
-        required=True, label="Materia / Espacio",
-        widget=forms.Select(attrs={"class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"})
+        required=True,
+        label="Materia / Espacio",
+        widget=forms.Select(
+            attrs={
+                "class": "block w-full rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            }
+        ),
     )
 
     correlativas_regular = forms.MultipleChoiceField(
-        choices=[], required=False, label="Requiere REGULAR",
-        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"})
+        choices=[],
+        required=False,
+        label="Requiere REGULAR",
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
     )
     correlativas_aprobada = forms.MultipleChoiceField(
-        choices=[], required=False, label="Requiere APROBADA",
-        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"})
+        choices=[],
+        required=False,
+        label="Requiere APROBADA",
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -403,7 +530,9 @@ class CorrelatividadesForm(forms.Form):
             plan = self.initial["plan"]
 
         if plan:
-            self.fields["espacio"].queryset = Espacio.objects.filter(plan=plan).order_by("nombre")
+            self.fields["espacio"].queryset = Espacio.objects.filter(
+                plan=plan
+            ).order_by("nombre")
             opciones = [(str(e.pk), str(e)) for e in self.fields["espacio"].queryset]
             self.fields["correlativas_regular"].choices = opciones
             self.fields["correlativas_aprobada"].choices = opciones
@@ -416,8 +545,12 @@ class CorrelatividadesForm(forms.Form):
 
         if espacio:
             if str(espacio.pk) in reg or str(espacio.pk) in apr:
-                raise forms.ValidationError("La materia no puede ser correlativa de sí misma.")
+                raise forms.ValidationError(
+                    "La materia no puede ser correlativa de sí misma."
+                )
 
         if set(reg) & set(apr):
-            raise forms.ValidationError("Una correlativa no puede ser simultáneamente REGULAR y APROBADA.")
+            raise forms.ValidationError(
+                "Una correlativa no puede ser simultáneamente REGULAR y APROBADA."
+            )
         return cleaned

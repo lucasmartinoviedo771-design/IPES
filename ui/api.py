@@ -9,18 +9,27 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# ============ Helpers robustos ============ 
+
+# ============ Helpers robustos ============
 def _best_label(obj):
     """
     Construye una etiqueta legible sin importar cómo se llame el campo.
     Prioriza 'nombre', luego 'descripcion', 'titulo', 'resolucion' y termina en str(obj).
     """
-    for attr in ("nombre", "name", "descripcion", "descripcion_corta", "titulo", "resolucion"):
+    for attr in (
+        "nombre",
+        "name",
+        "descripcion",
+        "descripcion_corta",
+        "titulo",
+        "resolucion",
+    ):
         if hasattr(obj, attr):
             val = getattr(obj, attr)
             if val:
                 return str(val)
     return str(obj)
+
 
 def _find_plan_model():
     """
@@ -36,7 +45,9 @@ def _find_plan_model():
             for fk in fks:
                 fkname = fk.name.lower()
                 target = fk.related_model.__name__.lower()
-                if any(k in fkname for k in ("prof", "carr")) or any(k in target for k in ("prof", "carr")):
+                if any(k in fkname for k in ("prof", "carr")) or any(
+                    k in target for k in ("prof", "carr")
+                ):
                     candidates.append(m)
                     break
     # si hay muchos, priorizo los que incluyan 'estudio' en el nombre
@@ -44,6 +55,7 @@ def _find_plan_model():
         if "estudio" in m.__name__.lower():
             return m
     return candidates[0] if candidates else None
+
 
 def _find_espacio_model():
     """
@@ -64,6 +76,7 @@ def _find_espacio_model():
         if any(k in n for k in ("espacio", "materia", "asignatura")):
             return m
     return None
+
 
 def _first_matching_fk_name(model, *candidates):
     """
@@ -89,7 +102,9 @@ def _first_matching_fk_name(model, *candidates):
             return fk.name
     return fks[0].name if fks else None
 
-# ============ Endpoints ============ 
+
+# ============ Endpoints ============
+
 
 @login_required
 @require_GET
@@ -107,7 +122,9 @@ def api_planes_por_carrera(request):
         logger.error("No se pudo inferir el modelo de Plan (Plan/PlanEstudio).")
         return HttpResponseBadRequest("No se pudo inferir el modelo de Plan.")
 
-    fk_name = _first_matching_fk_name(PlanModel, "profesorado", "carrera", "titulo", "prof")
+    fk_name = _first_matching_fk_name(
+        PlanModel, "profesorado", "carrera", "titulo", "prof"
+    )
     logger.debug("PlanModel=%s, FK a profesorados=%s", PlanModel.__name__, fk_name)
 
     qs = PlanModel.objects.all()
@@ -126,8 +143,8 @@ def api_planes_por_carrera(request):
     for p in planes_qs:
         # Ajustá estos getattr a tus campos reales
         nombre = getattr(p, "nombre", None) or str(p)
-        resol  = getattr(p, "resolucion", "") or getattr(p, "codigo", "")
-        anio   = getattr(p, "anio", "")
+        resol = getattr(p, "resolucion", "") or getattr(p, "codigo", "")
+        anio = getattr(p, "anio", "")
 
         partes = [nombre]
         if resol:
@@ -139,6 +156,7 @@ def api_planes_por_carrera(request):
         items.append({"id": p.id, "label": label})
 
     return JsonResponse({"items": items})
+
 
 @login_required
 @require_GET
@@ -152,12 +170,14 @@ def api_materias_por_plan(request):
         return HttpResponseBadRequest("Falta plan_id")
 
     EspacioModel = _find_espacio_model()
-    PlanModel   = _find_plan_model()
+    PlanModel = _find_plan_model()
     if not EspacioModel or not PlanModel:
         logger.error("No se pudieron inferir modelos de Espacio/Materia o Plan.")
         return HttpResponseBadRequest("No se pudieron inferir modelos (Materias/Plan).")
 
-    fk_name = _first_matching_fk_name(EspacioModel, "plan", "plan_estudio", "planestudio")
+    fk_name = _first_matching_fk_name(
+        EspacioModel, "plan", "plan_estudio", "planestudio"
+    )
     logger.debug("EspacioModel=%s, FK a plan=%s", EspacioModel.__name__, fk_name)
 
     qs = EspacioModel.objects.all()
@@ -188,7 +208,7 @@ def api_cohortes_por_plan(request):
 
     try:
         start = int(request.GET.get("start", start_default))
-        end   = int(request.GET.get("end", end_default))
+        end = int(request.GET.get("end", end_default))
     except ValueError:
         return HttpResponseBadRequest("Parámetros start/end inválidos")
 
@@ -234,7 +254,9 @@ def api_correlatividades_por_espacio(request):
 
     if Cor is None:
         # Aún no creaste el modelo → devolvemos vacío para que el JS no falle
-        logger.warning("api_correlatividades_por_espacio: No se encontró el modelo Correlatividad.")
+        logger.warning(
+            "api_correlatividades_por_espacio: No se encontró el modelo Correlatividad."
+        )
         return JsonResponse({"regular": [], "aprobada": []})
 
     try:
@@ -244,17 +266,28 @@ def api_correlatividades_por_espacio(request):
 
         # Asumiendo que el modelo Correlatividad tiene un FK 'requisito' a Espacio/Materia
         # y un campo de texto 'tipo'
-        qs = Cor.objects.filter(espacio_id=esp_id_int).select_related('requisito')
+        qs = Cor.objects.filter(espacio_id=esp_id_int).select_related("requisito")
 
         qs_reg = qs.filter(tipo__in=reg_vals)
         qs_apr = qs.filter(tipo__in=apr_vals)
 
-        reg = [{"id": c.requisito.pk, "label": _best_label(c.requisito)} for c in qs_reg]
-        apr = [{"id": c.requisito.pk, "label": _best_label(c.requisito)} for c in qs_apr]
+        reg = [
+            {"id": c.requisito.pk, "label": _best_label(c.requisito)} for c in qs_reg
+        ]
+        apr = [
+            {"id": c.requisito.pk, "label": _best_label(c.requisito)} for c in qs_apr
+        ]
 
-        logger.info("api_correlatividades_por_espacio: espacio=%s reg=%s apr=%s", esp_id, len(reg), len(apr))
+        logger.info(
+            "api_correlatividades_por_espacio: espacio=%s reg=%s apr=%s",
+            esp_id,
+            len(reg),
+            len(apr),
+        )
         return JsonResponse({"regular": reg, "aprobada": apr})
 
     except Exception as e:
-        logger.exception(f"api_correlatividades_por_espacio: error para espacio_id={esp_id}")
+        logger.exception(
+            f"api_correlatividades_por_espacio: error para espacio_id={esp_id}"
+        )
         return HttpResponseBadRequest(f"Error en servidor: {e}")

@@ -31,7 +31,8 @@ from .forms import (
 
 # Mixin de permisos por rol
 from .permissions import RolesPermitidosMixin, RolesAllowedMixin
-from .auth_views import ROLE_HOME # Importar ROLE_HOME
+from .auth_views import ROLE_HOME  # Importar ROLE_HOME
+
 
 def resolve_estudiante_from_request(request):
     """
@@ -61,7 +62,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         # Redirección suave si el rol es Estudiante
-        role = request.session.get("active_role") # Usar el rol de la sesión
+        role = request.session.get("active_role")  # Usar el rol de la sesión
         if role and role.lower().startswith("estudiante"):
             try:
                 return redirect(reverse("ui:carton_estudiante"))
@@ -82,6 +83,7 @@ class EstudianteListView(LoginRequiredMixin, ListView):
     """
     Listado de estudiantes con buscador simple.
     """
+
     model = Estudiante
     template_name = "ui/personas/estudiantes_list.html"
     context_object_name = "items"
@@ -109,6 +111,7 @@ class EstudianteDetailView(LoginRequiredMixin, DetailView):
     """
     Ficha básica (solo lectura) del estudiante.
     """
+
     model = Estudiante
     template_name = "ui/personas/estudiantes_detail.html"
     context_object_name = "obj"
@@ -119,6 +122,7 @@ class NuevoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     """
     Alta de estudiantes — autorizado para Bedel / Secretaría / Admin.
     """
+
     permission_required = "academia_core.add_estudiante"
     allowed_roles = ["Bedel", "Secretaría", "Admin"]
 
@@ -159,6 +163,7 @@ class NuevoDocenteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
     """
     Alta de docentes — SOLO Secretaría y Admin.
     """
+
     permission_required = "academia_core.add_docente"
     allowed_roles = ["Secretaría", "Admin"]
 
@@ -169,22 +174,12 @@ class NuevoDocenteView(LoginRequiredMixin, RolesAllowedMixin, CreateView):
 
 
 # ---------- Inscripciones ----------
-class InscribirCarreraView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
-    """
-    Pantalla de Inscripción a Carrera (placeholder).
-    Restringida a Secretaría / Admin / Bedel.
-    """
-    allowed_roles = ["Secretaría", "Admin", "Bedel"]
-    permission_required = "academia_core.add_estudianteprofesorado"
-    template_name = "ui/inscripciones/carrera.html"
-    extra_context = {"page_title": "Inscribir a Carrera"}
-
-
 class InscribirMateriaView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     """
     UI dinámica: estudiante + carrera + plan + materias.
     Paso 1: solo visualiza y permite marcar; aún no guarda.
     """
+
     template_name = "ui/inscripciones/materia.html"
     allowed_roles = ["Admin", "Secretaría", "Bedel", "Docente", "Estudiante"]
 
@@ -206,6 +201,7 @@ class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
     Pantalla de Inscripción a Mesas de Final (inscribir terceros).
     Habilitada para Secretaría / Admin / Bedel.
     """
+
     allowed_roles = ["Secretaría", "Admin", "Bedel"]
     permission_required = "academia_core.enroll_others"
     template_name = "ui/inscripciones/final.html"
@@ -213,7 +209,7 @@ class InscribirFinalView(LoginRequiredMixin, RolesAllowedMixin, TemplateView):
 
 
 class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, CreateView):
-    allowed_roles = {"Admin", "Secretaría", "Bedel"}   # roles habilitados
+    allowed_roles = {"Admin", "Secretaría", "Bedel"}  # roles habilitados
 
     template_name = "ui/inscripciones/inscripcion_profesorado_form.html"
     form_class = InscripcionProfesoradoForm
@@ -235,13 +231,23 @@ class InscripcionProfesoradoView(RolesPermitidosMixin, LoginRequiredMixin, Creat
 
         RequisitosIngreso.objects.update_or_create(
             inscripcion=obj,
-            defaults={k: cd.get(k) for k in [
-                "req_dni","req_cert_med","req_fotos","req_folios",
-                "req_titulo_sec","req_titulo_tramite","req_adeuda",
-                "req_adeuda_mats","req_adeuda_inst",
-                "req_titulo_sup","req_incumbencias",
-                "req_condicion",
-            ]}
+            defaults={
+                k: cd.get(k)
+                for k in [
+                    "req_dni",
+                    "req_cert_med",
+                    "req_fotos",
+                    "req_folios",
+                    "req_titulo_sec",
+                    "req_titulo_tramite",
+                    "req_adeuda",
+                    "req_adeuda_mats",
+                    "req_adeuda_inst",
+                    "req_titulo_sup",
+                    "req_incumbencias",
+                    "req_condicion",
+                ]
+            },
         )
         return super().form_valid(form)
 
@@ -263,6 +269,7 @@ class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
     Configurar correlatividades por espacio de un plan.
     Acceso: Secretaría y Admin.
     """
+
     allowed_roles = {"Secretaría", "Admin"}
     template_name = "ui/planes/correlatividades_form.html"
     form_class = CorrelatividadesForm
@@ -311,7 +318,7 @@ class CorrelatividadesView(LoginRequiredMixin, RolesAllowedMixin, FormView):
         except LookupError:
             messages.error(
                 self.request,
-                "No encuentro el modelo de correlatividades. Ajustá APP_LABEL/CORR_MODEL o pasame tu models.py y lo adapto."
+                "No encuentro el modelo de correlatividades. Ajustá APP_LABEL/CORR_MODEL o pasame tu models.py y lo adapto.",
             )
         return super().form_valid(form)
 
@@ -327,7 +334,7 @@ class HistoricoEstudianteView(LoginRequiredMixin, RolesAllowedMixin, TemplateVie
     allowed_roles = ["Estudiante", "Bedel", "Secretaría", "Admin"]
 
 
-# --- Opcional: Vista para cambiar de rol --- 
+# --- Opcional: Vista para cambiar de rol ---
 class SwitchRoleView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         new_role = request.POST.get("role")

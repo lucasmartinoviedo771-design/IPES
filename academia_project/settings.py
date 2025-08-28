@@ -1,6 +1,7 @@
 # academia_project/settings.py
 from pathlib import Path
 import os
+import sys
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,9 +32,11 @@ LOGGING = {
 # -----------------------------
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except Exception:
     pass
+
 
 # -----------------------------
 # Seguridad / Debug
@@ -44,25 +47,43 @@ def getenv_bool(name: str, default: bool = False) -> bool:
         return default
     return str(v).lower() in {"1", "true", "t", "yes", "y"}
 
-DEBUG = getenv_bool("DJANGO_DEBUG", default=True)
 
-DEFAULT_DEV_SECRET = "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_"
+# EN PRODUCCIÓN, SIEMPRE DEBUG=False
+# En el entorno de pruebas, Django lo setea a False automáticamente.
+DEBUG = getenv_bool("DJANGO_DEBUG", default=False)
 
-if DEBUG:
-    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
-    ALLOWED_HOSTS: list[str] = []
-else:
-    SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-    if not SECRET_KEY:
-        raise ImproperlyConfigured("Set the DJANGO_SECRET_KEY environment variable")
+# IMPORTANTE: Esta clave es solo para desarrollo.
+# En producción, DEBES usar una clave segura y única desde una variable de entorno.
+DEFAULT_DEV_SECRET = (
+    "django-insecure-7p6^%e4ayapj2o4tu7wx^&qlaczf8cj=(uh45aq*(((@vc1a8_"
+)
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", DEFAULT_DEV_SECRET)
+
+# Permitir todos los hosts en desarrollo/pruebas, pero requerir configuración en producción.
+ALLOWED_HOSTS = ["*"]
+
+# --- Configuraciones de seguridad para Producción ---
+if not DEBUG and "test" not in sys.argv:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    # ALLOWED_HOSTS no puede estar vacío en producción
     hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
     if not hosts:
-        raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS (comma separated)")
+        raise ImproperlyConfigured(
+            "En producción, la variable de entorno DJANGO_ALLOWED_HOSTS no puede estar vacía."
+        )
     ALLOWED_HOSTS = [h.strip() for h in hosts.split(",") if h.strip()]
 
-SESSION_COOKIE_SECURE = not DEBUG
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = not DEBUG
+    # La SECRET_KEY de desarrollo no es segura para producción
+    if SECRET_KEY == DEFAULT_DEV_SECRET:
+        raise ImproperlyConfigured(
+            "En producción, debes configurar la variable de entorno DJANGO_SECRET_KEY con un valor seguro."
+        )
 
 # -----------------------------
 # Apps
@@ -101,6 +122,7 @@ ROOT_URLCONF = "academia_project.urls"
 # Templates
 # -----------------------------
 from pathlib import Path
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 TEMPLATES = [
@@ -122,7 +144,6 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 # === Tus context processors ===
-                "ui.context_processors.role_from_request",
                 "ui.context_processors.menu",
                 "ui.context_processors.ui_globals",
             ],
@@ -159,7 +180,9 @@ DATABASES = {
 # Password validators
 # -----------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -181,7 +204,7 @@ STATIC_URL = "/static/"
 # Agrega solo las carpetas de estáticos que existan para evitar warnings
 _static_candidates = [
     BASE_DIR / "ui" / "static",  # donde suele estar ui/img/avatar-placeholder.svg, etc.
-    BASE_DIR / "static",         # opcional si la usás
+    BASE_DIR / "static",  # opcional si la usás
 ]
 STATICFILES_DIRS = [p for p in _static_candidates if p.exists()]
 
@@ -191,7 +214,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # -----------------------------
 # Login / Logout
 # -----------------------------
-LOGIN_URL = "login"              # o "ui:login" si tu URL está namespaced
+LOGIN_URL = "login"  # o "ui:login" si tu URL está namespaced
 LOGIN_REDIRECT_URL = "/dashboard"
 LOGOUT_REDIRECT_URL = "login"
 

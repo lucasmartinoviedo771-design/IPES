@@ -42,6 +42,9 @@ def estudiante_foto_path(instance, filename):
 
 class Profesorado(models.Model):
     nombre = models.CharField(max_length=120, unique=True)
+    plan = models.ForeignKey(
+        "PlanEstudios", on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
     plan_vigente = models.CharField(max_length=20, blank=True)
     slug = models.SlugField(max_length=255, unique=True, blank=True, null=True)
 
@@ -383,8 +386,6 @@ class EstudianteProfesorado(models.Model):
             self.promedio_general = None
         self.save(update_fields=["promedio_general"])
 
-    
-
 
 try:
     EstudianteProfesorado.LegajoEstado
@@ -694,7 +695,7 @@ class Movimiento(models.Model):
                     "No puede inscribirse a mesa: documentación/legajo incompleto."
                 )
 
-            if cond_codigo == "REGULAR":
+            if cond_codigo == "FINAL_REGULAR":
                 if not self.ausente:
                     if self.nota_num is None:
                         raise ValidationError("Debe cargar la nota o marcar Ausente.")
@@ -1107,9 +1108,10 @@ class CorePerms(models.Model):
     Modelo NO gestionado, solo para colgar permisos custom.
     No crea tablas; sirve para que existan los Permission en la BD.
     """
+
     class Meta:
-        managed = False          # ← CAMBIO CLAVE (en lugar de proxy=True)
-        default_permissions = () # no crear add/change/delete/view
+        managed = False  # ← CAMBIO CLAVE (en lugar de proxy=True)
+        default_permissions = ()  # no crear add/change/delete/view
         app_label = "academia_core"
         permissions = [
             ("open_close_windows", "Puede abrir/cerrar ventanas de inscripción"),
@@ -1117,19 +1119,23 @@ class CorePerms(models.Model):
             ("enroll_others", "Puede inscribir a terceros"),
             ("manage_correlatives", "Puede gestionar correlatividades"),
             ("publish_grades", "Puede publicar calificaciones"),
-            ("view_any_student_record", "Puede ver ficha/cartón de cualquier estudiante"),
+            (
+                "view_any_student_record",
+                "Puede ver ficha/cartón de cualquier estudiante",
+            ),
             ("edit_student_record", "Puede editar ficha/cartón de estudiantes"),
             ("view_inscripcioncarrera", "Puede ver inscripciones a carrera"),
             ("add_inscripcioncarrera", "Puede crear inscripciones a carrera"),
             ("change_inscripcioncarrera", "Puede editar inscripciones a carrera"),
         ]
 
+
 class RequisitosIngreso(models.Model):
     # IMPORTANTE: ajustá el import / referencia ↓ a TU modelo de inscripción
     inscripcion = models.OneToOneField(
         "academia_core.EstudianteProfesorado",  # cambia TU_APP al label real de esa app
         on_delete=models.CASCADE,
-        related_name="requisitos"
+        related_name="requisitos",
     )
     # Generales
     req_dni = models.BooleanField(default=False)

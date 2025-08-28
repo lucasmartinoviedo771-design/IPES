@@ -41,7 +41,7 @@ from .views_api import (
     api_get_correlatividades,
     api_get_planes_for_profesorado,
     api_get_espacios_for_plan,
-    api_correlatividades_por_materia, # NEW IMPORT
+    api_correlatividades_por_materia,  # NEW IMPORT
 )
 
 # CBVs ya existentes
@@ -65,10 +65,13 @@ from .views_cbv import (
 
 urlpatterns = [
     # ---------------- Vistas principales (NUEVO) ----------------
-    path("", home_router, name="home_router"), # Ruta principal para el router de home
-    path("alumno/home/", alumno_home, name="alumno_home"), # Home del alumno
-    path("docente/espacio/<int:espacio_id>/", docente_espacio_detalle, name="docente_espacio_detalle"), # Detalle de espacio para docente
-
+    path("", home_router, name="home_router"),  # Ruta principal para el router de home
+    path("alumno/home/", alumno_home, name="alumno_home"),  # Home del alumno
+    path(
+        "docente/espacio/<int:espacio_id>/",
+        docente_espacio_detalle,
+        name="docente_espacio_detalle",
+    ),  # Detalle de espacio para docente
     # ---------------- Cartones ----------------
     path("carton/primaria/", buscar_carton_primaria, name="buscar_carton_primaria"),
     path("carton/primaria/<str:dni>/", carton_primaria_por_dni, name="carton_primaria"),
@@ -99,7 +102,11 @@ urlpatterns = [
     path("panel/horarios/", panel_horarios, name="panel_horarios"),
     path("panel/docente/", panel_docente, name="panel_docente"),
     # NUEVO: Ruta para el formulario de correlatividades
-    path("panel/correlatividades/form/", correlatividades_form_view, name="correlatividades_form"),
+    path(
+        "panel/correlatividades/form/",
+        correlatividades_form_view,
+        name="correlatividades_form",
+    ),
     # ---------------- CBVs (Alumnos) ----------
     path("alumnos/", EstudianteListView.as_view(), name="listado_alumnos"),
     path("alumnos/agregar/", EstudianteCreateView.as_view(), name="agregar_alumno"),
@@ -186,8 +193,16 @@ urlpatterns = [
         api_get_correlatividades,
         name="api_correlatividades_con_insc",
     ),
-    path("api/planes-por-profesorado/", api_get_planes_for_profesorado, name="api_get_planes_for_profesorado"),
-    path("api/espacios-por-plan/", api_get_espacios_for_plan, name="api_get_espacios_for_plan"),
+    path(
+        "api/planes-por-profesorado/",
+        api_get_planes_for_profesorado,
+        name="api_get_planes_for_profesorado",
+    ),
+    path(
+        "api/espacios-por-plan/",
+        api_get_espacios_for_plan,
+        name="api_get_espacios_for_plan",
+    ),
     # ---------------- Guardados (POST) --------------
     path(
         "panel/inscripciones/<int:insc_prof_id>/cursadas/crear/",
@@ -206,8 +221,8 @@ urlpatterns = [
         "redir/inscripcion/<int:insc_id>/", redir_inscripcion, name="redir_inscripcion"
     ),
     path(
-    "api/correlatividades-por-materia/",
-    api_correlatividades_por_materia,
-    name="api_correlatividades_por_materia",
+        "api/correlatividades-por-materia/",
+        api_correlatividades_por_materia,
+        name="api_correlatividades_por_materia",
     ),
 ]

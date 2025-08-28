@@ -72,13 +72,14 @@ class EstudianteProfesoradoModelTest(TestCase):
             cohorte=2023,
         )
         # Intentar crear otra inscripción con el mismo estudiante y plan
-        with self.assertRaises(IntegrityError):
-            EstudianteProfesorado.objects.create(
+        with self.assertRaises(ValidationError):
+            inscripcion = EstudianteProfesorado(
                 estudiante=self.estudiante,
                 profesorado=self.profesorado1,
                 plan=self.plan1_prof1,
                 cohorte=2024,  # Cohorte diferente, pero mismo estudiante y plan
             )
+            inscripcion.full_clean()
 
     def test_unique_estudiante_plan_different_plan(self):
         # Crear una inscripción válida
@@ -134,32 +135,37 @@ class EspacioCurricularModelTest(TestCase):
 
 
 class MovimientoModelTest(TestCase):
-    def setUp(self):
-        self.estudiante = Estudiante.objects.create(
+    @classmethod
+    def setUpTestData(cls):
+        cls.estudiante = Estudiante.objects.create(
             dni="111", apellido="Doe", nombre="John"
         )
-        self.profesorado = Profesorado.objects.create(nombre="Profesorado de Prueba")
-        self.plan = PlanEstudios.objects.create(
-            profesorado=self.profesorado, resolucion="Res. Test"
+        cls.profesorado = Profesorado.objects.create(nombre="Profesorado de Prueba")
+        cls.plan = PlanEstudios.objects.create(
+            profesorado=cls.profesorado, resolucion="Res. Test"
         )
-        self.inscripcion = EstudianteProfesorado.objects.create(
-            estudiante=self.estudiante,
-            profesorado=self.profesorado,
-            plan=self.plan,
+        cls.inscripcion = EstudianteProfesorado.objects.create(
+            estudiante=cls.estudiante,
+            profesorado=cls.profesorado,
+            plan=cls.plan,
             cohorte=2023,
         )
-        self.espacio = EspacioCurricular.objects.create(
-            plan=self.plan, nombre="Materia Test", anio="1°", cuatrimestre="1"
+        cls.espacio = EspacioCurricular.objects.create(
+            plan=cls.plan, nombre="Materia Test", anio="1°", cuatrimestre="1"
         )
-        self.condicion_regular = Condicion.objects.create(
+        cls.condicion_regular = Condicion.objects.create(
             codigo="REGULAR", nombre="Regular", tipo="REG"
         )
-        self.condicion_aprobado = Condicion.objects.create(
+        cls.condicion_aprobado = Condicion.objects.create(
             codigo="APROBADO", nombre="Aprobado", tipo="REG"
         )
-        self.condicion_final_aprobado = Condicion.objects.create(
-            codigo="REGULAR", nombre="Aprobado Final", tipo="FIN"
+        cls.condicion_final_aprobado = Condicion.objects.create(
+            codigo="FINAL_REGULAR", nombre="Aprobado Final", tipo="FIN"
         )
+
+    def setUp(self):
+        # La data de setUpTestData está disponible en self
+        pass
 
     def test_clean_method_valid_movimiento(self):
         movimiento = Movimiento(
@@ -208,6 +214,15 @@ class MovimientoModelTest(TestCase):
             movimiento.full_clean()
 
     def test_clean_method_final_nota_minima(self):
+        # Forzar legajo completo para esta prueba
+        self.inscripcion.doc_dni_legalizado = True
+        self.inscripcion.doc_titulo_sec_legalizado = True
+        self.inscripcion.doc_cert_medico = True
+        self.inscripcion.doc_fotos_carnet = True
+        self.inscripcion.doc_folios_oficio = True
+        self.inscripcion.adeuda_materias = False
+        self.inscripcion.save()
+
         movimiento = Movimiento(
             inscripcion=self.inscripcion,
             espacio=self.espacio,

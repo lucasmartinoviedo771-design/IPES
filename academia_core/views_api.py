@@ -2,7 +2,15 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from academia_core.models import EspacioCurricular, PlanEstudios, Estudiante, Profesorado, Docente, Movimiento, Correlatividad # Added Correlatividad
+from academia_core.models import (
+    EspacioCurricular,
+    PlanEstudios,
+    Estudiante,
+    Profesorado,
+    Docente,
+    Movimiento,
+    Correlatividad,
+)  # Added Correlatividad
 from academia_core.eligibilidad import habilitado
 from django.apps import apps
 
@@ -170,16 +178,22 @@ def api_get_correlatividades(request, espacio_id, insc_id=None):
     plan = espacio_principal.plan
 
     # Get all other spaces in the same plan, excluding the principal space
-    all_other_spaces_in_plan = EspacioCurricular.objects.filter(plan=plan).exclude(pk=espacio_id).order_by("nombre")
+    all_other_spaces_in_plan = (
+        EspacioCurricular.objects.filter(plan=plan)
+        .exclude(pk=espacio_id)
+        .order_by("nombre")
+    )
 
     data = []
     for esp in all_other_spaces_in_plan:
-        data.append({
-            "id": esp.id,
-            "nombre": esp.nombre,
-            "anio": esp.anio,
-            "cuatrimestre": esp.cuatrimestre,
-        })
+        data.append(
+            {
+                "id": esp.id,
+                "nombre": esp.nombre,
+                "anio": esp.anio,
+                "cuatrimestre": esp.cuatrimestre,
+            }
+        )
 
     return JsonResponse({"items": data})
 
@@ -277,13 +291,16 @@ def api_inscribir_espacio(request):
     obj = InscripcionEspacio.objects.create(**create_kwargs)
     return JsonResponse({"ok": True, "id": obj.id})
 
+
 @require_GET
 def api_get_planes_for_profesorado(request):
     profesorado_id = request.GET.get("profesorado_id")
     if not profesorado_id:
         return JsonResponse({"items": []})
-    
-    planes = PlanEstudios.objects.filter(profesorado_id=profesorado_id).order_by("resolucion")
+
+    planes = PlanEstudios.objects.filter(profesorado_id=profesorado_id).order_by(
+        "resolucion"
+    )
     data = [
         {
             "id": p.id,
@@ -294,13 +311,16 @@ def api_get_planes_for_profesorado(request):
     ]
     return JsonResponse({"items": data})
 
+
 @require_GET
 def api_get_espacios_for_plan(request):
     plan_id = request.GET.get("plan_id")
     if not plan_id:
         return JsonResponse({"items": []})
-    
-    espacios = EspacioCurricular.objects.filter(plan_id=plan_id).order_by("anio", "cuatrimestre", "nombre")
+
+    espacios = EspacioCurricular.objects.filter(plan_id=plan_id).order_by(
+        "anio", "cuatrimestre", "nombre"
+    )
     data = [
         {
             "id": e.id,
@@ -312,33 +332,31 @@ def api_get_espacios_for_plan(request):
     ]
     return JsonResponse({"items": data})
 
+
 @require_GET
 def api_correlatividades_por_materia(request):
-    materia_id = request.GET.get('materia_id')
-    plan_id = request.GET.get('plan_id')
+    materia_id = request.GET.get("materia_id")
+    plan_id = request.GET.get("plan_id")
 
     if not materia_id or not plan_id:
-        return JsonResponse({'error': 'materia_id and plan_id are required'}, status=400)
+        return JsonResponse(
+            {"error": "materia_id and plan_id are required"}, status=400
+        )
 
     try:
         materia_principal = EspacioCurricular.objects.get(id=materia_id)
         plan = PlanEstudios.objects.get(id=plan_id)
     except (EspacioCurricular.DoesNotExist, PlanEstudios.DoesNotExist):
-        return JsonResponse({'error': 'Materia or Plan not found'}, status=404)
+        return JsonResponse({"error": "Materia or Plan not found"}, status=404)
 
     regulares_ids = Correlatividad.objects.filter(
-        plan=plan,
-        espacio=materia_principal,
-        requisito='REGULARIZADA'
-    ).values_list('requiere_espacio__id', flat=True)
+        plan=plan, espacio=materia_principal, requisito="REGULARIZADA"
+    ).values_list("requiere_espacio__id", flat=True)
 
     aprobadas_ids = Correlatividad.objects.filter(
-        plan=plan,
-        espacio=materia_principal,
-        requisito='APROBADA'
-    ).values_list('requiere_espacio__id', flat=True)
+        plan=plan, espacio=materia_principal, requisito="APROBADA"
+    ).values_list("requiere_espacio__id", flat=True)
 
-    return JsonResponse({
-        'regulares': list(regulares_ids),
-        'aprobadas': list(aprobadas_ids)
-    })
+    return JsonResponse(
+        {"regulares": list(regulares_ids), "aprobadas": list(aprobadas_ids)}
+    )

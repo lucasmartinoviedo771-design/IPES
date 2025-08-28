@@ -2,6 +2,7 @@
 from django.core.exceptions import PermissionDenied
 from .auth_views import resolve_role
 
+
 class RolesAllowedMixin:
     allowed_roles = tuple()  # ("Admin", "Secretaría", "Bedel", "Docente", "Estudiante")
 

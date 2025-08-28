@@ -14,29 +14,56 @@ BEDEL_MENU = [
     {
         "title": "ACADÉMICO",
         "items": [
-            {"label": "Estudiante nuevo",         "path": "/personas/estudiantes/nuevo", "icon": "user-plus"},
-            {"label": "Inscribir a Carrera",      "path": "/inscripciones/carrera",      "icon": "check"},
-            {"label": "Inscribir a Materias",     "url_name": "ui:inscribir_materias",   "icon": "book-plus",  "badge": {"text": "Abierto",  "tone": "success"}},
-            {"label": "Inscribir a Mesa de Final","path": "/inscripciones/mesa-final",    "icon": "calendar-x", "badge": {"text": "Cerrado", "tone": "danger"}},
-            {"label": "Cartón",                   "path": "/carton",                      "icon": "id-card"},
-            {"label": "Histórico",                "path": "/historico",                   "icon": "clock"},
-            {"label": "Correlatividades",         "path": "/academico/correlatividades",  "icon": "layers", "roles": ["Secretaría", "Admin"]},
+            {
+                "label": "Estudiante nuevo",
+                "path": "/personas/estudiantes/nuevo",
+                "icon": "user-plus",
+            },
+            {
+                "label": "Inscribir a Carrera",
+                "path": "/inscripciones/carrera",
+                "icon": "check",
+            },
+            {
+                "label": "Inscribir a Materias",
+                "url_name": "ui:inscribir_materias",
+                "icon": "book-plus",
+                "badge": {"text": "Abierto", "tone": "success"},
+            },
+            {
+                "label": "Inscribir a Mesa de Final",
+                "path": "/inscripciones/mesa-final",
+                "icon": "calendar-x",
+                "badge": {"text": "Cerrado", "tone": "danger"},
+            },
+            {"label": "Cartón", "path": "/carton", "icon": "id-card"},
+            {"label": "Histórico", "path": "/historico", "icon": "clock"},
+            {
+                "label": "Correlatividades",
+                "path": "/academico/correlatividades",
+                "icon": "layers",
+                "roles": ["Secretaría", "Admin"],
+            },
         ],
     },
     {
         "title": "PLANIFICACIÓN",
         "items": [
-            {"label": "Horarios",             "path": "/horarios", "icon": "clock"},
-            {"label": "Espacios Curriculares","path": "/espacios", "icon": "layers"},
-            {"label": "Planes de Estudio",    "path": "/planes",   "icon": "map"},
+            {"label": "Horarios", "path": "/horarios", "icon": "clock"},
+            {"label": "Espacios Curriculares", "path": "/espacios", "icon": "layers"},
+            {"label": "Planes de Estudio", "path": "/planes", "icon": "map"},
         ],
     },
     {
         "title": "PERSONAS",
         "items": [
-            {"label": "Estudiantes",       "path": "/estudiantes",                     "icon": "users"},
-            {"label": "Docentes",          "path": "/docentes",                        "icon": "user"},
-            {"label": "Nuevo Estudiante",  "path": "/personas/estudiantes/nuevo",      "icon": "user-plus"},
+            {"label": "Estudiantes", "path": "/estudiantes", "icon": "users"},
+            {"label": "Docentes", "path": "/docentes", "icon": "user"},
+            {
+                "label": "Nuevo Estudiante",
+                "path": "/personas/estudiantes/nuevo",
+                "icon": "user-plus",
+            },
         ],
     },
     {
@@ -68,18 +95,27 @@ ESTUDIANTE_MENU = [
     {
         "title": "ACADÉMICO",
         "items": [
-            {"label": "Inscribirme a Materias",      "url_name": "ui:inscribir_materias", "icon": "book-plus"},
-            {"label": "Inscribirme a Mesa de Final", "path": "/inscripciones/mesa-final", "icon": "calendar-x"},
+            {
+                "label": "Inscribirme a Materias",
+                "url_name": "ui:inscribir_materias",
+                "icon": "book-plus",
+            },
+            {
+                "label": "Inscribirme a Mesa de Final",
+                "path": "/inscripciones/mesa-final",
+                "icon": "calendar-x",
+            },
         ],
     },
     {
         "title": "TRAYECTORIA",
         "items": [
-            {"label": "Cartón",    "path": "/carton",    "icon": "id-card"},
+            {"label": "Cartón", "path": "/carton", "icon": "id-card"},
             {"label": "Histórico", "path": "/historico", "icon": "clock"},
         ],
     },
 ]
+
 
 def for_role(role):
     role = (role or "").strip()

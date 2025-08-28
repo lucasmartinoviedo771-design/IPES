@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("academia_core", "0004_auto_20250824_2104"),
+        ("academia_core", "0003_alter_plan_non_nullable"),
     ]
 
     operations = [

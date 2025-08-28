@@ -116,7 +116,9 @@ for line in lines[1:]:
             # Regex to find "Materia Name (Format)"
             # It handles cases where there might be multiple entries separated by commas
             for item in re.findall(r"([A-Za-zÀ-ÿ\s]+) \(([A-Z])\)", aprobadas_text):
-                aprobadas_list.append({"name": item[0].strip(), "format": item[1].strip()})
+                aprobadas_list.append(
+                    {"name": item[0].strip(), "format": item[1].strip()}
+                )
             current_materia["correlativas_cursar"]["aprobadas"] = aprobadas_list
         continue
 
@@ -127,10 +129,14 @@ for line in lines[1:]:
             # Extract materia name and format from within the parentheses
             regularizadas_list = []
             for item in re.findall(r"([A-Za-zÀ-ÿ\s]+) \(([A-Z])\)", regularizadas_text):
-                regularizadas_list.append({"name": item[0].strip(), "format": item[1].strip()})
+                regularizadas_list.append(
+                    {"name": item[0].strip(), "format": item[1].strip()}
+                )
             current_materia["correlativas_cursar"]["regularizadas"] = regularizadas_list
         continue
 
 # Write the parsed data to a JSON file
-with open("C:\\proyectos\\academia\\parsed_correlatividades.json", "w", encoding="utf-8") as f:
+with open(
+    "C:\\proyectos\\academia\\parsed_correlatividades.json", "w", encoding="utf-8"
+) as f:
     json.dump(parsed_data, f, indent=2, ensure_ascii=False)

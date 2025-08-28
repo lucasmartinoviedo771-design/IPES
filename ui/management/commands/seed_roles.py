@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 
 ROLES = ["Admin", "Secretaría", "Docente", "Estudiante", "Bedel"]
 
+
 class Command(BaseCommand):
     help = "Crea los grupos de roles básicos"
 
@@ -12,4 +13,4 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Creado grupo: {name}"))
             else:
-                self.stdout.write(f"OK grupo ya existe: {name}"))
+                self.stdout.write(f"OK grupo ya existe: {name}")
