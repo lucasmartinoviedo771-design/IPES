@@ -1,97 +1,85 @@
 # ui/context_processors.py
 from __future__ import annotations
 
-from typing import Any, Dict, List
-
+from typing import Optional, Iterable
 from django.conf import settings
-from django.urls import reverse
 from django.http import HttpRequest
+from .menu import for_role  # generador de secciones del menú
 
-# importa el generador de secciones de menú
-try:
-    from .menu import for_role as menu_for_role  # retorna las secciones según el rol
-except Exception:
-    menu_for_role = None
+# Soportamos varias claves posibles (compatibilidad con código previo)
+POSSIBLE_ROLE_SESSION_KEYS = [
+    "ui_current_role",
+    "current_role",
+    "role",
+    "menu_role",
+    "user_role",
+]
 
+def _first_group_name(user) -> Optional[str]:
+    if not getattr(user, "is_authenticated", False):
+        return None
+    names: Iterable[str] = user.groups.values_list("name", flat=True)
+    return next(iter(names), None)
 
-def role_from_request(request: HttpRequest) -> str:
+def _role_from_session(request: HttpRequest) -> Optional[str]:
+    for key in POSSIBLE_ROLE_SESSION_KEYS:
+        val = request.session.get(key)
+        if val:
+            return str(val)
+    return None
+
+def _detect_role(request: HttpRequest) -> Optional[str]:
     """
-    Obtiene el rol 'lógico' para construir el menú.
-    Ajustá estas heurísticas a tu proyecto si fuese necesario.
+    Orden:
+      1) Cualquiera de las claves de sesión conocidas (switch_role, etc.)
+      2) Superusuario -> 'Admin'
+      3) Coincidencia por grupos preferidos
+      4) Primer grupo del usuario (si existe)
     """
-    # 1) Si la vista setea algo en request (u otro middleware)
-    role = getattr(request, "ui_role", None)
+    # 1) Sesión
+    role = _role_from_session(request)
+    if role:
+        return role
 
-    # 2) Si el usuario tiene un atributo de rol
-    if not role and hasattr(request.user, "rol"):
-        role = getattr(request.user, "rol")
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False):
+        return None
 
-    # 3) Si guardás el rol activo en sesión
-    if not role:
-        role = request.session.get("rol_activo")
-
-    # 4) Fallback por defecto
-    return (role or "bedel").lower()
-
-
-def _materialize_urls(sections: List[Dict[str, Any]]) -> None:
-    """
-    Completa cada item del menú con su href.
-    - Si viene 'path', lo respeta.
-    - Si viene 'urlname', hace reverse() para obtener el path.
-    """
-    for sec in sections or []:
-        for it in sec.get("items", []):
-            if "urlname" in it and not it.get("path"):
-                try:
-                    it["path"] = reverse(it["urlname"])
-                except Exception:
-                    # si falla el reverse, que no reviente el render del menú
-                    it["path"] = it["urlname"]
-
-
-def menu(request: HttpRequest) -> Dict[str, Any]:
-    """
-    Expone en el contexto:
-      - menu_sections: lista de secciones con sus items e hrefs
-      - menu_active: título del item 'activo'
-    """
-    role = role_from_request(request)
-
-    sections: List[Dict[str, Any]] = []
-    if callable(menu_for_role):
-        try:
-            sections = menu_for_role(role) or []
-        except Exception:
-            sections = []
+    # 2) Superusuario
+    if user.is_superuser:
+        role = "Admin"
     else:
-        sections = []
+        # 3) Grupos preferidos
+        preferred = ["Bedel", "Secretaría", "Secretaria", "Docente", "Estudiante", "Admin"]
+        user_groups = set(user.groups.values_list("name", flat=True))
+        role = next((g for g in preferred if g in user_groups), None)
+        # 4) Primer grupo si no coincidió ninguno
+        if role is None:
+            role = _first_group_name(user)
 
-    # completa paths usando reverse si hay 'urlname'
-    _materialize_urls(sections)
+    # Guardamos también en una de nuestras claves para futuras vistas
+    request.session["ui_current_role"] = role
+    return role
 
-    # marca activo por path actual
-    current = request.path or ""
-    active_title = ""
-    for sec in sections:
-        for it in sec.get("items", []):
-            href = it.get("path", "") or ""
-            it["active"] = current.startswith(href) and href != "/"
-            if it["active"]:
-                active_title = it.get("title", "")
+def role_from_request(request: HttpRequest) -> Optional[str]:
+    return _detect_role(request)
 
+def menu(request: HttpRequest) -> dict:
+    role = role_from_request(request)
+    sections = for_role(role)
     return {
         "menu_sections": sections,
-        "menu_active": active_title,
+        # nombres que pueden usar tus plantillas
+        "role": role,
+        "rol": role,
+        "menu_role": role,
     }
 
-
-def ui_globals(request: HttpRequest) -> Dict[str, Any]:
-    """
-    Variables sueltas usadas por la base (header, buscador, etc.).
-    """
+def ui_globals(request: HttpRequest) -> dict:
+    role = role_from_request(request)
     return {
-        "DEBUG": settings.DEBUG,
-        # Dejá lo que ya uses en tu base.html
-        "SEARCH_DECORATIVE": "Buscar... (decorativo)",
+        "DEBUG": getattr(settings, "DEBUG", False),
+        "APP_VERSION": getattr(settings, "APP_VERSION", "v1"),
+        "role": role,
+        "rol": role,
     }
